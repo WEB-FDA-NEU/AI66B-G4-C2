@@ -24,3 +24,23 @@ The defining characteristic of Tech4Rum is that the same person can be both a qu
 - Not hosting real-time communication such as calls or private chat rooms.
 - Not guarantee that posted technical information is correct; users and the community are responsible for evaluating answers.
 - Not attempting to replace specialized platforms such as GitHub, Discord, learning-management systems or professional support services.
+
+## 2. Main Feature
+- User Authentication (Login / Logout / Register).
+- CRUD questions /  discussions.
+- Classification (Categories & tags)
+- CRUD comments.
+- Marking as favourite.
+- Voting (Up/down).
+- Recommendation.
+- mini-Markdown format (content).
+- Images support (but limited size).
+- Avoid duplication in questions and discussions
+
+## 3. Member
+| Student id | Role | Name | Gihub |
+|---|---|---|---|
+| 11247255 | Leader | Bui Tuan Anh | [BuiDut](https://github.com/BuiDut) |
+| 11247334 | Member | Pham Le Minh Nhat | [Altimaey](https://github.com/Altimary) |
+| 11247349 | Member | Nguyen Dinh Thang | [thangkaka](https://github.com/thangkaka26)
+| 11247261 | Member | Nguyễn Việt Anh | [VizAnh](https://github.com/VizAnh)
