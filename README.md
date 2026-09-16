@@ -1,13 +1,13 @@
 # Tech4Rum - A Technology Q&A Forum
 
-# 1. Project Description
+## 1.  Project Description
 
-# 1.1. What our product does
+### 1.1. What our product does
 
 Tech4Rum is a community-driven website where users can both ask and answer technical questions and start or participate in discussions about technology topics. Any registered user can post a question — with a title, detailed description, relevant tags and optional code or other supporting materials — and other users can provide answers, explain solutions and vote on useful responses. Users can also create discussion topics to share opinions, experiences, ideas, news or open-ended conversations that do not necessarily have a single correct answer. Visitors can browse, search and filter questions and discussions by topic, tag, popularity or activity.
 The defining characteristic of Tech4Rum is that the same person can be both a question asker and an answerer, as well as a discussion participant, often within the same session. There are no separate "questioner", "answerer" or "discussion participant" accounts. Every registered user accesses all of these functions through one account, creating a shared community where users continuously switch between asking for help, providing solutions and discussing technology.
 
-# 1.2 Target users
+### 1.2 Target users
 | User group | Who are they | What they need |
 |---|---|---|
 | **IT Professionals** | System administrators, DevOps engineers, network engineers, ... | Exchange practical knowledge and discuss industry problems |
@@ -16,7 +16,7 @@ The defining characteristic of Tech4Rum is that the same person can be both a qu
 | **Project Builders / Hobbyists** | Startup teams, makers, personal-project developers, ... | Get advice and discuss problems encountered while building projects |
 | **Technology Enthusiasts** | AI enthusiasts, hardware enthusiasts, open-source users, ... | Discuss new technologies, tools, trends and ideas |
 
-# 1.3 Scope boundaries
+### 1.3 Scope boundaries
 
 - Not providing direct technical support or guarantee answers for all questions.
 - Not providing paid consulting or connecting users with professional consultants
