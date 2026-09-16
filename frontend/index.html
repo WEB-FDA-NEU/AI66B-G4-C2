@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TÊN-SẢN-PHẨM</title>
+<link rel="stylesheet" href="css/reset.css">
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/layout.css">
+<link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+
+<site-header></site-header>
+
+<main class="container page stack">
+  <!-- TODO: đổi tiêu đề và nội dung trang chủ theo đề tài -->
+  <h1>Mới nhất</h1>
+  <div class="grid" id="results"></div>
+</main>
+
+<site-footer></site-footer>
+
+<template id="tpl-card">
+  <article class="card">
+    <a class="card__link">
+      <img class="card__img" src="" alt="" loading="lazy">
+      <div class="card__body">
+        <h3 class="card__title"></h3>
+        <p class="card__price"></p>
+        <p class="card__meta"></p>
+      </div>
+    </a>
+    <span class="card__badge"></span>
+  </article>
+</template>
+
+<template id="tpl-empty-state">
+  <div class="empty">
+    <p class="empty__title"></p><p class="empty__hint"></p><a class="btn empty__action"></a>
+  </div>
+</template>
+
+<script type="module" src="js/pages/home.js"></script>
+</body>
+</html>

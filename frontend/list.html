@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- TODO: đổi tiêu đề -->
+    <title>Danh sách — TÊN-SẢN-PHẨM</title>
+    <link rel="stylesheet" href="css/reset.css" />
+    <link rel="stylesheet" href="css/tokens.css" />
+    <link rel="stylesheet" href="css/layout.css" />
+    <link rel="stylesheet" href="css/components.css" />
+  </head>
+  <body>
+        <site-header></site-header>
+
+    <main class="container search-layout">
+      <aside>
+        <form id="filter-form" class="stack">
+          <div class="field">
+            <label class="field__label" for="q">Từ khoá</label>
+            <input class="input" id="q" name="q" type="search" />
+          </div>
+          <!-- TODO: thêm bộ lọc của đề tài các em (giá, ngày, danh mục, trạng thái…) -->
+          <div class="field">
+            <label class="field__label" for="sort">Sắp xếp</label>
+            <select class="select" id="sort" name="sort">
+              <option value="newest">Mới nhất</option>
+              <!-- TODO: thêm tiêu chí sắp xếp -->
+            </select>
+          </div>
+          <button class="btn btn--primary" type="submit">Áp dụng</button>
+        </form>
+      </aside>
+
+      <section>
+        <p id="result-summary" class="field__hint"></p>
+        <!-- Để RỖNG. Tuyệt đối không gõ tay 12 cái thẻ vào đây. -->
+        <div class="grid" id="results"></div>
+      </section>
+    </main>
+
+<site-footer></site-footer>
+
+    <!-- ===== KHUÔN: viết markup của MỘT thẻ, đúng một lần ===== -->
+    <!-- TODO: sửa các trường cho khớp đề tài (tên, giá, ngày, trạng thái…) -->
+    <template id="tpl-card">
+      <article class="card">
+        <a class="card__link">
+          <img class="card__img" src="" alt="" loading="lazy" />
+          <div class="card__body">
+            <h3 class="card__title"></h3>
+            <p class="card__price"></p>
+            <p class="card__meta"></p>
+          </div>
+        </a>
+        <span class="card__badge"></span>
+      </article>
+    </template>
+
+    <template id="tpl-empty-state">
+      <div class="empty">
+        <p class="empty__title"></p>
+        <p class="empty__hint"></p>
+        <a class="btn empty__action"></a>
+      </div>
+    </template>
+
+    <script type="module" src="js/pages/list.js"></script>
+  </body>
+</html>

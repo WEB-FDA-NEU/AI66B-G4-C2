@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Đăng nhập — TÊN-SẢN-PHẨM</title>
+<link rel="stylesheet" href="css/reset.css">
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/layout.css">
+<link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+<main class="container page" style="max-width:380px">
+  <h1>Đăng nhập</h1>
+
+  <!-- novalidate: tự kiểm tra bằng JS để hiện thông báo tiếng Việt,
+       thay vì để trình duyệt hiện bong bóng mặc định. -->
+  <form id="login-form" class="stack" novalidate>
+    <div class="field">
+      <label class="field__label" for="email">Email</label>
+      <input class="input" id="email" name="email" type="email" required autocomplete="email">
+      <p class="field__error"></p>
+    </div>
+    <div class="field">
+      <label class="field__label" for="password">Mật khẩu</label>
+      <input class="input" id="password" name="password" type="password" required minlength="8" autocomplete="current-password">
+      <p class="field__error"></p>
+    </div>
+    <button class="btn btn--primary" type="submit">Đăng nhập</button>
+    <p class="field__hint">Chưa có tài khoản? <a href="register.html">Đăng ký</a></p>
+  </form>
+</main>
+<script type="module" src="js/pages/login.js"></script>
+</body>
+</html>

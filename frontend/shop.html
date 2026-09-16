@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cửa hàng — TÊN-SẢN-PHẨM</title>
+<link rel="stylesheet" href="css/reset.css">
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/layout.css">
+<link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+
+<!-- ══════════════ 1. HEADER — custom element, dùng chung mọi trang ══════════════ -->
+<!-- active="shop" → mục "Cửa hàng" trên thanh nav được tô đậm -->
+<site-header active="shop"></site-header>
+
+<!-- ══════════════ 2. BREADCRUMB ══════════════ -->
+<nav class="container breadcrumb" aria-label="Đường dẫn">
+  <ol>
+    <li><a href="index.html">Trang chủ</a></li>
+    <li><a href="shop.html">Cửa hàng</a></li>
+    <li aria-current="page" id="crumb-current">Tất cả sản phẩm</li>
+  </ol>
+</nav>
+
+<main class="container shop-layout">
+
+  <!-- ══════════════ 3. SIDEBAR — bộ lọc ══════════════ -->
+  <!-- Trên mobile sidebar bị ẩn, mở bằng nút bên dưới. Xem shop.js. -->
+  <aside class="shop-sidebar" id="shop-sidebar" aria-label="Bộ lọc">
+    <form id="filter-form">
+
+      <div class="filter-group">
+        <h2 class="filter-group__title">Từ khoá</h2>
+        <input class="input" id="q" name="q" type="search" placeholder="Tìm sản phẩm…">
+      </div>
+
+      <div class="filter-group">
+        <h2 class="filter-group__title">Danh mục</h2>
+        <div class="filter-list">
+          <!-- TODO: đổ từ API ở Mốc 3. Ở Mốc 2 để cứng cho nhanh. -->
+          <label class="filter-option"><input type="radio" name="category" value="" checked> Tất cả</label>
+          <label class="filter-option"><input type="radio" name="category" value="Điện tử"> Điện tử</label>
+          <label class="filter-option"><input type="radio" name="category" value="Thời trang"> Thời trang</label>
+          <label class="filter-option"><input type="radio" name="category" value="Gia dụng"> Gia dụng</label>
+          <label class="filter-option"><input type="radio" name="category" value="Sách"> Sách</label>
+        </div>
+      </div>
+
+      <div class="filter-group">
+        <h2 class="filter-group__title">Khoảng giá</h2>
+        <div class="price-range">
+          <input class="input" name="min_price" type="number" min="0" step="10000" placeholder="Từ"
+                 aria-label="Giá từ">
+          <span>—</span>
+          <input class="input" name="max_price" type="number" min="0" step="10000" placeholder="Đến"
+                 aria-label="Giá đến">
+        </div>
+      </div>
+
+      <div class="filter-group">
+        <button class="btn btn--primary" type="submit" style="width:100%">Áp dụng</button>
+        <button class="btn" type="reset" style="width:100%;margin-top:.5rem">Xoá bộ lọc</button>
+      </div>
+
+      <!-- sort nằm ở toolbar nhưng thuộc cùng form, để một lần submit gửi hết -->
+      <input type="hidden" name="sort" id="sort-mirror">
+    </form>
+  </aside>
+
+  <!-- ══════════════ 4. NỘI DUNG CHÍNH ══════════════ -->
+  <section>
+    <button class="btn filter-toggle" id="filter-toggle" type="button" aria-expanded="false"
+            aria-controls="shop-sidebar">Bộ lọc</button>
+
+    <div class="toolbar">
+      <p class="toolbar__count" id="result-summary"></p>
+      <div class="toolbar__sort">
+        <label for="sort">Sắp xếp</label>
+        <select class="select" id="sort">
+          <option value="newest">Mới nhất</option>
+          <option value="price_asc">Giá thấp → cao</option>
+          <option value="price_desc">Giá cao → thấp</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Để RỖNG. Không gõ tay sản phẩm mẫu vào đây. -->
+    <div class="grid" id="products"></div>
+
+    <nav class="pagination" id="pagination" aria-label="Phân trang"></nav>
+  </section>
+
+</main>
+
+<!-- ══════════════ 5. FOOTER — custom element, dùng chung mọi trang ══════════════ -->
+<site-footer></site-footer>
+
+<!-- ══════════════ KHUÔN ══════════════ -->
+<template id="tpl-card">
+  <article class="card">
+    <a class="card__link">
+      <img class="card__img" src="" alt="" loading="lazy">
+      <div class="card__body">
+        <h3 class="card__title"></h3>
+        <p class="card__price"></p>
+        <p class="card__meta"></p>
+      </div>
+    </a>
+    <span class="card__badge"></span>
+  </article>
+</template>
+
+<template id="tpl-empty-state">
+  <div class="empty">
+    <p class="empty__title"></p><p class="empty__hint"></p><a class="btn empty__action"></a>
+  </div>
+</template>
+
+<script type="module" src="js/pages/shop.js"></script>
+</body>
+</html>

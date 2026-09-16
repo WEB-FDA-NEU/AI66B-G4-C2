@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="vi"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- BẢN XEM NHANH — ảnh chụp giao diện đã render, CSS nhúng sẵn.
+     Mở bằng cách double-click cũng chạy. KHÔNG phải mã nguồn để học:
+     mã thật nằm ở 01-template-chung/frontend/ và phải chạy qua máy chủ. -->
+<title>Cửa hàng — TÊN-SẢN-PHẨM</title>
+<style>
+/* ===== reset.css ===== */
+*, *::before, *::after { box-sizing: border-box; }
+* { margin: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body { line-height: 1.5; -webkit-font-smoothing: antialiased; }
+img, picture, svg, video { display: block; max-width: 100%; }
+input, button, textarea, select { font: inherit; color: inherit; }
+p, h1, h2, h3, h4 { overflow-wrap: break-word; }
+ul[class] { list-style: none; padding: 0; }
+a { color: inherit; }
+
+/* ===== tokens.css ===== */
+/* Design tokens — sửa màu/khoảng cách ở ĐÂY, không sửa rải rác trong components.
+   Đây là lý do 5 người code 5 màn hình mà giao diện vẫn giống nhau. */
+:root {
+  --c-bg:        #ffffff;
+  --c-surface:   #f7f7f8;
+  --c-border:    #e3e3e7;
+  --c-text:      #16161a;
+  --c-muted:     #6b6b76;
+  --c-primary:   #0b6bcb;
+  --c-primary-d: #08529c;
+  --c-danger:    #c0392b;
+  --c-success:   #1a7f4b;
+  --c-warning:   #b26a00;
+
+  --sp-1: .25rem; --sp-2: .5rem;  --sp-3: .75rem;
+  --sp-4: 1rem;   --sp-5: 1.5rem; --sp-6: 2rem;   --sp-7: 3rem;
+
+  --radius:   10px;
+  --radius-s: 6px;
+  --shadow:   0 1px 2px rgba(0,0,0,.06), 0 4px 12px rgba(0,0,0,.05);
+
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --container: 1120px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --c-bg: #16161a; --c-surface: #1f1f25; --c-border: #303038;
+    --c-text: #f2f2f4; --c-muted: #a0a0ac;
+  }
+}
+
+/* ===== layout.css ===== */
+body {
+  font-family: var(--font);
+  background: var(--c-bg);
+  color: var(--c-text);
+}
+
+.container {
+  width: min(100% - 2rem, var(--container));
+  margin-inline: auto;
+}
+
+/* ---- Header ----
+   <site-header> là custom element: mặc định trình duyệt coi nó là inline.
+   Phải khai display:block, và min-height để trang không GIẬT khi component
+   gắn vào (module JS chạy sau khi HTML parse xong). */
+site-header { display: block; min-height: 64px; }
+@media (max-width: 640px) { site-header { min-height: 108px; } }
+
+.site-header {
+  border-bottom: 1px solid var(--c-border);
+  background: var(--c-bg);
+  position: sticky; top: 0; z-index: 10;
+}
+.site-header__inner {
+  display: flex; align-items: center; gap: var(--sp-4);
+  padding-block: var(--sp-3);
+}
+.logo { font-weight: 700; font-size: 1.25rem; text-decoration: none; }
+.site-header__search { flex: 1; min-width: 0; }
+.site-header nav { display: flex; align-items: center; gap: var(--sp-3); }
+
+@media (max-width: 640px) {
+  .site-header__inner { flex-wrap: wrap; }
+  .site-header__search { order: 3; flex-basis: 100%; }
+}
+
+/* ---- Bố cục trang tìm kiếm: sidebar + lưới kết quả ---- */
+/* minmax(0, 1fr) chứ KHÔNG phải 1fr: grid item mặc định có min-width:auto,
+   nội dung rộng hơn cột sẽ đẩy cả lưới tràn ngang trên điện thoại. */
+.search-layout {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: var(--sp-5);
+  padding-block: var(--sp-5);
+}
+@media (max-width: 860px) {
+  .search-layout { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ---- Lưới thẻ: tự xuống dòng, KHÔNG cần media query ---- */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--sp-4);
+}
+
+.page { padding-block: var(--sp-6); }
+.stack > * + * { margin-top: var(--sp-4); }
+
+/* ═══════════════════════════════════════════════════════════
+   LAYOUT TRANG CỬA HÀNG  (shop.html)
+   Ba vùng: sidebar bộ lọc · nội dung chính · footer nhiều cột
+   ═══════════════════════════════════════════════════════════ */
+
+.shop-layout > *,
+.search-layout > * { min-width: 0; }   /* chặn nội dung đẩy tràn cột */
+
+.shop-layout {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);   /* minmax(0,1fr) chặn lưới bị tràn */
+  gap: var(--sp-5);
+  align-items: start;
+  padding-block: var(--sp-5);
+}
+@media (max-width: 860px) {
+  .shop-layout { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Sidebar dính khi cuộn trên desktop, ẩn/hiện bằng nút trên mobile */
+.shop-sidebar {
+  position: sticky;
+  top: 84px;                       /* = chiều cao header + khoảng thở */
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  padding: var(--sp-4);
+  background: var(--c-bg);
+}
+@media (max-width: 860px) {
+  .shop-sidebar { position: static; display: none; }
+  .shop-sidebar.is-open { display: block; }
+}
+
+/* ---- Footer ---- */
+site-footer { display: block; margin-top: var(--sp-7); }
+
+.site-footer {
+  border-top: 1px solid var(--c-border);
+  background: var(--c-surface);
+  padding-top: var(--sp-6);
+}
+.site-footer__grid {
+  display: grid;
+  grid-template-columns: 2fr repeat(3, 1fr);
+  gap: var(--sp-5);
+  padding-bottom: var(--sp-5);
+}
+@media (max-width: 860px) { .site-footer__grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 520px) { .site-footer__grid { grid-template-columns: 1fr; } }
+
+.site-footer__tagline { color: var(--c-muted); font-size: .875rem; margin-top: var(--sp-2); }
+.site-footer__title   { font-size: .8rem; text-transform: uppercase; letter-spacing: .04em;
+                        color: var(--c-muted); margin-bottom: var(--sp-3); }
+.site-footer__col ul  { list-style: none; padding: 0; display: grid; gap: var(--sp-2); }
+.site-footer__col a   { text-decoration: none; font-size: .9rem; }
+.site-footer__col a:hover { text-decoration: underline; }
+.site-footer__bottom  { border-top: 1px solid var(--c-border); padding-block: var(--sp-4);
+                        font-size: .8rem; color: var(--c-muted); }
+
+/* ===== components.css ===== */
+/* ============ Nút ============ */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2);
+  padding: .55rem 1rem; border-radius: var(--radius-s);
+  border: 1px solid var(--c-border); background: var(--c-bg);
+  text-decoration: none; cursor: pointer;
+}
+.btn:hover { background: var(--c-surface); }
+.btn:disabled { opacity: .55; cursor: not-allowed; }
+.btn--primary { background: var(--c-primary); border-color: var(--c-primary); color: #fff; }
+.btn--primary:hover { background: var(--c-primary-d); }
+.btn--danger  { background: var(--c-danger);  border-color: var(--c-danger);  color: #fff; }
+
+/* ============ Thẻ tin đăng ============ */
+.card {
+  position: relative;
+  border: 1px solid var(--c-border); border-radius: var(--radius);
+  overflow: hidden; background: var(--c-bg);
+}
+.card:hover { box-shadow: var(--shadow); }
+.card__link { text-decoration: none; display: block; }
+.card__img  { aspect-ratio: 4 / 3; object-fit: cover; width: 100%; background: var(--c-surface); }
+.card__body { padding: var(--sp-3); }
+.card__title {
+  font-size: .95rem; font-weight: 600; margin-bottom: var(--sp-1);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.card__price { font-weight: 700; color: var(--c-primary); }
+.card__meta  { font-size: .8rem; color: var(--c-muted); margin-top: var(--sp-1); }
+.card__badge {
+  position: absolute; top: var(--sp-2); left: var(--sp-2);
+  padding: .15rem .5rem; border-radius: 999px;
+  font-size: .72rem; font-weight: 600; background: var(--c-muted); color: #fff;
+}
+.card__badge[data-status="sold"]    { background: var(--c-danger); }
+.card__badge[data-status="hidden"]  { background: var(--c-muted); }
+.card__badge[data-status="pending"] { background: var(--c-warning); }
+
+/* ============ Ô nhập ============ */
+.field { display: block; }
+.field + .field { margin-top: var(--sp-4); }
+.field__label { display: block; font-size: .875rem; font-weight: 600; margin-bottom: var(--sp-1); }
+.field__hint  { font-size: .8rem; color: var(--c-muted); margin-top: var(--sp-1); }
+.field__error { font-size: .8rem; color: var(--c-danger); margin-top: var(--sp-1); min-height: 1.1em; }
+.input, .select, .textarea {
+  width: 100%; padding: .55rem .75rem;
+  border: 1px solid var(--c-border); border-radius: var(--radius-s); background: var(--c-bg);
+}
+.input:focus-visible, .select:focus-visible, .textarea:focus-visible {
+  outline: 2px solid var(--c-primary); outline-offset: 1px;
+}
+[aria-invalid="true"] { border-color: var(--c-danger); }
+
+/* ============ Trạng thái rỗng / đang tải ============ */
+.empty { text-align: center; padding: var(--sp-7) var(--sp-4); grid-column: 1 / -1; }
+.empty__title { font-size: 1.05rem; font-weight: 600; }
+.empty__hint  { color: var(--c-muted); margin-top: var(--sp-2); }
+.empty__action { margin-top: var(--sp-4); display: inline-block; }
+
+.skeleton-card {
+  aspect-ratio: 4 / 5; border-radius: var(--radius);
+  background: linear-gradient(90deg, var(--c-surface) 25%, var(--c-border) 37%, var(--c-surface) 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.3s ease-in-out infinite;
+}
+@keyframes shimmer { from { background-position: 100% 0 } to { background-position: 0 0 } }
+@media (prefers-reduced-motion: reduce) { .skeleton-card { animation: none } }
+
+/* ============ Toast ============ */
+#toast {
+  position: fixed; left: 50%; bottom: var(--sp-5); transform: translateX(-50%) translateY(1rem);
+  padding: .6rem 1rem; border-radius: var(--radius-s);
+  background: var(--c-text); color: var(--c-bg);
+  opacity: 0; pointer-events: none; transition: opacity .18s, transform .18s; z-index: 100;
+}
+#toast.is-visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+#toast[data-type="error"] { background: var(--c-danger); color: #fff; }
+
+/* ============ Hộp xác nhận ============ */
+dialog {
+  border: none; border-radius: var(--radius); padding: var(--sp-5);
+  max-width: 380px; background: var(--c-bg); color: var(--c-text); box-shadow: var(--shadow);
+}
+dialog::backdrop { background: rgba(0,0,0,.45); }
+.dialog__actions { display: flex; gap: var(--sp-2); justify-content: flex-end; margin-top: var(--sp-5); }
+
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+/* ============ Dòng trong "Tin của tôi" ============ */
+.row {
+  display: grid; grid-template-columns: 96px 1fr auto; gap: var(--sp-3);
+  align-items: center; padding: var(--sp-3);
+  border: 1px solid var(--c-border); border-radius: var(--radius);
+}
+.row + .row { margin-top: var(--sp-3); }
+.row__img   { width: 96px; aspect-ratio: 4/3; object-fit: cover; border-radius: var(--radius-s); }
+.row__title { font-weight: 600; text-decoration: none; }
+.row__price { color: var(--c-primary); font-weight: 700; }
+.row__meta  { font-size: .8rem; color: var(--c-muted); }
+.row__actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+@media (max-width: 560px) {
+  .row { grid-template-columns: 72px 1fr; }
+  .row__img { width: 72px; }
+  .row__actions { grid-column: 1 / -1; }
+}
+
+/* ============ Tab lọc trạng thái ============ */
+.tabs { display: flex; gap: var(--sp-2); flex-wrap: wrap; margin-bottom: var(--sp-4); }
+.tabs .btn.is-active { background: var(--c-primary); border-color: var(--c-primary); color: #fff; }
+
+/* ============ Uploader ảnh (tự viết, không thư viện) ============ */
+.uploader { border: 2px dashed var(--c-border); border-radius: var(--radius); padding: var(--sp-4); }
+.preview  { display: flex; gap: var(--sp-3); flex-wrap: wrap; margin-top: var(--sp-3); }
+.thumb    { position: relative; width: 110px; }
+.thumb__img { width: 110px; aspect-ratio: 1; object-fit: cover; border-radius: var(--radius-s); }
+.thumb.is-error .thumb__img { opacity: .35; }
+.thumb__status {
+  position: absolute; inset: auto 0 0 0; padding: 2px 4px;
+  font-size: .7rem; text-align: center; background: rgba(0,0,0,.65); color: #fff;
+}
+.thumb.is-error .thumb__status { background: var(--c-danger); }
+.thumb__cover {
+  position: absolute; top: 4px; left: 4px; padding: 1px 6px; border-radius: 999px;
+  font-size: .68rem; font-weight: 600; background: var(--c-primary); color: #fff;
+}
+.thumb__remove {
+  position: absolute; top: 4px; right: 4px; width: 22px; height: 22px;
+  border-radius: 50%; border: none; cursor: pointer;
+  background: rgba(0,0,0,.65); color: #fff; line-height: 1;
+}
+
+/* ═══════════════ Thành phần của trang cửa hàng ═══════════════ */
+
+/* ---- Breadcrumb ---- */
+.breadcrumb { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center;
+              font-size: .85rem; color: var(--c-muted); padding-top: var(--sp-4); }
+.breadcrumb a { text-decoration: none; }
+.breadcrumb a:hover { text-decoration: underline; }
+.breadcrumb li + li::before { content: "›"; margin-right: var(--sp-2); color: var(--c-border); }
+.breadcrumb ol { display: flex; flex-wrap: wrap; gap: var(--sp-2); list-style: none; padding: 0; }
+.breadcrumb [aria-current="page"] { color: var(--c-text); font-weight: 600; }
+
+/* ---- Nhóm bộ lọc trong sidebar ---- */
+.filter-group + .filter-group { margin-top: var(--sp-5); padding-top: var(--sp-5);
+                                border-top: 1px solid var(--c-border); }
+.filter-group__title { font-size: .8rem; text-transform: uppercase; letter-spacing: .04em;
+                       color: var(--c-muted); margin-bottom: var(--sp-3); }
+.filter-list { display: grid; gap: var(--sp-2); }
+.filter-option { display: flex; align-items: center; gap: var(--sp-2); font-size: .9rem; cursor: pointer; }
+.price-range   { display: grid; grid-template-columns: 1fr auto 1fr; gap: var(--sp-2); align-items: center; }
+.price-range span { color: var(--c-muted); }
+
+/* Nút mở bộ lọc, chỉ có trên mobile */
+.filter-toggle { display: none; margin-bottom: var(--sp-4); width: 100%; }
+@media (max-width: 860px) { .filter-toggle { display: inline-flex; } }
+
+/* ---- Thanh công cụ trên lưới sản phẩm ---- */
+.toolbar {
+  display: flex; flex-wrap: wrap; gap: var(--sp-3);
+  align-items: center; justify-content: space-between;
+  padding-bottom: var(--sp-4);
+}
+.toolbar__count { color: var(--c-muted); font-size: .9rem; }
+.toolbar__sort  { display: flex; align-items: center; gap: var(--sp-2); }
+.toolbar__sort .select { width: auto; }
+
+/* ---- Thẻ sản phẩm: thêm phần giá gạch và nhãn giảm giá ---- */
+.card__price-old { color: var(--c-muted); text-decoration: line-through;
+                   font-weight: 400; font-size: .85rem; margin-left: var(--sp-2); }
+.card__badge[data-status="sale"] { background: var(--c-danger); }
+
+/* ---- Phân trang ---- */
+.pagination { display: flex; gap: var(--sp-2); justify-content: center;
+              flex-wrap: wrap; padding-top: var(--sp-5); }
+.pagination .btn.is-active { background: var(--c-primary); border-color: var(--c-primary); color: #fff; }
+.pagination .btn[disabled]  { opacity: .4; }
+
+/* ---- Link trong header ---- */
+.site-header__link { text-decoration: none; padding: .4rem .6rem; border-radius: var(--radius-s); }
+.site-header__link:hover    { background: var(--c-surface); }
+.site-header__link.is-active { font-weight: 700; color: var(--c-primary); }
+
+</style>
+</head>
+<body>
+
+<!-- ══════════════ 1. HEADER — custom element, dùng chung mọi trang ══════════════ -->
+<!-- active="shop" → mục "Cửa hàng" trên thanh nav được tô đậm -->
+<site-header active="shop">
+<header class="site-header">
+  <div class="container site-header__inner">
+    <a class="logo" href="/index.html">TÊN-SẢN-PHẨM</a>
+
+    <form class="site-header__search" action="/list.html" method="get" role="search">
+      <label class="visually-hidden" for="hq">Tìm kiếm</label>
+      <input class="input" id="hq" name="q" type="search" placeholder="Tìm kiếm…">
+    </form>
+
+    <nav>
+      <a class="site-header__link is-active" href="/shop.html" data-nav="shop">Cửa hàng</a>
+      <span data-auth="guest">
+        <a class="btn" href="/login.html">Đăng nhập</a>
+        <a class="btn btn--primary" href="/register.html">Đăng ký</a>
+      </span>
+      <span data-auth="user" hidden="">
+        <span data-user-name=""></span>
+        <a class="btn" href="#" data-action="logout">Thoát</a>
+      </span>
+    </nav>
+  </div>
+</header></site-header>
+
+<!-- ══════════════ 2. BREADCRUMB ══════════════ -->
+<nav class="container breadcrumb" aria-label="Đường dẫn">
+  <ol>
+    <li><a href="/index.html">Trang chủ</a></li>
+    <li><a href="/shop.html">Cửa hàng</a></li>
+    <li aria-current="page" id="crumb-current">Tất cả sản phẩm</li>
+  </ol>
+</nav>
+
+<main class="container shop-layout">
+
+  <!-- ══════════════ 3. SIDEBAR — bộ lọc ══════════════ -->
+  <!-- Trên mobile sidebar bị ẩn, mở bằng nút bên dưới. Xem shop.js. -->
+  <aside class="shop-sidebar" id="shop-sidebar" aria-label="Bộ lọc">
+    <form id="filter-form">
+
+      <div class="filter-group">
+        <h2 class="filter-group__title">Từ khoá</h2>
+        <input class="input" id="q" name="q" type="search" placeholder="Tìm sản phẩm…">
+      </div>
+
+      <div class="filter-group">
+        <h2 class="filter-group__title">Danh mục</h2>
+        <div class="filter-list">
+          <!-- TODO: đổ từ API ở Mốc 3. Ở Mốc 2 để cứng cho nhanh. -->
+          <label class="filter-option"><input type="radio" name="category" value="" checked=""> Tất cả</label>
+          <label class="filter-option"><input type="radio" name="category" value="Điện tử"> Điện tử</label>
+          <label class="filter-option"><input type="radio" name="category" value="Thời trang"> Thời trang</label>
+          <label class="filter-option"><input type="radio" name="category" value="Gia dụng"> Gia dụng</label>
+          <label class="filter-option"><input type="radio" name="category" value="Sách"> Sách</label>
+        </div>
+      </div>
+
+      <div class="filter-group">
+        <h2 class="filter-group__title">Khoảng giá</h2>
+        <div class="price-range">
+          <input class="input" name="min_price" type="number" min="0" step="10000" placeholder="Từ" aria-label="Giá từ">
+          <span>—</span>
+          <input class="input" name="max_price" type="number" min="0" step="10000" placeholder="Đến" aria-label="Giá đến">
+        </div>
+      </div>
+
+      <div class="filter-group">
+        <button class="btn btn--primary" type="submit" style="width:100%">Áp dụng</button>
+        <button class="btn" type="reset" style="width:100%;margin-top:.5rem">Xoá bộ lọc</button>
+      </div>
+
+      <!-- sort nằm ở toolbar nhưng thuộc cùng form, để một lần submit gửi hết -->
+      <input type="hidden" name="sort" id="sort-mirror">
+    </form>
+  </aside>
+
+  <!-- ══════════════ 4. NỘI DUNG CHÍNH ══════════════ -->
+  <section>
+    <button class="btn filter-toggle" id="filter-toggle" type="button" aria-expanded="false" aria-controls="shop-sidebar">Bộ lọc</button>
+
+    <div class="toolbar">
+      <p class="toolbar__count" id="result-summary">12 sản phẩm</p>
+      <div class="toolbar__sort">
+        <label for="sort">Sắp xếp</label>
+        <select class="select" id="sort">
+          <option value="newest">Mới nhất</option>
+          <option value="price_asc">Giá thấp → cao</option>
+          <option value="price_desc">Giá cao → thấp</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Để RỖNG. Không gõ tay sản phẩm mẫu vào đây. -->
+    <div class="grid" id="products">
+  <article class="card">
+    <a class="card__link" href="/detail.html?id=1">
+      <img class="card__img" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22400%22%20height%3D%22300%22%20viewBox%3D%220%200%20400%20300%22%3E%0A%20%20%3Crect%20width%3D%22400%22%20height%3D%22300%22%20fill%3D%22%23e9e9ee%22/%3E%0A%20%20%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22system-ui%22%20font-size%3D%2215%22%20fill%3D%22%239a9aa6%22%0A%20%20%20%20%20%20%20%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%3E%E1%BA%A2nh%20s%E1%BA%A3n%20ph%E1%BA%A9m%3C/text%3E%0A%3C/svg%3E%0A" alt="Tai nghe không dây ANC" loading="lazy">
+      <div class="card__body">
+        <h3 class="card__title">Tai nghe không dây ANC</h3>
+        <p class="card__price">1.290.000&nbsp;₫<span class="card__price-old">1.680.000&nbsp;₫</span></p>
+        <p class="card__meta">Điện tử · 10 giờ trước</p>
+      </div>
+    </a>
+    <span class="card__badge" data-status="sale">-23%</span>
+  </article>
+
+  <article class="card">
+    <a class="card__link" href="/detail.html?id=2">
+      <img class="card__img" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22400%22%20height%3D%22300%22%20viewBox%3D%220%200%20400%20300%22%3E%0A%20%20%3Crect%20width%3D%22400%22%20height%3D%22300%22%20fill%3D%22%23e9e9ee%22/%3E%0A%20%20%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22system-ui%22%20font-size%3D%2215%22%20fill%3D%22%239a9aa6%22%0A%20%20%20%20%20%20%20%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%3E%E1%BA%A2nh%20s%E1%BA%A3n%20ph%E1%BA%A9m%3C/text%3E%0A%3C/svg%3E%0A" alt="Bàn phím cơ 75%" loading="lazy">
+      <div class="card__body">
+        <h3 class="card__title">Bàn phím cơ 75%</h3>
+        <p class="card__price">1.850.000&nbsp;₫</p>
+        <p class="card__meta">Điện tử · 19 giờ trước</p>
+      </div>
+    </a>
+    
+  </article>
+
+  <article class="card">
+    <a class="card__link" href="/detail.html?id=3">
+      <img class="card__img" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22400%22%20height%3D%22300%22%20viewBox%3D%220%200%20400%20300%22%3E%0A%20%20%3Crect%20width%3D%22400%22%20height%3D%22300%22%20fill%3D%22%23e9e9ee%22/%3E%0A%20%20%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22system-ui%22%20font-size%3D%2215%22%20fill%3D%22%239a9aa6%22%0A%20%20%20%20%20%20%20%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%3E%E1%BA%A2nh%20s%E1%BA%A3n%20ph%E1%BA%A9m%3C/text%3E%0A%3C/svg%3E%0A" alt="Chuột không dây yên tĩnh" loading="lazy">
+      <div class="card__body">
+        <h3 class="card__title">Chuột không dây yên tĩnh</h3>
+        <p class="card__price">390.000&nbsp;₫</p>
+        <p class="card__meta">Điện tử · 1 ngày trước</p>
+      </div>
+    </a>
+    
+  </article>
+
+  <article class="card">
+    <a class="card__link" href="/detail.html?id=4">
+      <img class="card__img" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22400%22%20height%3D%22300%22%20viewBox%3D%220%200%20400%20300%22%3E%0A%20%20%3Crect%20width%3D%22400%22%20height%3D%22300%22%20fill%3D%22%23e9e9ee%22/%3E%0A%20%20%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22system-ui%22%20font-size%3D%2215%22%20fill%3D%22%239a9aa6%22%0A%20%20%20%20%20%20%20%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%3E%E1%BA%A2nh%20s%E1%BA%A3n%20ph%E1%BA%A9m%3C/text%3E%0A%3C/svg%3E%0A" alt="Áo thun cotton basic" loading="lazy">
+      <div class="card__body">
+        <h3 class="card__title">Áo thun cotton basic</h3>
+        <p class="card__price">189.000&nbsp;₫</p>
+        <p class="card__meta">Thời trang · 1 ngày trước</p>
+      </div>
+    </a>
+    <span class="card__badge" data-status="sold">Đã bán</span>
+  </article>
+
+  <article class="card">
+    <a class="card__link" href="/detail.html?id=5">
+      <img class="card__img" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22400%22%20height%3D%22300%22%20viewBox%3D%220%200%20400%20300%22%3E%0A%20%20%3Crect%20width%3D%22400%22%20height%3D%22300%22%20fill%3D%22%23e9e9ee%22/%3E%0A%20%20%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22system-ui%22%20font-size%3D%2215%22%20fill%3D%22%239a9aa6%22%0A%20%20%20%20%20%20%20%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%3E%E1%BA%A2nh%20s%E1%BA%A3n%20ph%E1%BA%A9m%3C/text%3E%0A%3C/svg%3E%0A" alt="Giày chạy bộ nhẹ" loading="lazy">
+      <div class="card__body">
+        <h3 class="card__title">Giày chạy bộ nhẹ</h3>
+        <p class="card__price">1.450.000&nbsp;₫<span class="card__price-old">1.880.000&nbsp;₫</span></p>
+        <p class="card__meta">Thời trang · 1 ngày trước</p>
+      </div>
+    </a>
+    <span class="card__badge" data-status="sale">-23%</span>
+  </article>
+
+  <article class="card">
+    <a class="card__link" href="/detail.html?id=6">
+      <img class="card__img" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22400%22%20height%3D%22300%22%20viewBox%3D%220%200%20400%20300%22%3E%0A%20%20%3Crect%20width%3D%22400%22%20height%3D%22300%22%20fill%3D%22%23e9e9ee%22/%3E%0A%20%20%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22system-ui%22%20font-size%3D%2215%22%20fill%3D%22%239a9aa6%22%0A%20%20%20%20%20%20%20%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%3E%E1%BA%A2nh%20s%E1%BA%A3n%20ph%E1%BA%A9m%3C/text%3E%0A%3C/svg%3E%0A" alt="Balo chống nước 20L" loading="lazy">
+      <div class="card__body">
+        <h3 class="card__title">Balo chống nước 20L</h3>
+        <p class="card__price">620.000&nbsp;₫</p>
+        <p class="card__meta">Thời trang · 2 ngày trước</p>
+      </div>
+    </a>
+    
+  </article>
+</div>
+
+    <nav class="pagination" id="pagination" aria-label="Phân trang"><button class="btn" type="button" disabled="">‹ Trước</button><button class="btn is-active" type="button" aria-current="page">1</button><button class="btn" type="button">2</button><button class="btn" type="button">Sau ›</button></nav>
+  </section>
+
+</main>
+
+<!-- ══════════════ 5. FOOTER — custom element, dùng chung mọi trang ══════════════ -->
+<site-footer>
+<footer class="site-footer">
+  <div class="container site-footer__grid">
+
+    <div class="site-footer__brand">
+      <p class="logo">TÊN-SẢN-PHẨM</p>
+      <p class="site-footer__tagline">Một dòng mô tả sản phẩm của nhóm.</p>
+    </div>
+
+    <nav class="site-footer__col" aria-labelledby="ft-shop">
+      <h3 class="site-footer__title" id="ft-shop">Mua sắm</h3>
+      <ul>
+        <li><a href="/shop.html">Tất cả sản phẩm</a></li>
+        <li><a href="/shop.html?sort=newest">Hàng mới về</a></li>
+        <li><a href="/shop.html?sort=price_asc">Giá tốt</a></li>
+      </ul>
+    </nav>
+
+    <nav class="site-footer__col" aria-labelledby="ft-help">
+      <h3 class="site-footer__title" id="ft-help">Hỗ trợ</h3>
+      <ul>
+        <li><a href="#">Câu hỏi thường gặp</a></li>
+        <li><a href="#">Chính sách đổi trả</a></li>
+        <li><a href="#">Liên hệ</a></li>
+      </ul>
+    </nav>
+
+    <nav class="site-footer__col" aria-labelledby="ft-about">
+      <h3 class="site-footer__title" id="ft-about">Về chúng tôi</h3>
+      <ul>
+        <li><a href="#">Giới thiệu</a></li>
+        <li><a href="#">Điều khoản</a></li>
+        <li><a href="#">Bảo mật</a></li>
+      </ul>
+    </nav>
+
+  </div>
+
+  <div class="container site-footer__bottom">
+    <p>© 2026 TÊN-SẢN-PHẨM — Đồ án môn Web Design &amp; Programming, lớp AI66B.</p>
+  </div>
+</footer></site-footer>
+
+<!-- ══════════════ KHUÔN ══════════════ -->
+</body></html>
