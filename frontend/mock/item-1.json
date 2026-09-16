@@ -1,0 +1,11 @@
+{
+  "id": 1,
+  "title": "Tai nghe không dây ANC",
+  "price": 1290000,
+  "category": "Điện tử",
+  "cover_url": "img/placeholder.svg",
+  "status": "active",
+  "meta": "Điện tử",
+  "created_at": "2026-09-07T07:00:00Z",
+  "description": "TODO: mô tả chi tiết của bản ghi. Đổi các trường cho khớp đề tài."
+}

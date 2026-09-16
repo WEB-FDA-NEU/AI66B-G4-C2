@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Đăng ký — TÊN-SẢN-PHẨM</title>
+<link rel="stylesheet" href="css/reset.css">
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/layout.css">
+<link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+<main class="container page" style="max-width:400px">
+  <h1>Tạo tài khoản</h1>
+  <form id="register-form" class="stack" novalidate>
+    <div class="field">
+      <label class="field__label" for="display_name">Tên hiển thị</label>
+      <input class="input" id="display_name" name="display_name" required>
+      <p class="field__error"></p>
+    </div>
+    <div class="field">
+      <label class="field__label" for="email">Email</label>
+      <input class="input" id="email" name="email" type="email" required autocomplete="email">
+      <p class="field__error"></p>
+    </div>
+    <div class="field">
+      <label class="field__label" for="phone">Số điện thoại</label>
+      <input class="input" id="phone" name="phone" type="tel">
+      <p class="field__hint">Chỉ hiện cho người mua đã đăng nhập, khi họ bấm xem (BR-7).</p>
+    </div>
+    <div class="field">
+      <label class="field__label" for="password">Mật khẩu</label>
+      <input class="input" id="password" name="password" type="password" required minlength="8" autocomplete="new-password">
+      <p class="field__error"></p>
+    </div>
+    <div class="field">
+      <label class="field__label" for="confirm">Nhập lại mật khẩu</label>
+      <input class="input" id="confirm" name="confirm" type="password" required autocomplete="new-password">
+      <p class="field__error"></p>
+    </div>
+    <button class="btn btn--primary" type="submit">Đăng ký</button>
+    <p class="field__hint">Đã có tài khoản? <a href="login.html">Đăng nhập</a></p>
+  </form>
+</main>
+<script type="module" src="js/pages/register.js"></script>
+</body>
+</html>

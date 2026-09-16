@@ -1,0 +1,117 @@
+body {
+  font-family: var(--font);
+  background: var(--c-bg);
+  color: var(--c-text);
+}
+
+.container {
+  width: min(100% - 2rem, var(--container));
+  margin-inline: auto;
+}
+
+/* ---- Header ----
+   <site-header> là custom element: mặc định trình duyệt coi nó là inline.
+   Phải khai display:block, và min-height để trang không GIẬT khi component
+   gắn vào (module JS chạy sau khi HTML parse xong). */
+site-header { display: block; min-height: 64px; }
+@media (max-width: 640px) { site-header { min-height: 108px; } }
+
+.site-header {
+  border-bottom: 1px solid var(--c-border);
+  background: var(--c-bg);
+  position: sticky; top: 0; z-index: 10;
+}
+.site-header__inner {
+  display: flex; align-items: center; gap: var(--sp-4);
+  padding-block: var(--sp-3);
+}
+.logo { font-weight: 700; font-size: 1.25rem; text-decoration: none; }
+.site-header__search { flex: 1; min-width: 0; }
+.site-header nav { display: flex; align-items: center; gap: var(--sp-3); }
+
+@media (max-width: 640px) {
+  .site-header__inner { flex-wrap: wrap; }
+  .site-header__search { order: 3; flex-basis: 100%; }
+}
+
+/* ---- Bố cục trang tìm kiếm: sidebar + lưới kết quả ---- */
+/* minmax(0, 1fr) chứ KHÔNG phải 1fr: grid item mặc định có min-width:auto,
+   nội dung rộng hơn cột sẽ đẩy cả lưới tràn ngang trên điện thoại. */
+.search-layout {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: var(--sp-5);
+  padding-block: var(--sp-5);
+}
+@media (max-width: 860px) {
+  .search-layout { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ---- Lưới thẻ: tự xuống dòng, KHÔNG cần media query ---- */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--sp-4);
+}
+
+.page { padding-block: var(--sp-6); }
+.stack > * + * { margin-top: var(--sp-4); }
+
+/* ═══════════════════════════════════════════════════════════
+   LAYOUT TRANG CỬA HÀNG  (shop.html)
+   Ba vùng: sidebar bộ lọc · nội dung chính · footer nhiều cột
+   ═══════════════════════════════════════════════════════════ */
+
+.shop-layout > *,
+.search-layout > * { min-width: 0; }   /* chặn nội dung đẩy tràn cột */
+
+.shop-layout {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);   /* minmax(0,1fr) chặn lưới bị tràn */
+  gap: var(--sp-5);
+  align-items: start;
+  padding-block: var(--sp-5);
+}
+@media (max-width: 860px) {
+  .shop-layout { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Sidebar dính khi cuộn trên desktop, ẩn/hiện bằng nút trên mobile */
+.shop-sidebar {
+  position: sticky;
+  top: 84px;                       /* = chiều cao header + khoảng thở */
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  padding: var(--sp-4);
+  background: var(--c-bg);
+}
+@media (max-width: 860px) {
+  .shop-sidebar { position: static; display: none; }
+  .shop-sidebar.is-open { display: block; }
+}
+
+/* ---- Footer ---- */
+site-footer { display: block; margin-top: var(--sp-7); }
+
+.site-footer {
+  border-top: 1px solid var(--c-border);
+  background: var(--c-surface);
+  padding-top: var(--sp-6);
+}
+.site-footer__grid {
+  display: grid;
+  grid-template-columns: 2fr repeat(3, 1fr);
+  gap: var(--sp-5);
+  padding-bottom: var(--sp-5);
+}
+@media (max-width: 860px) { .site-footer__grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 520px) { .site-footer__grid { grid-template-columns: 1fr; } }
+
+.site-footer__tagline { color: var(--c-muted); font-size: .875rem; margin-top: var(--sp-2); }
+.site-footer__title   { font-size: .8rem; text-transform: uppercase; letter-spacing: .04em;
+                        color: var(--c-muted); margin-bottom: var(--sp-3); }
+.site-footer__col ul  { list-style: none; padding: 0; display: grid; gap: var(--sp-2); }
+.site-footer__col a   { text-decoration: none; font-size: .9rem; }
+.site-footer__col a:hover { text-decoration: underline; }
+.site-footer__bottom  { border-top: 1px solid var(--c-border); padding-block: var(--sp-4);
+                        font-size: .8rem; color: var(--c-muted); }
