@@ -1,0 +1,29 @@
+[
+  {
+    "id": 2001,
+    "post_id": 1,
+    "answer_id": null,
+    "author_id": 101,
+    "content": "Does this also apply when using SQLAlchemy?",
+    "created_at": "2026-09-20T12:30:00",
+    "updated_at": "2026-09-20T12:30:00"
+  },
+  {
+    "id": 2002,
+    "post_id": 1,
+    "answer_id": 1001,
+    "author_id": 103,
+    "content": "Yes, especially if your database operations are blocking.",
+    "created_at": "2026-09-20T12:40:00",
+    "updated_at": "2026-09-20T12:40:00"
+  },
+  {
+    "id": 2003,
+    "post_id": 1,
+    "answer_id": 1002,
+    "author_id": 101,
+    "content": "Thanks! The connection pooling part solved my issue.",
+    "created_at": "2026-09-20T14:00:00",
+    "updated_at": "2026-09-20T14:00:00"
+  }
+]

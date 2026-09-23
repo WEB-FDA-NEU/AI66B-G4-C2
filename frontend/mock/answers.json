@@ -1,0 +1,35 @@
+[
+  {
+    "id": 1001,
+    "post_id": 1,
+    "author_id": 102,
+    "content": "You can improve FastAPI performance by using async endpoints and avoiding blocking operations.",
+    "created_at": "2026-09-20T12:15:00",
+    "updated_at": "2026-09-20T12:15:00",
+    "upvotes": 8,
+    "downvotes": 0,
+    "is_accepted": false
+  },
+  {
+    "id": 1002,
+    "post_id": 1,
+    "author_id": 103,
+    "content": "Connection pooling and caching can also significantly improve performance.",
+    "created_at": "2026-09-20T13:20:00",
+    "updated_at": "2026-09-20T13:20:00",
+    "upvotes": 12,
+    "downvotes": 1,
+    "is_accepted": true
+  },
+  {
+    "id": 1003,
+    "post_id": 1,
+    "author_id": 101,
+    "content": "You should also profile your application first to identify the actual bottleneck.",
+    "created_at": "2026-09-20T14:05:00",
+    "updated_at": "2026-09-20T14:05:00",
+    "upvotes": 5,
+    "downvotes": 0,
+    "is_accepted": false
+  }
+]
