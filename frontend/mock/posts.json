@@ -1,0 +1,26 @@
+[
+  {
+    "id": 1,
+    "title": "How to optimize FastAPI performance?",
+    "content": "I am building a FastAPI application. What are some ways to improve its performance?",
+    "author_id": 101,
+    "tag_ids": [1, 2],
+    "created_at": "2026-09-20T10:30:00",
+    "updated_at": "2026-09-20T10:30:00",
+    "upvotes": 15,
+    "downvotes": 2,
+    "views": 128
+  },
+  {
+    "id": 2,
+    "title": "What is the difference between list and tuple in Python?",
+    "content": "I am confused about when to use a list and when to use a tuple.",
+    "author_id": 102,
+    "tag_ids": [2],
+    "created_at": "2026-09-21T09:15:00",
+    "updated_at": "2026-09-21T09:15:00",
+    "upvotes": 21,
+    "downvotes": 1,
+    "views": 245
+  }
+]

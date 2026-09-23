@@ -1,0 +1,26 @@
+[
+  {
+    "id": 101,
+    "username": "BuiDut",
+    "display_name": "Bùi Tuấn Anh",
+    "avatar": "/static/images/avatars/default.png",
+    "bio": "Backend developer and technology enthusiast.",
+    "reputation": 125
+  },
+  {
+    "id": 102,
+    "username": "nguyen_dev",
+    "display_name": "Nguyen Dev",
+    "avatar": "/static/images/avatars/default.png",
+    "bio": "Python developer.",
+    "reputation": 340
+  },
+  {
+    "id": 103,
+    "username": "linh_it",
+    "display_name": "Linh IT",
+    "avatar": "/static/images/avatars/default.png",
+    "bio": "Computer science student.",
+    "reputation": 85
+  }
+]
