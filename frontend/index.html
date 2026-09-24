@@ -1,46 +1,189 @@
-<!doctype html>
-<html lang="vi">
+<!DOCTYPE html>
+<html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TÊN-SẢN-PHẨM</title>
-<link rel="stylesheet" href="css/reset.css">
-<link rel="stylesheet" href="css/tokens.css">
-<link rel="stylesheet" href="css/layout.css">
-<link rel="stylesheet" href="css/components.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Stack Underflow</title>
+    <link rel="stylesheet" href="css/reset.css">
+    <link rel="stylesheet" href="css/tokens.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
 </head>
+
 <body>
 
-<site-header></site-header>
+    <!-- NAVBAR -->
+    <nav class="navbar">
+        <div class="logo">
+            Stack Underflow
+        </div>
+        <div class="search">
+            <form>
+                <input type="text" placeholder="Search...">
+            </form>
+        </div>
+        <a href="#" class="nav-button">Log in</a>
+        <a href="#" class="nav-button">Sign up</a>
+    </nav>
 
-<main class="container page stack">
-  <!-- TODO: đổi tiêu đề và nội dung trang chủ theo đề tài -->
-  <h1>Mới nhất</h1>
-  <div class="grid" id="results"></div>
-</main>
+    <!-- PAGE -->
+    <div class="page">
 
-<site-footer></site-footer>
+        <!-- SIDEBAR -->
+        <aside class="sidebar">
+            <a href="#" class="active">
+                Home
+            </a>
+            <a href="#">
+                Questions
+            </a>
+            <a href="#">
+                Tags
+            </a>
+            <a href="#">
+                Users
+            </a>
+        </aside>
 
-<template id="tpl-card">
-  <article class="card">
-    <a class="card__link">
-      <img class="card__img" src="" alt="" loading="lazy">
-      <div class="card__body">
-        <h3 class="card__title"></h3>
-        <p class="card__price"></p>
-        <p class="card__meta"></p>
-      </div>
-    </a>
-    <span class="card__badge"></span>
-  </article>
-</template>
+        <!-- MAIN CONTENT -->
+        <main class="main">
+            <div class="main-header">
+                <h1>Questions</h1>
+                <a href="#" class="ask-button">
+                    Ask Question
+                </a>
+            </div>
+            <div class="question-count">
+                12,483 questions
+            </div>
 
-<template id="tpl-empty-state">
-  <div class="empty">
-    <p class="empty__title"></p><p class="empty__hint"></p><a class="btn empty__action"></a>
-  </div>
-</template>
+            <!-- QUESTION 1 -->
+            <article class="question">
+                <div class="stats">
+                    <span class="stat">
+                        12 votes
+                    </span>
+                    <span class="stat answer">
+                        3 answers
+                    </span>
+                    <span class="stat view">
+                        142 views
+                    </span>
+                </div>
+                <div class="question-content">
+                    <a href="question.html" class="question-title">
+                        How do I reverse a list in Python?
+                    </a>
+                    <p class="question-description">
+                        I have a list of values and I want to reverse
+                        the order of its elements. What is the best way
+                        to do this?
+                    </p>
+                    <ul class="tag-list">
+                        <li>
+                            <a class="tag" href="#">python</a>
+                        </li>
+                        <li>
+                            <a class="tag" href="#">list</a>
+                        </li>
+                        <li>
+                            <a class="tag" href="#">algorithm</a>
+                        </li>
+                    </ul>
+                    <div class="question-footer">
+                        <span class="username">
+                            user123
+                        </span>
+                        <time>
+                            asked
+                            <span title="2026-09-22 14:32:42Z">1 hour ago</span>
+                        </time>
+                    </div>
+                </div>
+            </article>
 
-<script type="module" src="js/pages/home.js"></script>
+            <!-- QUESTION 2 -->
+            <article class="question">
+                <div class="stats">
+                    <span class="stat">
+                        5 votes
+                    </span>
+                    <span class="stat answer">
+                        1 answer
+                    </span>
+                    <span class="stat view">
+                        89 views
+                    </span>
+                </div>
+                <div class="question-content">
+                    <a href="#" class="question-title">
+                        Why does my Python loop behave differently?
+                    </a>
+                    <p class="question-description">
+                        I expected this loop to print every element,
+                        but the result is different from what I expected.
+                    </p>
+                    <ul class="tag-list">
+                        <li>
+                            <a class="tag" href="#">python</a>
+                        </li>
+                        <li>
+                            <a class="tag" href="#">loops</a>
+                        </li>
+                    </ul>
+                    <div class="question-footer">
+                        <span class="username">
+                            Alice
+                        </span>
+                        <time>
+                            asked
+                            <span title="2026-09-22 14:32:42Z">1 hour ago</span>
+                        </time>
+                    </div>
+                </div>
+            </article>
+
+            <!-- QUESTION 3 -->
+            <article class="question">
+                <div class="stats">
+                    <span class="stat">
+                        24 votes
+                    </span>
+                    <span class="stat answer">
+                        4 answers
+                    </span>
+                    <span class="stat view">
+                        532 views
+                    </span>
+                </div>
+                <div class="question-content">
+                    <a href="#" class="question-title">
+                        How would you get a small cylinder (5.1 in length, ~4.5in girth) unstuck from a mini M&Ms tube filled with butter and microwaved mashed banana?
+                    </a>
+                    <p class="question-description">
+                        It is imperative that the cylinder and the target object remain unharmed.
+                    </p>
+                    <ul class="tag-list">
+                        <li>
+                            <a class="tag" href="#">natural-stupidity</a>
+                        </li>
+                        <li>
+                            <a class="tag" href="#">parody</a>
+                        </li>
+                    </ul>
+                    <div class="question-footer">
+                        <span class="username">
+                            Smart_Calendar1874
+                        </span>
+                        <time>
+                            asked
+                            <span title="2026-09-22 14:32:42Z">1 hour ago</span>
+                        </time>
+                    </div>
+                </div>
+            </article>
+        </main>
+    </div>
 </body>
 </html>
