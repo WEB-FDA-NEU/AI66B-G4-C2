@@ -14,17 +14,8 @@
 
 <body class="d-flex fd-column hmn-screen bg-black-100">
 
-  <!-- ==================== TOP BAR ==================== -->
-  <header class="ps-sticky t0 z-nav d-flex ai-center py4 px16 bg-white bb bc-black-200">
-
-    <!-- Colored upper border — thicker (--su4 = 0.25rem ≈ 4px) -->
-    <div class="ps-absolute t0 l0 r0 bt btw3 bc-blue-400" aria-hidden="true"></div>
-
-    <!-- Logo on the left side of the top bar -->
-    <a href="#" class="d-flex ai-center" aria-label="Tech4Rum home">
-      <img src="./img/Tech4Rum_logo.png" alt="Tech4Rum" class="h48" />
-    </a>
-  </header>
+  <!-- ==================== TOP BAR (shared component) ==================== -->
+  <site-header></site-header>
 
   <!-- ==================== REGISTER FORM ==================== -->
   <main class="d-flex ai-center jc-center fl-grow1 p24">
@@ -104,22 +95,18 @@
         </label>
 
         <!-- Submit -->
-        <button class="s-btn s-btn__lg w100" type="submit">Create account</button>
+        <button class="s-btn s-btn__lg w100 bg-blue-400 bg-image-none h:bg-blue-500" type="submit">Create account</button>
       </form>
 
       <p class="ta-center fs-body1 mt24">
-        Already have an account? <a href="#" class="s-link">Log in</a>
+        Already have an account? <a href="./login.html" class="s-link">Log in</a>
       </p>
     </div>
   </main>
 
-  <script>
-    (function () {
-      var form = document.getElementById('registerForm');
-      form.addEventListener('submit', function (event) {
-        event.preventDefault();
-      });
-    })();
-  </script>
+  <!-- Shared header component -->
+  <script type="module" src="./js/components/site-header.js"></script>
+  <!-- Page-specific behaviour -->
+  <script type="module" src="./js/pages/register.js"></script>
 </body>
 </html>
