@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Log in · Tech4Rum</title>
+
+  <!-- Design system — the only CSS sources allowed -->
+  <link rel="stylesheet" href="./css/reset.css" />
+  <link rel="stylesheet" href="./css/tokens.css" />
+  <link rel="stylesheet" href="./css/layout.css" />
+  <link rel="stylesheet" href="./css/components.css" />
+</head>
+
+<body class="d-flex fd-column hmn-screen bg-black-100">
+
+  <!-- ==================== TOP BAR ==================== -->
+  <header class="ps-sticky t0 z-nav d-flex ai-center py4 px16 bg-white bb bc-black-200">
+
+    <!-- Colored upper border — thicker (--su4 = 0.25rem ≈ 4px) -->
+    <div class="ps-absolute t0 l0 r0 bt btw3 bc-blue-400" aria-hidden="true"></div>
+
+    <!-- Logo on the left side of the top bar -->
+    <a href="#" class="d-flex ai-center" aria-label="Tech4Rum home">
+      <img src="./img/Tech4Rum_logo.png" alt="Tech4Rum" class="h48"/>
+    </a>
+  </header>
+
+  <!-- ==================== LOGIN FORM ==================== -->
+  <main class="d-flex ai-center jc-center fl-grow1 p24">
+    <div class="bg-white bar-md bs-lg p32 w100 wmx4">
+
+      <h1 class="fs-headline1 fw-bold mb8">Log in</h1>
+      <p class="fc-black-400 fs-body1 mb24">Welcome back to Tech4Rum.</p>
+
+      <form class="d-flex fd-column g16" id="loginForm">
+
+        <!-- Email -->
+        <div class="s-form-group">
+          <label class="s-label" for="email">Email</label>
+          <input
+            class="s-input"
+            id="email"
+            name="email"
+            type="email"
+            inputmode="email"
+            autocomplete="username"
+            placeholder="you@example.com"
+            required />
+        </div>
+
+        <!-- Password -->
+        <div class="s-form-group">
+          <div class="d-flex ai-center jc-space-between">
+            <label class="s-label" for="password">Password</label>
+            <a href="#" class="s-link s-link__muted fs-caption">Forgot password?</a>
+          </div>
+          <input
+            class="s-input"
+            id="password"
+            name="password"
+            type="password"
+            autocomplete="current-password"
+            placeholder="Enter your password"
+            required />
+        </div>
+
+        <!-- Remember me -->
+        <label class="s-checkbox">
+          <input type="checkbox" id="remember" name="remember" checked />
+          <span class="s-label">Remember me on this device</span>
+        </label>
+
+        <!-- Submit -->
+        <button class="s-btn s-btn__lg w100" type="submit">Log in</button>
+      </form>
+
+      <p class="ta-center fs-body1 mt24">
+        New to Tech4Rum? <a href="#" class="s-link">Create an account</a>
+      </p>
+    </div>
+  </main>
+
+  <script>
+    (function () {
+      var form = document.getElementById('loginForm');
+      form.addEventListener('submit', function (event) {
+        event.preventDefault();
+      });
+    })();
+  </script>
+</body>
+</html>
