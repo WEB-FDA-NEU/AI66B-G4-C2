@@ -27,8 +27,8 @@ const TEMPLATE = /* html */ `
     </svg>
   </div>
 
-  <a class="s-btn s-btn__clear s-btn__sm" href="#">Log in</a>
-  <a class="s-btn s-btn__sm" href="#">Sign up</a>
+  <a class="s-btn s-btn__clear s-btn__sm" href="./login.html">Log in</a>
+  <a class="s-btn s-btn__sm" href="./register.html">Sign up</a>
 
   <!-- <a href="#" class="s-avatar bg-blue-300 ml4" aria-label="Your profile">
     <span class="s-avatar--letter">A</span>
