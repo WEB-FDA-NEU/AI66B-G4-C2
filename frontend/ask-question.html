@@ -52,24 +52,10 @@
     <aside class="sidebar-left sm:d-none" aria-label="Section navigation">
       <nav class="s-navigation s-navigation__vertical">
         <a class="s-navigation--item" href="#">Home</a>
-        <a class="s-navigation--item" href="#">Questions</a>
+        <a class="s-navigation--item" href="./posts.html">Questions</a>
+        <a class="s-navigation--item" href="#">Discussion</a>
         <a class="s-navigation--item" href="#">Tags</a>
         <a class="s-navigation--item" href="#">Users</a>
-        <a class="s-navigation--item" href="#">Companies</a>
-      </nav>
-
-      <nav class="s-navigation s-navigation__vertical mt16">
-        <div class="s-navigation--title">Labs</div>
-        <a class="s-navigation--item" href="#">Discussions</a>
-        <a class="s-navigation--item" href="#">Collectives</a>
-        <a class="s-navigation--item" href="#">Communities</a>
-      </nav>
-
-      <nav class="s-navigation s-navigation__vertical mt16">
-        <div class="s-navigation--title">Your teams</div>
-        <a class="s-navigation--item" href="#">Acme Platform</a>
-        <a class="s-navigation--item" href="#">Payments Guild</a>
-        <a class="s-navigation--item fc-black-400" href="#">+ Create a team</a>
       </nav>
     </aside>
 
@@ -300,7 +286,10 @@ console.log("hi")
   <script type="module" src="./js/components/site-footer.js"></script>
 
   <!-- markdown-renderer.js is an ES module -->
-  <script type="module" src="./js/ask-question-editor.js"></script>
+  <script defer type="module">
+    import { initAskQuestionEditor } from "./js/ask-question-editor.js";
+    initAskQuestionEditor();
+  </script>
 
 </body>
 </html>

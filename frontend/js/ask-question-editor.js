@@ -393,11 +393,11 @@ export function initAskQuestionEditor({
 }
 
 /* Auto-bootstrap when loaded directly (no explicit init). */
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => { initAskQuestionEditor(); }, { once: true });
-} else {
-  initAskQuestionEditor();
-}
+// if (document.readyState === 'loading') {
+//   document.addEventListener('DOMContentLoaded', () => { initAskQuestionEditor(); }, { once: true });
+// } else {
+//   initAskQuestionEditor();
+// }
 
 export default {
   initAskQuestionEditor,
