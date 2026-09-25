@@ -341,7 +341,6 @@ export async function init({ src, root, autoStartTicker = true } = {}) {
     if (!rootEl) throw new Error('#question-root not found');
 
     const url = src || rootEl.dataset.src;
-    console.log(url)
     if (url) {
       data = await loadQuestionData(url);
     } else if (dataEl) {

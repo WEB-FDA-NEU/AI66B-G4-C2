@@ -12,11 +12,27 @@
 // ============================================================
 
 const TEMPLATE = /* html */ `
-<header class="d-flex ai-center py4 px16 bg-white bb bc-black-200">
-  <div class="ps-absolute t0 l0 r0 bt btw3 bc-blue-400" aria-hidden="true"></div>
-  <a href="./index.html" class="d-flex ai-center" aria-label="Tech4Rum home">
-    <img src="./img/Tech4Rum_logo.png" alt="Tech4Rum" class="h48" data-logo />
+<header class="site-header">
+  <a class="site-logo" href="/" aria-label="Tech4Rum home">
+     <img src="./img/Tech4Rum_logo.png" alt="Tech4Rum" class="h48" data-logo />
   </a>
+
+  <div class="header-search ps-relative fl-grow1 wmx4 mx8">
+    <label class="v-visible-sr" for="site-search">Search Tech4Rum</label>
+    <input id="site-search" class="s-input s-input__search w100" type="search"
+           placeholder="Search for a question…" autocomplete="off">
+    <svg class="s-input-icon s-input-icon__search svg-icon" aria-hidden="true"
+         width="18" height="18" viewBox="0 0 18 18">
+      <path d="m18 16.5-5.14-5.18h-.35a7 7 0 1 0-1.19 1.19v.35L16.5 18l1.5-1.5ZM7 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8Z"/>
+    </svg>
+  </div>
+
+  <a class="s-btn s-btn__clear s-btn__sm" href="#">Log in</a>
+  <a class="s-btn s-btn__sm" href="#">Sign up</a>
+
+  <!-- <a href="#" class="s-avatar bg-blue-300 ml4" aria-label="Your profile">
+    <span class="s-avatar--letter">A</span>
+  </a> -->
 </header>`;
 
 const LOGO_LIGHT = './img/Tech4Rum_logo.png';
