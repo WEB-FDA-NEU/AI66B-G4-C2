@@ -1,0 +1,75 @@
+{
+    "id": 7482913,
+    "title": "Why does React re-render my component twice inside StrictMode?",
+    "time":  "2026-09-25T10:16:00Z",
+    "modifiedAt": "2026-09-25T10:18:00Z",
+    "views": 48,
+    "votes": 0,
+    "tags": ["reactjs", "javascript", "react-strictmode", "react-hooks"],
+    "author": {
+      "name": "mira_k",
+      "rep": "1,284",
+      "avatarColor": "bg-orange-300",
+      "avatarLetter": "M"
+    },
+    "comments": [
+      {
+        "score": 3,
+        "body": "This is by design — StrictMode mounts, unmounts, and remounts every component in development so you can catch missing cleanup.",
+        "user": "priya_dev",
+        "time": "2026-09-25T10:05:00Z"
+      },
+      {
+        "score": 1,
+        "body": "Worth mentioning that this only happens in development builds.",
+        "user": "kenji_rs",
+        "time": "2026-09-25T10:30:00Z"
+      }
+    ],
+    "body": "I have a small counter component and every time I click the button the `console.log` inside the render body fires **twice**. I understand that React StrictMode intentionally double-invokes render in development to catch impure renders — but my `useEffect` also fires twice, and my `fetch` is being duplicated.\n\nHere's the component in question:\n\n```js\nfunction Counter() {\n  const [count, setCount] = useState(0);\n\n  console.log(\"render\", count);\n\n  useEffect(() => {\n    fetch(\"/api/count\")\n      .then((r) => r.json())\n      .then(setInitial);\n  }, []);\n\n  return (\n    <button onClick={() => setCount((c) => c + 1)}>\n      {count}\n    </button>\n  );\n}\n```\n\nI expected effects to be \"mounted once\" in development. Is this a bug, or is it intentional? And more importantly, what's the correct way to structure side effects so I don't fire duplicate network requests in development *without* adding refs and guards everywhere?\n\nFor reference, the React docs mention that effects run in pairs. The relevant identity is roughly $f(x) = \\\\sin(x^2) + \\\\cos(x)$ in some of the maths-heavy examples I've seen in blog posts.",
+    "answers": [
+      {
+        "id": 7482914,
+        "votes": 18,
+        "accepted": true,
+        "time": "2026-09-25T10:20:00Z",
+        "acceptedAt": "2026-09-25T10:30:00Z",
+        "author": {
+          "name": "priya_dev",
+          "rep": "742",
+          "avatarColor": "bg-pink-300",
+          "avatarLetter": "P"
+        },
+        "body": "This is **intentional**, and it's one of the most useful things StrictMode does. In React 18, StrictMode double-invokes two things in development:\n\n1. Component **render** functions (to surface impure renders).\n2. Effect **setup + cleanup** — React mounts the component, immediately unmounts it, and remounts it. Your effect therefore runs twice, and its cleanup (if any) runs once in between.\n\nThe correct fix is not to suppress the second run — it's to write effects that are *safe to tear down*. In your case, that means aborting the in-flight request in the cleanup function:\n\n```js\nuseEffect(() => {\n  const controller = new AbortController();\n\n  fetch(\"/api/count\", { signal: controller.signal })\n    .then((r) => r.json())\n    .then(setInitial)\n    .catch((err) => {\n      if (err.name !== \"AbortError\") throw err;\n    });\n\n  return () => controller.abort();\n}, []);\n```\n\nWith this in place, the first mount's request is aborted the moment React unmounts the component, so only the second request actually resolves. No refs, no guards, no duplicated state.\n\nIf your effect is *not* idempotent, StrictMode is telling you something real about how it will behave under concurrent rendering and Suspense — handle the cleanup rather than silencing the warning.",
+        "comments": [
+          {
+            "score": 2,
+            "body": "The AbortController part is the bit most people miss. Thanks for spelling it out.",
+            "user": "mira_k",
+            "time": "2026-09-25T10:22:00Z"
+          }
+        ]
+      },
+      {
+        "id": 7482917,
+        "votes": 6,
+        "accepted": false,
+        "time": "2026-09-25T10:35:00Z",
+        "author": {
+          "name": "kenji_rs",
+          "rep": "3,460",
+          "avatarColor": "bg-green-300",
+          "avatarLetter": "K"
+        },
+        "body": "To add to the accepted answer: this behaviour is *development only*. In a production build, StrictMode is a no-op and your effect will run once. You can verify this by running `npm run build` and serving the bundle with `npx serve build` — the double log disappears.\n\nIf you absolutely need to silence the double invocation and you're certain your effect is idempotent, a ref guard works:\n\n```js\nconst didRun = useRef(false);\n\nuseEffect(() => {\n  if (didRun.current) return;\n  didRun.current = true;\n\n  // ...\n}, []);\n```\n\n…but I'd push back on this. A guard hides the symptom; an `AbortController` or a cleanup function fixes the actual problem. Nine times out of ten the second run is React warning you that something will break under concurrent rendering.",
+        "comments": [
+          {
+            "score": 0,
+            "body": "The production build tip is underrated, I always forget to check that first.",
+            "user": "dba_raj",
+            "time": "2026-09-25T11:00:00Z"
+          }
+        ]
+      }
+    ]
+  }

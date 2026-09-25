@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Top Questions — Tech4Rum</title>
+
+  <link rel="stylesheet" href="./css/reset.css">
+  <link rel="stylesheet" href="./css/tokens.css">
+  <link rel="stylesheet" href="./css/layout.css">
+  <link rel="stylesheet" href="./css/components.css">
+  <link rel="stylesheet" href="./css/extra.css">
+</head>
+
+<body class="theme-light">
+
+  <a href="#main" class="v-visible-sr">Skip to main content</a>
+
+  <!-- ================= TOP BAR ================= -->
+  <header class="site-header">
+    <a class="site-logo" href="/" aria-label="Tech4Rum home">
+      <img alt="idk" src="./img/logo.png" width="125">
+    </a>
+
+    <div class="header-search ps-relative fl-grow1 wmx4 mx8">
+      <label class="v-visible-sr" for="site-search">Search Tech4Rum</label>
+      <input id="site-search" class="s-input s-input__search w100" type="search"
+             placeholder="Search for a question…" autocomplete="off">
+      <svg class="s-input-icon s-input-icon__search svg-icon" aria-hidden="true"
+           width="18" height="18" viewBox="0 0 18 18">
+        <path d="m18 16.5-5.14-5.18h-.35a7 7 0 1 0-1.19 1.19v.35L16.5 18l1.5-1.5ZM7 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8Z"/>
+      </svg>
+    </div>
+
+    <a class="s-btn s-btn__clear s-btn__sm" href="#">Log in</a>
+    <a class="s-btn s-btn__sm" href="#">Sign up</a>
+
+    <a href="#" class="s-avatar bg-blue-300 ml4" aria-label="Your profile">
+      <span class="s-avatar--letter">A</span>
+    </a>
+  </header>
+
+  <!-- ================= PAGE ================= -->
+  <div class="d-flex ai-start g24 wmx12 mx-auto px16 py24">
+
+    <!-- ---------- LEFT RAIL ---------- -->
+    <aside class="sidebar-left sm:d-none" aria-label="Section navigation">
+      <nav class="s-navigation s-navigation__vertical">
+        <a class="s-navigation--item" href="#">Home</a>
+        <a class="s-navigation--item is-selected" href="#" aria-current="page">Questions</a>
+        <a class="s-navigation--item" href="#">Discussion</a>
+        <a class="s-navigation--item" href="#">Tags</a>
+        <a class="s-navigation--item" href="#">Users</a>
+      </nav>
+    </aside>
+
+    <!-- ---------- MAIN ---------- -->
+    <main id="main" class="question-feed">
+
+      <div class="d-flex ai-center jc-space-between g8 mb16">
+        <h1 class="fs-headline1 fw-normal mb0">Top Questions</h1>
+        <a class="s-btn" href="#">Ask Question</a>
+      </div>
+
+      <div class="d-flex ai-center jc-space-between g8 fw-wrap mb16">
+        <div class="fc-black-500 fs-caption">12,480,932 questions</div>
+
+        <nav class="s-navigation s-navigation__sm" aria-label="Question filters">
+          <a class="s-navigation--item is-selected" href="#" aria-current="true">Interesting</a>
+          <a class="s-navigation--item" href="#">Bountied</a>
+          <a class="s-navigation--item" href="#">Hot</a>
+          <a class="s-navigation--item" href="#">Week</a>
+          <a class="s-navigation--item" href="#">Month</a>
+        </nav>
+      </div>
+
+      <!-- Question list -->
+      <div class="question-list">
+
+        <!-- Q1 -->
+        <div class="s-post-summary">
+          <div class="s-post-summary--stats s-post-summary--sm-hide">
+            <div class="post-stat"><span class="post-stat--num">0</span>votes</div>
+            <div class="post-stat post-stat--answered"><span class="post-stat--num">2</span>answers</div>
+            <div class="post-stat"><span class="post-stat--num">48</span>views</div>
+          </div>
+          <div class="s-post-summary--content">
+            <h3 class="s-post-summary--title mb0">
+              <a class="s-post-summary--title-link" href="#">
+                Why does React re-render my component twice inside StrictMode?
+              </a>
+            </h3>
+            <div class="s-post-summary--excerpt v-truncate2">
+              I have a small counter component and every time I click the button the console logs
+              twice. I understand StrictMode double-invokes render in development, but my
+              <code>useEffect</code> also fires twice and the fetch is duplicated…
+            </div>
+            <div class="d-flex ai-center jc-space-between g8 fw-wrap mt8">
+              <div class="s-post-summary--tags mt0">
+                <a class="s-tag" href="#">reactjs</a>
+                <a class="s-tag" href="#">javascript</a>
+                <a class="s-tag" href="#">react-strictmode</a>
+              </div>
+              <div class="s-user-card">
+                <a href="#" class="s-avatar bg-orange-300" aria-hidden="true" tabindex="-1">
+                  <span class="s-avatar--letter">M</span>
+                </a>
+                <div class="s-user-card--column">
+                  <a class="s-user-card--username" href="#">mira_k</a>
+                  <div class="s-user-card--group">
+                    <span class="s-user-card--rep">1,284</span>
+                    <span class="s-user-card--time">asked 4 minutes ago</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Q2 -->
+        <div class="s-post-summary">
+          <div class="s-post-summary--stats s-post-summary--sm-hide">
+            <div class="post-stat"><span class="post-stat--num">12</span>votes</div>
+            <div class="post-stat post-stat--answered"><span class="post-stat--num">3</span>answers</div>
+            <div class="post-stat"><span class="post-stat--num">1.2k</span>views</div>
+          </div>
+          <div class="s-post-summary--content">
+            <h3 class="s-post-summary--title mb0">
+              <a class="s-post-summary--title-link" href="#">
+                Efficient keyset pagination over a 10M-row Postgres table with a composite index
+              </a>
+              <span class="s-badge s-badge__info s-badge__sm">Bounty</span>
+            </h3>
+            <div class="s-post-summary--excerpt v-truncate2">
+              <code>OFFSET</code> pagination is killing us once the page number gets large. I have a
+              composite index on <code>(tenant_id, created_at)</code> and I'd like to switch to a
+              keyset approach, but the tie-breaking on duplicate timestamps is giving me trouble…
+            </div>
+            <div class="d-flex ai-center jc-space-between g8 fw-wrap mt8">
+              <div class="s-post-summary--tags mt0">
+                <a class="s-tag" href="#">postgresql</a>
+                <a class="s-tag" href="#">sql</a>
+                <a class="s-tag" href="#">indexing</a>
+                <a class="s-tag s-tag__watched" href="#">performance</a>
+              </div>
+              <div class="s-user-card">
+                <a href="#" class="s-avatar bg-blue-300" aria-hidden="true" tabindex="-1">
+                  <span class="s-avatar--letter">D</span>
+                </a>
+                <div class="s-user-card--column">
+                  <a class="s-user-card--username" href="#">dba_raj</a>
+                  <div class="s-user-card--group">
+                    <span class="s-user-card--rep">24.9k</span>
+                    <span class="s-user-card--time">asked 27 minutes ago</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Q3 -->
+        <div class="s-post-summary">
+          <div class="s-post-summary--stats s-post-summary--sm-hide">
+            <div class="post-stat"><span class="post-stat--num">5</span>votes</div>
+            <div class="post-stat"><span class="post-stat--num">0</span>answers</div>
+            <div class="post-stat"><span class="post-stat--num">73</span>views</div>
+          </div>
+          <div class="s-post-summary--content">
+            <h3 class="s-post-summary--title mb0">
+              <a class="s-post-summary--title-link" href="#">
+                TypeScript: narrowing a discriminated union inside an <code>Array.filter</code> callback
+              </a>
+              <span class="s-badge s-badge__featured s-badge__sm">Featured</span>
+            </h3>
+            <div class="s-post-summary--excerpt v-truncate2">
+              I have <code>type Shape = Circle | Square</code> and I want
+              <code>shapes.filter(s =&gt; s.kind === "circle")</code> to come back as
+              <code>Circle[]</code>. It widens back to <code>Shape[]</code> unless I hand-write a type
+              predicate — is there a cleaner pattern?
+            </div>
+            <div class="d-flex ai-center jc-space-between g8 fw-wrap mt8">
+              <div class="s-post-summary--tags mt0">
+                <a class="s-tag" href="#">typescript</a>
+                <a class="s-tag" href="#">type-narrowing</a>
+                <a class="s-tag" href="#">generics</a>
+              </div>
+              <div class="s-user-card">
+                <a href="#" class="s-avatar bg-purple-300" aria-hidden="true" tabindex="-1">
+                  <span class="s-avatar--letter">L</span>
+                </a>
+                <div class="s-user-card--column">
+                  <a class="s-user-card--username" href="#">lena.ts</a>
+                  <div class="s-user-card--group">
+                    <span class="s-user-card--rep">8,017</span>
+                    <span class="s-user-card--time">asked 1 hour ago</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Q4 -->
+        <div class="s-post-summary">
+          <div class="s-post-summary--stats s-post-summary--sm-hide">
+            <div class="post-stat"><span class="post-stat--num">31</span>votes</div>
+            <div class="post-stat post-stat--answered"><span class="post-stat--num">7</span>answers</div>
+            <div class="post-stat"><span class="post-stat--num">9.4k</span>views</div>
+          </div>
+          <div class="s-post-summary--content">
+            <h3 class="s-post-summary--title mb0">
+              <a class="s-post-summary--title-link" href="#">
+                Rust borrow checker rejects returning a reference out of a <code>HashMap</code>
+              </a>
+            </h3>
+            <div class="s-post-summary--excerpt v-truncate2">
+              I'm trying to return <code>&amp;String</code> from a function that looks up a key in a
+              locally-created map. I get <code>E0515: cannot return reference to local variable</code>.
+              I understand the map is dropped, but I don't want to clone on every call…
+            </div>
+            <div class="d-flex ai-center jc-space-between g8 fw-wrap mt8">
+              <div class="s-post-summary--tags mt0">
+                <a class="s-tag" href="#">rust</a>
+                <a class="s-tag" href="#">borrow-checker</a>
+                <a class="s-tag" href="#">lifetimes</a>
+              </div>
+              <div class="s-user-card">
+                <a href="#" class="s-avatar bg-green-300" aria-hidden="true" tabindex="-1">
+                  <span class="s-avatar--letter">K</span>
+                </a>
+                <div class="s-user-card--column">
+                  <a class="s-user-card--username" href="#">kenji_rs</a>
+                  <div class="s-user-card--group">
+                    <span class="s-user-card--rep">3,460</span>
+                    <span class="s-user-card--time">asked 2 hours ago</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Q5 -->
+        <div class="s-post-summary">
+          <div class="s-post-summary--stats s-post-summary--sm-hide">
+            <div class="post-stat"><span class="post-stat--num">8</span>votes</div>
+            <div class="post-stat post-stat--answered"><span class="post-stat--num">1</span>answer</div>
+            <div class="post-stat"><span class="post-stat--num">612</span>views</div>
+          </div>
+          <div class="s-post-summary--content">
+            <h3 class="s-post-summary--title mb0">
+              <a class="s-post-summary--title-link" href="#">
+                Docker build fails with “no space left on device” on GitHub Actions runners
+              </a>
+            </h3>
+            <div class="s-post-summary--excerpt v-truncate2">
+              Multi-stage build with a heavy <code>node_modules</code> layer. It works locally but the
+              hosted runner runs out of disk during the export step. I already added
+              <code>--no-cache</code> and pruned dangling images…
+            </div>
+            <div class="d-flex ai-center jc-space-between g8 fw-wrap mt8">
+              <div class="s-post-summary--tags mt0">
+                <a class="s-tag" href="#">docker</a>
+                <a class="s-tag" href="#">github-actions</a>
+                <a class="s-tag" href="#">continuous-integration</a>
+              </div>
+              <div class="s-user-card">
+                <a href="#" class="s-avatar bg-pink-300" aria-hidden="true" tabindex="-1">
+                  <span class="s-avatar--letter">P</span>
+                </a>
+                <div class="s-user-card--column">
+                  <a class="s-user-card--username" href="#">priya_dev</a>
+                  <div class="s-user-card--group">
+                    <span class="s-user-card--rep">742</span>
+                    <span class="s-user-card--time">asked 3 hours ago</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Q6 -->
+        <div class="s-post-summary">
+          <div class="s-post-summary--stats s-post-summary--sm-hide">
+            <div class="post-stat"><span class="post-stat--num">1337</span>votes</div>
+            <div class="post-stat post-stat--answered"><span class="post-stat--num">727</span>answer</div>
+            <div class="post-stat"><span class="post-stat--num">177013</span>views</div>
+          </div>
+          <div class="s-post-summary--content">
+            <h3 class="s-post-summary--title mb0">
+              <a class="s-post-summary--title-link" href="#">
+                How would you get a small cylinder (5.1 in length, ~4.5 in girth) unstuck from a mini M&amp;Ms tube filled with butter and microwaved mashed banana?
+              </a>
+            </h3>
+            <div class="s-post-summary--excerpt v-truncate2">
+              It is imperative that the cylinder and the target object remain unharmed.
+            </div>
+            <div class="d-flex ai-center jc-space-between g8 fw-wrap mt8">
+              <div class="s-post-summary--tags mt0">
+                <a class="s-tag" href="#">natural-stupidity</a>
+                <a class="s-tag" href="#">parody</a>
+              </div>
+              <div class="s-user-card">
+                <a href="#" class="s-avatar bg-pink-300" aria-hidden="true" tabindex="-1">
+                  <span class="s-avatar--letter">P</span>
+                </a>
+                <div class="s-user-card--column">
+                  <a class="s-user-card--username" href="#">Smart_Calendar1874</a>
+                  <div class="s-user-card--group">
+                    <span class="s-user-card--rep">3</span>
+                    <span class="s-user-card--time">asked 4 hours ago</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /.question-list -->
+
+      <!-- Pagination -->
+      <nav class="s-pagination jc-end mt24" aria-label="Pagination">
+        <a class="s-pagination--item s-pagination--item__nav" href="#" aria-label="Previous page">
+          <svg class="svg-icon" aria-hidden="true" width="12" height="12" viewBox="0 0 12 12">
+            <path d="M7.35.65 6.29 1.71 9.59 5H.65v1.5h8.94L6.29 9.79l1.06 1.06L12 6 7.35.65Z" transform="rotate(180 6 6)"/>
+          </svg>
+        </a>
+        <a class="s-pagination--item is-selected" href="#" aria-current="page">1</a>
+        <a class="s-pagination--item" href="#">2</a>
+        <a class="s-pagination--item" href="#">3</a>
+        <a class="s-pagination--item" href="#">4</a>
+        <a class="s-pagination--item" href="#">5</a>
+        <span class="s-pagination--item fc-black-400">…</span>
+        <a class="s-pagination--item" href="#">1482</a>
+        <a class="s-pagination--item s-pagination--item__nav" href="#" aria-label="Next page">
+          <svg class="svg-icon" aria-hidden="true" width="12" height="12" viewBox="0 0 12 12">
+            <path d="M7.35.65 6.29 1.71 9.59 5H.65v1.5h8.94L6.29 9.79l1.06 1.06L12 6 7.35.65Z"/>
+          </svg>
+        </a>
+      </nav>
+
+    </main>
+
+    <!-- ---------- RIGHT RAIL ---------- -->
+    <aside class="sidebar-right md:d-none" aria-label="Sidebar">
+
+      <div class="widget">
+        <div class="widget-header">Custom Filters</div>
+        <div class="widget-body d-flex fd-column g8">
+          <label class="s-checkbox">
+            <input type="checkbox" checked>
+            <span class="s-label">No answers</span>
+          </label>
+          <label class="s-checkbox">
+            <input type="checkbox">
+            <span class="s-label">Has bounty</span>
+          </label>
+          <label class="s-checkbox">
+            <input type="checkbox">
+            <span class="s-label">Unanswered by me</span>
+          </label>
+        </div>
+      </div>
+
+    </aside>
+
+  </div>
+
+  <!-- ================= FOOTER ================= -->
+  <footer class="site-footer">
+    <div class="d-flex fw-wrap g16 wmx12 mx-auto px16 py24">
+      <div class="d-flex fd-column g4" style="min-width: 160px;">
+        <span class="fw-bold fc-black-600 fs-caption">Tech4Rum</span>
+        <a href="#">Questions</a>
+        <a href="#">Discussion</a>
+        <a href="#">Tags</a>
+        <a href="#">Users</a>
+      </div>
+      <div class="d-flex fd-column g4 fl-grow1" style="min-width: 220px;">
+        <span class="fw-bold fc-black-600 fs-caption">Tech4Rum</span>
+        <p class="fc-black-400 fs-fine mb8">
+          If you're having a bad day, just remember that tomorrow could be a good day. It's a gamble. And once you realise you're gambling, you'll be happy again because gambling is awesome.
+        </p>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
