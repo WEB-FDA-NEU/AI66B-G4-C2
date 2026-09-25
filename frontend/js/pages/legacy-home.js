@@ -5,9 +5,9 @@
 //  Trang chủ không có hai phần tử đó → getElementById trả null →
 //  chết toàn bộ JS của trang. Hai màn hình khác nhau thì hai file khác nhau.
 // ============================================================
-import { getItems } from '../api.js';
-import { renderCard, renderList } from '../render.js';
-import { showSkeleton, showEmpty, showError } from '../ui.js';
+import { getItems } from '../legacy-api.js';
+import { renderCard, renderList } from '../legacy-render.js';
+import { showSkeleton, showEmpty, showError } from '../legacy-ui.js';
 import '../components/site-header.js';
 import '../components/site-footer.js';
 

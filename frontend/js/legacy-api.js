@@ -5,8 +5,8 @@
 //  CHIA VÙNG THEO NGƯỜI để tránh conflict Git — mỗi người chỉ
 //  thêm hàm vào vùng của mình.
 // ============================================================
-import { USE_MOCK, API_BASE, MOCK_BASE } from './config.js';
-import { getToken } from './auth.js';
+import { USE_MOCK, API_BASE, MOCK_BASE } from './legacy-config.js';
+import { getToken } from './legacy-auth.js';
 
 export class ApiError extends Error {
   constructor(status, detail) {
