@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>How do I reverse a list in Python?</title>
+
+
+<!-- =========================================================
+     KATEX
+========================================================= -->
+
+<link rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+
+<script defer
+        src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js">
+</script>
+
+
+<!-- =========================================================
+     HIGHLIGHT.JS
+========================================================= -->
+
+<link rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/stackoverflow-dark.min.css">
+
+<script defer
+        src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js">
+</script>
+
+
+<!-- =========================================================
+     MARKDOWN-IT
+========================================================= -->
+
+<script defer
+        src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js">
+</script>
+
+<link rel="stylesheet" href="./css/style.css">
+
+</head>
+
+
+<body>
+
+
+<!-- =========================================================
+     NAVBAR
+========================================================= -->
+
+    <nav class="navbar">
+        <div class="logo">
+            Stack Underflow
+        </div>
+        <div class="search">
+            <form>
+                <input type="text" placeholder="Search...">
+            </form>
+        </div>
+        <a href="#" class="nav-button">Log in</a>
+        <a href="#" class="nav-button">Sign up</a>
+    </nav>
+
+
+<!-- =========================================================
+     PAGE
+========================================================= -->
+
+<div class="page">
+
+
+    <!-- =====================================================
+         SIDEBAR
+    ====================================================== -->
+
+    <aside class="sidebar">
+        <a href="#" class="active">
+            Home
+        </a>
+        <a href="#">
+            Questions
+        </a>
+        <a href="#">
+            Tags
+        </a>
+        <a href="#">
+            Users
+        </a>
+    </aside>
+
+
+    <!-- =====================================================
+         MAIN
+    ====================================================== -->
+
+    <main class="main">
+
+
+        <!-- =================================================
+             QUESTION HEADER
+        ================================================== -->
+
+        <header class="a-question-header">
+
+            <div>
+
+                <h1 class="a-question-title">
+                    How do I reverse a list in Python?
+                </h1>
+
+                <div class="a-question-meta">
+                    <span>Asked</span>
+                    <span>today</span>
+                    &nbsp;&nbsp;
+                    <span>Modified</span>
+                    <span>today</span>
+                    &nbsp;&nbsp;
+                    <span>Viewed</span>
+                    <span>142 times</span>
+
+                </div>
+
+            </div>
+
+
+            <a href="#" class="ask-button">
+                Ask Question
+            </a>
+
+        </header>
+
+
+        <!-- =================================================
+             QUESTION POST
+        ================================================== -->
+
+        <article class="post">
+
+
+            <!-- VOTING -->
+
+            <div class="vote">
+
+                <button class="vote-button">
+                    ▲
+                </button>
+
+                <span class="vote-count">
+                    12
+                </span>
+
+                <button class="vote-button">
+                    ▼
+                </button>
+
+                <button class="bookmark">
+                    ♡
+                </button>
+
+            </div>
+
+
+            <!-- QUESTION CONTENT -->
+
+            <div class="post-content">
+
+
+                <!-- =================================================
+                     MARKDOWN CONTENT
+                ================================================== -->
+
+                <div
+                    id="question-content"
+                    class="markdown-content"
+                >
+                    Loading...
+                </div>
+
+
+                <!-- TAGS -->
+
+                <div class="tags">
+
+                    <ul class="tag-list">
+                        <li>
+                            <a class="tag" href="#">python</a>
+                        </li>
+                        <li>
+                            <a class="tag" href="#">list</a>
+                        </li>
+                        <li>
+                            <a class="tag" href="#">algorithm</a>
+                        </li>
+                    </ul>
+
+                </div>
+
+
+                <!-- POST FOOTER -->
+
+                <div class="post-footer">
+
+                    <div class="post-actions">
+
+                        <a href="#">
+                            Share
+                        </a>
+
+                        <a href="#">
+                            Edit
+                        </a>
+
+                        <a href="#">
+                            Follow
+                        </a>
+
+                    </div>
+
+
+                    <div class="user-card">
+
+                        <div>
+                            asked today
+                        </div>
+
+                        <a class="user-name" href="#">
+                            user123
+                        </a>
+
+                        <div class="user-stats">
+                            1,245 reputation
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </article>
+
+
+        <!-- =================================================
+             COMMENTS
+        ================================================== -->
+
+        <div class="comments">
+
+            <div class="comment">
+
+                You can use slicing with
+                <code>[::-1]</code>.
+
+                —
+                <span class="comment-user">
+                    Alice
+                </span>
+
+                <span class="comment-time">
+                    1 hour ago
+                </span>
+
+            </div>
+
+
+            <div class="comment">
+
+                Is there any difference between that and
+                <code>reverse()</code>?
+
+                —
+                <span class="comment-user">
+                    Bob
+                </span>
+
+                <span class="comment-time">
+                    45 minutes ago
+                </span>
+
+            </div>
+
+
+            <a href="#" class="add-comment">
+                Add a comment
+            </a>
+
+        </div>
+
+
+        <!-- =================================================
+             ANSWERS
+        ================================================== -->
+
+        <h2 class="answers-header">
+            2 Answers
+        </h2>
+
+
+        <!-- =================================================
+             ANSWER #1
+        ================================================== -->
+
+        <article class="answer">
+
+            <div class="vote">
+
+                <button class="vote-button">
+                    ▲
+                </button>
+
+                <span class="vote-count">
+                    42
+                </span>
+
+                <button class="vote-button">
+                    ▼
+                </button>
+
+                <span class="accepted">
+                    ✓
+                </span>
+
+            </div>
+
+
+            <div class="post-content">
+
+                <div
+                    id="answer1-content"
+                    class="markdown-content"
+                >
+                    Loading...
+                </div>
+
+
+                <div class="post-footer">
+
+                    <div class="post-actions">
+
+                        <a href="#">
+                            Share
+                        </a>
+
+                        <a href="#">
+                            Edit
+                        </a>
+
+                    </div>
+
+
+                    <div class="user-card">
+
+                        <div>
+                            answered today
+                        </div>
+
+                        <a class="user-name">
+                            PythonMaster
+                        </a>
+
+                        <div class="user-stats">
+                            8,421 reputation
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </article>
+
+
+        <!-- =================================================
+             ANSWER #2
+        ================================================== -->
+
+        <article class="answer">
+
+            <div class="vote">
+
+                <button class="vote-button">
+                    ▲
+                </button>
+
+                <span class="vote-count">
+                    18
+                </span>
+
+                <button class="vote-button">
+                    ▼
+                </button>
+
+            </div>
+
+
+            <div class="post-content">
+
+                <div
+                    id="answer2-content"
+                    class="markdown-content"
+                >
+                    Loading...
+                </div>
+
+
+                <div class="post-footer">
+
+                    <div class="post-actions">
+
+                        <a href="#">
+                            Share
+                        </a>
+
+                        <a href="#">
+                            Edit
+                        </a>
+
+                    </div>
+
+
+                    <div class="user-card">
+
+                        <div>
+                            answered today
+                        </div>
+
+                        <a class="user-name">
+                            CodeWizard
+                        </a>
+
+                        <div class="user-stats">
+                            3,120 reputation
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </article>
+
+
+    </main>
+
+</div>
+
+<script type="module">
+
+    import {
+        renderMarkdownFile
+    } from "./js/markdown-renderer.js";
+
+
+    renderMarkdownFile(
+        "./mock/question.md",
+        "#question-content"
+    );
+
+
+    renderMarkdownFile(
+        "./mock/answer1.md",
+        "#answer1-content"
+    );
+
+
+    renderMarkdownFile(
+        "./mock/answer2.md",
+        "#answer2-content"
+    );
+
+</script>
+
+</body>
+</html>

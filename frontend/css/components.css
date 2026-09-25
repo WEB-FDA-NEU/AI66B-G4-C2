@@ -3920,7 +3920,7 @@ body.theme-highcontrast .s-post-summary__deleted * {
 
 .s-post-summary .s-post-summary--title-link {
   color: var(--_ps-title-link-fc);
-  display: flex;
+  display: inline;
   font-size: var(--fs-body3);
   font-weight: 600;
   gap: var(--su4);

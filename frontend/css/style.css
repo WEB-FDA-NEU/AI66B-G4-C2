@@ -1,0 +1,729 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI Adjusted", "Segoe UI", "Liberation Sans", sans-serif;
+  color: white;
+  background: rgb(37, 38, 39);
+}
+
+/* ---------------- NAVBAR ---------------- */
+
+.navbar {
+  height: 52px;
+  width: 100%;
+  background: rgb(37, 38, 39);
+  color: white;
+
+  display: flex;
+  align-items: center;
+
+  padding: 0 24px;
+  gap: 20px;
+
+  border-bottom: 1px solid rgb(73, 77, 80);
+  border-top: 3px solid rgb(247, 166, 100);
+
+  font-size: 13px;
+  position: fixed;
+  top: 0px;
+  left: 0px;
+}
+
+.logo {
+  font-size: 20px;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.search {
+  flex: 1;
+  max-width: 700px;
+}
+
+.search input {
+  width: 100%;
+  height: 34px;
+
+  padding: 7.8px 9.1px 7.8px 32px;
+
+  border: 1px solid rgb(249, 250, 250);
+  border-radius: 6px;
+
+  font-size: 13px;
+  color: rgb(227, 230, 232);
+
+  background-color: rgb(37, 38, 39);
+}
+
+.search input::placeholder {
+    color: rgb(200, 204, 208);
+}
+
+.nav-button {
+  color: #ddd;
+  text-decoration: none;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.nav-button:hover {
+  color: white;
+}
+
+/* ---------------- PAGE ---------------- */
+
+.page {
+  display: flex;
+  max-width: 1264px;
+  margin: 0 auto;
+  background: rgb(37, 38, 39);
+  padding-top: 52px;
+}
+
+/* ---------------- SIDEBAR ---------------- */
+
+.sidebar {
+  width: 180px;
+  padding-top: 24px;
+
+  border-right: 1px solid #e0e0e0;
+  min-height: calc(100vh - 56px);
+  position: fixed;
+}
+
+.sidebar a {
+  display: block;
+
+  padding: 10px 16px;
+
+  color: rgb(227, 230, 232);
+  text-decoration: none;
+
+  font-size: 14px;
+}
+
+.sidebar a:hover {
+  background: rgb(51, 54, 56);
+}
+
+.sidebar a.active {
+  background: hsl(210,4%,27%);
+  font-weight: bold;
+  border-right: 3px solid #f48024;
+}
+
+/* ---------------- MAIN ---------------- */
+
+.main {
+  flex: 1;
+  padding: 28px 32px;
+  margin-left: 180px;
+  min-width: 0;
+}
+
+.main-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  margin-bottom: 24px;
+}
+
+.main-header h1 {
+  margin: 0;
+  font-size: 27px;
+  font-weight: 400;
+  color: rgb(249, 250, 250);
+}
+
+.ask-button {
+  background: rgb(144, 196, 249);
+  color: rgb(37, 38, 39);
+
+  padding: 10.4px;
+
+  border-radius: 6px;
+
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.ask-button:hover {
+  background: hsl(210,89%,84%);
+}
+
+/* ---------------- QUESTION LIST ---------------- */
+
+.question-count {
+  font-size: 17px;
+  color: rgb(249, 250, 250);
+
+  margin-bottom: 12px;
+}
+
+.question {
+  display: flex;
+
+  padding: 16px 8px;
+
+  border-top: 1px solid rgb(249, 250, 250);
+}
+
+.question:last-child {
+  border-bottom: 1px solid rgb(249, 250, 250);
+}
+
+/* statistics on left */
+
+.stats {
+  width: 110px;
+  flex-shrink: 0;
+
+  display: flex;
+  flex-direction: column;
+
+  align-items: flex-end;
+
+  gap: 6px;
+
+  padding-right: 16px;
+}
+
+.stat {
+  font-size: 13px;
+  color: rgb(249, 250, 250);
+}
+
+.stat.answer {
+  border: 1px solid rgb(110, 207, 156);
+  color: rgb(110, 207, 156);
+
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.stat.view {
+    color: rgb(200, 204, 208);
+}
+
+/* question content */
+
+.question-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.question-title {
+  font-size: 17px;
+  color: rgb(144, 196, 249);
+
+  text-decoration: none;
+
+  display: block;
+
+  margin-bottom: 6px;
+}
+
+.question-title:hover {
+  color: hsl(210,89%,84%);
+}
+
+.question-description {
+  font-size: 13px;
+  color: rgb(227, 230, 232);
+
+  margin: -2px 0 8px 0;
+}
+
+/* ---------------- TAGS ---------------- */
+
+.tag-list {
+    box-sizing: border-box;
+    display: inline;
+    padding: 0;
+    margin-bottom: 13px;
+}
+
+.tag-list li {
+    display: inline-block;
+}
+
+.tag {
+  display: inline-block;
+
+  padding: 5px 5px;
+
+  margin-right: 4px;
+
+  border-radius: 4px;
+
+  background: rgb(51, 54, 56);
+  color: rgb(227, 230, 232);
+
+  text-decoration: none;
+
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.tag:hover {
+    background: hsl(210,4%,27%);
+}
+
+/* ---------------- USER ---------------- */
+
+.question-footer {
+  margin-top: 10px;
+
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+
+  font-size: 12px;
+  color: rgb(200, 204, 208);
+}
+
+.username {
+  color: rgb(144, 196, 249);
+  margin-right: 4px;
+}
+
+/* ---------------- RESPONSIVE ---------------- */
+
+@media (max-width: 800px) {
+  .sidebar {
+    display: none;
+  }
+
+  .main {
+    padding: 20px 12px;
+    margin-left: 0;
+  }
+
+  .stats {
+    width: 80px;
+  }
+
+  .navbar {
+    padding: 0 12px;
+  }
+
+  .post-content {
+        padding-left: 10px;
+    }
+
+  .user-card {
+      width: 180px;
+  }
+}
+
+/* =========================================================
+   QUESTION HEADER
+========================================================= */
+
+.a-question-header {
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: flex-start;
+
+    padding-bottom: 20px;
+
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.a-question-title {
+    margin: 0;
+
+    font-size: 28px;
+
+    font-weight: 400;
+
+    line-height: 1.25;
+}
+
+.a-question-meta {
+    margin-top: 10px;
+
+    font-size: 13px;
+}
+
+.a-question-meta span:nth-child(odd) {
+  color: rgb(200, 204, 208);
+}
+
+.a-question-meta span:nth-child(even) {
+  color: rgb(249, 250, 250);
+}
+
+
+/* =========================================================
+   POST
+========================================================= */
+
+.post {
+    display: flex;
+
+    padding: 24px 0;
+}
+
+
+/* =========================================================
+   VOTING
+========================================================= */
+
+.vote {
+    width: 60px;
+
+    flex-shrink: 0;
+
+    display: flex;
+
+    flex-direction: column;
+
+    align-items: center;
+
+    gap: 8px;
+}
+
+.vote-button {
+    width: 40px;
+    height: 40px;
+
+    border: 1px solid rgb(73, 77, 80);
+
+    border-radius: 50%;
+
+    background: rgb(37, 38, 39);
+
+    color: rgb(227, 230, 232);
+
+    font-size: 20px;
+
+    cursor: pointer;
+}
+
+.vote-button:hover {
+    background: hsl(27, 50%, 33%);
+}
+
+.vote-count {
+    font-size: 19px;
+    font-weight: 700;
+}
+
+.bookmark {
+    border: none;
+
+    background: none;
+
+    color: rgb(115, 120, 125);
+
+    cursor: pointer;
+
+    font-size: 40px;
+}
+
+
+/* =========================================================
+   POST CONTENT
+========================================================= */
+
+.post-content {
+    flex: 1;
+
+    min-width: 0;
+
+    padding-left: 20px;
+}
+
+
+/* =========================================================
+   MARKDOWN
+========================================================= */
+
+.markdown-content {
+    font-size: 15px;
+
+    line-height: 1.5;
+}
+
+.markdown-content p {
+    margin: 0 0 16px;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3 {
+    font-weight: 400;
+
+    margin-top: 24px;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+    margin-bottom: 16px;
+}
+
+.markdown-content li {
+    margin-bottom: 5px;
+}
+
+.markdown-content a {
+    color: #0074cc;
+}
+
+.markdown-content blockquote {
+    border-left: 4px solid #d6d9dc;
+
+    margin: 16px 0;
+
+    padding: 8px 16px;
+
+    color: #6a737c;
+
+    background: #f8f9f9;
+}
+
+
+/* =========================================================
+   INLINE CODE
+========================================================= */
+
+.markdown-content :not(pre) > code {
+    background: rgb(29, 27, 27);
+
+    padding: 2px 5px;
+
+    border-radius: 3px;
+
+    font-family: Consolas, monospace;
+
+    font-size: 13px;
+}
+
+
+/* =========================================================
+   CODE BLOCKS
+========================================================= */
+
+.markdown-content pre {
+    margin: 16px 0;
+
+    padding: 16px;
+
+    overflow-x: auto;
+
+    border-radius: 5px;
+
+    background: rgb(29, 27, 27);
+}
+
+.markdown-content pre code {
+    background: none;
+
+    padding: 0;
+
+    font-family: Consolas, monospace;
+
+    font-size: 13px;
+
+    line-height: 1.5;
+}
+
+
+/* =========================================================
+   KATEX
+========================================================= */
+
+.katex-display {
+    overflow-x: auto;
+
+    overflow-y: hidden;
+
+    padding: 10px 0;
+}
+
+
+/* =========================================================
+   POST FOOTER
+========================================================= */
+
+.post-footer {
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: center;
+
+    margin-top: 24px;
+}
+
+.post-actions a {
+    margin-right: 12px;
+
+    color: rgb(200, 204, 208);
+
+    text-decoration: none;
+
+    font-size: 13px;
+}
+
+.post-actions a:hover {
+    color: hsl(210,8%,90%);
+}
+
+
+/* =========================================================
+   USER CARD
+========================================================= */
+
+.user-card {
+    width: 220px;
+
+    padding: 10px;
+
+    background: rgb(28, 56, 84);
+
+    border-radius: 5px;
+
+    font-size: 12px;
+}
+
+.user-name {
+    margin-top: 3px;
+
+    color: rgb(144, 196, 249);
+
+    font-weight: bold;
+    text-decoration: none;
+}
+
+.user-name:hover {
+  color: hsl(210,89%,84%);
+}
+
+.user-stats {
+    margin-top: 5px;
+
+    color: #6a737c;
+}
+
+
+/* =========================================================
+   COMMENTS
+========================================================= */
+
+.comments {
+    margin-left: 80px;
+
+    border-top: 1px solid #e0e0e0;
+}
+
+.comment {
+    padding: 10px 0;
+
+    border-bottom: 1px solid #e0e0e0;
+
+    font-size: 13px;
+}
+
+.comment-user {
+    color: #0074cc;
+}
+
+.comment-time {
+    color: #6a737c;
+}
+
+.add-comment {
+    display: inline-block;
+
+    margin-top: 10px;
+
+    color: #6a737c;
+
+    font-size: 13px;
+
+    text-decoration: none;
+}
+
+
+/* =========================================================
+   ANSWERS
+========================================================= */
+
+.answers-header {
+    margin-top: 32px;
+
+    padding-bottom: 16px;
+
+    border-bottom: 1px solid #e0e0e0;
+
+    font-size: 19px;
+
+    font-weight: 400;
+}
+
+.answer {
+    display: flex;
+
+    padding: 24px 0;
+
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.accepted {
+    color: #2f6f44;
+
+    font-size: 24px;
+}
+
+
+/* =========================================================
+   ERROR
+========================================================= */
+
+#error {
+    color: #b00020;
+
+    font-weight: bold;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+========================================================= */
+
+@media (max-width: 600px) {
+
+    .navbar {
+        padding: 0 12px;
+    }
+
+    .question-header {
+        display: block;
+    }
+
+    .ask-button {
+        display: inline-block;
+
+        margin: 15px 0 0;
+    }
+
+    .post-footer {
+        display: block;
+    }
+
+    .user-card {
+        margin-top: 15px;
+    }
+
+    .comments {
+        margin-left: 60px;
+    }
+}
