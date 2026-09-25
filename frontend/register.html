@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sign up · Tech4Rum</title>
+
+  <!-- Design system — the only CSS sources allowed -->
+  <link rel="stylesheet" href="./css/reset.css" />
+  <link rel="stylesheet" href="./css/tokens.css" />
+  <link rel="stylesheet" href="./css/layout.css" />
+  <link rel="stylesheet" href="./css/components.css" />
+</head>
+
+<body class="d-flex fd-column hmn-screen bg-black-100">
+
+  <!-- ==================== TOP BAR ==================== -->
+  <header class="ps-sticky t0 z-nav d-flex ai-center py4 px16 bg-white bb bc-black-200">
+
+    <!-- Colored upper border — thicker (--su4 = 0.25rem ≈ 4px) -->
+    <div class="ps-absolute t0 l0 r0 bt btw3 bc-blue-400" aria-hidden="true"></div>
+
+    <!-- Logo on the left side of the top bar -->
+    <a href="#" class="d-flex ai-center" aria-label="Tech4Rum home">
+      <img src="./img/Tech4Rum_logo.png" alt="Tech4Rum" class="h48" />
+    </a>
+  </header>
+
+  <!-- ==================== REGISTER FORM ==================== -->
+  <main class="d-flex ai-center jc-center fl-grow1 p24">
+    <div class="bg-white bar-md bs-lg p32 w100 wmx4">
+
+      <h1 class="fs-headline1 fw-bold mb8">Create your account</h1>
+      <p class="fc-black-400 fs-body1 mb24">
+        Join Tech4Rum to ask questions, share answers, and build your reputation.
+      </p>
+
+      <form class="d-flex fd-column g16" id="registerForm">
+
+        <!-- Display name -->
+        <div class="s-form-group">
+          <label class="s-label" for="displayName">Display name</label>
+          <input
+            class="s-input"
+            id="displayName"
+            name="displayName"
+            type="text"
+            autocomplete="nickname"
+            placeholder="e.g. ada_lovelace"
+            required />
+          <p class="s-description">This is how other members will see you on Tech4Rum.</p>
+        </div>
+
+        <!-- Email -->
+        <div class="s-form-group">
+          <label class="s-label" for="email">Email</label>
+          <input
+            class="s-input"
+            id="email"
+            name="email"
+            type="email"
+            inputmode="email"
+            autocomplete="email"
+            placeholder="you@example.com"
+            required />
+        </div>
+
+        <!-- Password -->
+        <div class="s-form-group">
+          <label class="s-label" for="password">Password</label>
+          <input
+            class="s-input"
+            id="password"
+            name="password"
+            type="password"
+            autocomplete="new-password"
+            placeholder="Create a strong password"
+            required />
+          <p class="s-description">Use at least 8 characters, mixing letters, numbers, and symbols.</p>
+        </div>
+
+        <!-- Confirm password -->
+        <div class="s-form-group">
+          <label class="s-label" for="confirmPassword">Confirm password</label>
+          <input
+            class="s-input"
+            id="confirmPassword"
+            name="confirmPassword"
+            type="password"
+            autocomplete="new-password"
+            placeholder="Re-enter your password"
+            required />
+        </div>
+
+        <!-- Terms -->
+        <label class="s-checkbox">
+          <input type="checkbox" id="terms" name="terms" required />
+          <span class="s-label">
+            I agree to the
+            <a href="#" class="s-link">Terms of Service</a>
+            and
+            <a href="#" class="s-link">Privacy Policy</a>.
+          </span>
+        </label>
+
+        <!-- Submit -->
+        <button class="s-btn s-btn__lg w100" type="submit">Create account</button>
+      </form>
+
+      <p class="ta-center fs-body1 mt24">
+        Already have an account? <a href="#" class="s-link">Log in</a>
+      </p>
+    </div>
+  </main>
+
+  <script>
+    (function () {
+      var form = document.getElementById('registerForm');
+      form.addEventListener('submit', function (event) {
+        event.preventDefault();
+      });
+    })();
+  </script>
+</body>
+</html>
