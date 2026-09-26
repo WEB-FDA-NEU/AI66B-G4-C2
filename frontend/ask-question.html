@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ask a public question — Tech4Rum</title>
+
+  <!-- Design system -->
+  <link rel="stylesheet" href="./css/reset.css">
+  <link rel="stylesheet" href="./css/tokens.css">
+  <link rel="stylesheet" href="./css/layout.css">
+  <link rel="stylesheet" href="./css/components.css">
+  <link rel="stylesheet" href="./css/extra.css">
+
+  <!-- KaTeX + highlight.js themes -->
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github.min.css">
+</head>
+
+<body class="theme-light">
+
+  <a href="#main" class="v-visible-sr">Skip to main content</a>
+
+  <!-- ================= TOP BAR ================= -->
+  <site-header></site-header>
+
+  <!-- ================= HERO ================= -->
+  <div class="ask-hero">
+    <div class="ask-hero__inner d-flex ai-center g16">
+      <h1 class="fs-headline1 fw-normal mb0 fl-grow1">Ask a public question</h1>
+      <svg class="ask-hero__illustration d-none md:d-block" width="120" height="78"
+           viewBox="0 0 120 78" aria-hidden="true">
+        <rect x="4" y="10" width="76" height="52" rx="4" fill="none"
+              stroke="currentColor" stroke-width="2"/>
+        <path d="M16 24h44M16 34h52M16 44h34" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round"/>
+        <circle cx="98" cy="30" r="14" fill="none" stroke="currentColor" stroke-width="2"/>
+        <path d="M108 40l10 10" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round"/>
+        <path d="M92 30h12M98 24v12" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- ================= PAGE ================= -->
+  <div class="d-flex ai-start g24 wmx12 mx-auto px16 py24">
+
+    <!-- ---------- LEFT RAIL ---------- -->
+    <aside class="sidebar-left sm:d-none" aria-label="Section navigation">
+      <nav class="s-navigation s-navigation__vertical">
+        <a class="s-navigation--item" href="#">Home</a>
+        <a class="s-navigation--item" href="./posts.html">Questions</a>
+        <a class="s-navigation--item" href="#">Discussion</a>
+        <a class="s-navigation--item" href="#">Tags</a>
+        <a class="s-navigation--item" href="#">Users</a>
+      </nav>
+    </aside>
+
+    <!-- ---------- MAIN ---------- -->
+    <main id="main" class="fl-grow1" style="min-width: 0;">
+
+      <form class="s-form-group" action="#" method="post" novalidate>
+
+        <!-- ===== Title ===== -->
+        <div class="s-form-group">
+          <label class="s-label" for="question-title">Title</label>
+          <div class="s-description">
+            Be specific and imagine you’re asking a question to another person.
+          </div>
+          <input class="s-input" id="question-title" name="title" type="text"
+                 placeholder="e.g. Why does React re-render my component twice inside StrictMode?"
+                 maxlength="150" autocomplete="off" required>
+          <div class="s-input-message fc-black-400">
+            <span id="title-count" class="fw-bold">0</span> / 150 characters
+          </div>
+
+          <div class="similar-questions" role="status">
+            <h4>
+              <svg class="svg-icon va-text-bottom mr4" aria-hidden="true"
+                   width="14" height="14" viewBox="0 0 14 14">
+                <path d="M7 1a6 6 0 1 1 0 12A6 6 0 0 1 7 1Zm0 1.2a4.8 4.8 0 1 0 0 9.6 4.8 4.8 0 0 0 0-9.6ZM6.4 8.6h1.2V10H6.4V8.6Zm0-4.6h1.2v3.6H6.4V4Z"/>
+              </svg>
+              Questions that may already have your answer
+            </h4>
+            <ul>
+              <li>
+                <a href="#">React StrictMode double-invokes effects — how do I avoid duplicate fetches?</a>
+                <span class="fc-black-400">· 12 answers</span>
+              </li>
+              <li>
+                <a href="#">Is double rendering in React 18 development mode a bug?</a>
+                <span class="fc-black-400">· 4 answers</span>
+              </li>
+              <li>
+                <a href="#">Why is my useEffect running twice on mount?</a>
+                <span class="fc-black-400">· 9 answers</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- ===== Body ===== -->
+        <div class="s-form-group">
+          <label class="s-label" for="answer-body">What are the details of your problem?</label>
+          <div class="s-description">
+            Introduce the problem and expand on what you put in the title. Minimum 20 characters.
+            Markdown, <code>$LaTeX$</code>, and fenced code blocks are supported.
+          </div>
+
+          <div class="editor">
+            <div class="editor-toolbar" role="toolbar" aria-label="Formatting">
+              <button class="tool-btn" type="button" data-md="bold"     aria-label="Bold"><strong aria-hidden="true">B</strong></button>
+              <button class="tool-btn" type="button" data-md="italic"   aria-label="Italic"><em aria-hidden="true">I</em></button>
+              <span class="tool-sep" aria-hidden="true"></span>
+              <button class="tool-btn" type="button" data-md="code"     aria-label="Code">&lt;/&gt;</button>
+              <button class="tool-btn" type="button" data-md="link"     aria-label="Link">🔗</button>
+              <button class="tool-btn" type="button" data-md="image"    aria-label="Image">🖼</button>
+              <span class="tool-sep" aria-hidden="true"></span>
+              <button class="tool-btn" type="button" data-md="quote"    aria-label="Blockquote">❝</button>
+              <button class="tool-btn" type="button" data-md="ul"       aria-label="Bulleted list">•</button>
+              <button class="tool-btn" type="button" data-md="ol"       aria-label="Numbered list">1.</button>
+              <span class="tool-sep" aria-hidden="true"></span>
+              <button class="tool-btn" type="button" id="preview-toggle">Preview</button>
+            </div>
+
+            <label class="v-visible-sr" for="answer-body">Your question body</label>
+            <textarea id="answer-body" name="body" class="s-textarea" rows="10"
+                      placeholder="Thanks for contributing a question to Tech4Rum!&#10;&#10;Markdown and $LaTeX$ are supported."></textarea>
+
+            <div id="answer-preview" class="s-prose editor-preview" style="display:none;"></div>
+          </div>
+
+          <div class="editor-footer">
+            <span>
+              <a class="s-link s-link__muted" href="#">Markdown help</a>
+              · <span class="fc-black-400">KaTeX &amp; highlight.js enabled</span>
+            </span>
+            <span>
+              <span id="body-count" class="fw-bold fc-black-500">0</span> / 30000 characters
+            </span>
+          </div>
+        </div>
+
+        <!-- ===== Tags ===== -->
+        <div class="s-form-group">
+          <label class="s-label" for="tag-input">Tags</label>
+          <div class="s-description">
+            Add up to 5 tags to describe what your question is about. Press <kbd>Enter</kbd> or <kbd>,</kbd> to add.
+          </div>
+
+          <div class="tag-editor" id="tag-editor">
+            <span class="s-tag" data-tag="reactjs">
+              reactjs
+              <button type="button" class="s-tag--dismiss" aria-label="Remove tag reactjs">
+                <svg viewBox="0 0 14 14" aria-hidden="true">
+                  <path d="M7 5.586 11.293 1.293l1.414 1.414L8.414 7l4.293 4.293-1.414 1.414L7 8.414l-4.293 4.293-1.414-1.414L5.586 7 1.293 2.707l1.414-1.414L7 5.586Z"/>
+                </svg>
+              </button>
+            </span>
+            <span class="s-tag" data-tag="javascript">
+              javascript
+              <button type="button" class="s-tag--dismiss" aria-label="Remove tag javascript">
+                <svg viewBox="0 0 14 14" aria-hidden="true">
+                  <path d="M7 5.586 11.293 1.293l1.414 1.414L8.414 7l4.293 4.293-1.414 1.414L7 8.414l-4.293 4.293-1.414-1.414L5.586 7 1.293 2.707l1.414-1.414L7 5.586Z"/>
+                </svg>
+              </button>
+            </span>
+            <input id="tag-input" type="text" placeholder="e.g. rust" autocomplete="off"
+                   aria-label="Add a tag">
+          </div>
+
+          <div class="s-input-message fc-black-400">
+            <span id="tag-count" class="fw-bold">2</span> / 5 tags
+          </div>
+        </div>
+
+        <!-- ===== Extras ===== -->
+        <div class="s-form-group">
+          <label class="s-checkbox">
+            <input type="checkbox" name="self-answer">
+            <span class="s-label">
+              Answer your own question
+              <span class="s-description">
+                Share your knowledge Q&amp;A-style — you can post an answer at the same time as your question.
+              </span>
+            </span>
+          </label>
+        </div>
+
+        <!-- ===== Actions ===== -->
+        <div class="d-flex ai-center g8 fw-wrap mt8">
+          <button type="submit" class="s-btn">Post your question</button>
+          <button type="button" class="s-btn s-btn__clear">Save as draft</button>
+          <span class="fl-grow1"></span>
+          <button type="button" class="s-btn s-btn__link s-btn__link__danger">Discard draft</button>
+        </div>
+
+      </form>
+
+    </main>
+
+    <!-- ---------- RIGHT RAIL ---------- -->
+    <aside class="sidebar-right md:d-none" aria-label="Question guidance">
+
+      <div class="guide-widget">
+        <h2>Step 1: Summarize the problem</h2>
+        <p>
+          The community is here to help you with specific coding, algorithm, or language problems.
+        </p>
+        <p>
+          Avoid asking opinion-based questions.
+        </p>
+        <ul>
+          <li>Include details about your goal</li>
+          <li>Describe expected and actual results</li>
+          <li>Include any error messages</li>
+        </ul>
+      </div>
+
+      <div class="guide-widget">
+        <h2>Step 2: Describe what you've tried</h2>
+        <p>
+          Show what you've tried and tell us what you found (on this site or elsewhere) and why it didn't meet your needs. You can get better answers when you provide research.
+        </p>
+      </div>
+
+      <div class="guide-widget">
+        <h2>Step 3: Show some code</h2>
+        <p>
+          When appropriate, share the minimum amount of code others need to reproduce your problem (also called a <a href="#">minimum, reproducible example</a>)
+        </p>
+      </div>
+
+      <div class="widget">
+        <div class="widget-header">Before you post</div>
+        <div class="widget-body">
+          <ul class="list-reset d-flex fd-column g8">
+            <li class="d-flex g8">
+              <span class="fc-green-400 fw-bold">✓</span>
+              <span>Title summarizes the specific problem</span>
+            </li>
+            <li class="d-flex g8">
+              <span class="fc-green-400 fw-bold">✓</span>
+              <span>Problem introduced in the body</span>
+            </li>
+            <li class="d-flex g8">
+              <span class="fc-green-400 fw-bold">✓</span>
+              <span>Code shown as a minimal, reproducible example</span>
+            </li>
+            <li class="d-flex g8">
+              <span class="fc-green-400 fw-bold">✓</span>
+              <span>Relevant tags added</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="widget">
+        <div class="widget-header">Need more help?</div>
+        <div class="widget-body">
+          <ul class="list-reset d-flex fd-column g8">
+            <li><a class="s-link" href="#">How to Ask a good question</a></li>
+            <li><a class="s-link" href="#">Take the tour</a></li>
+            <li><a class="s-link" href="#">Browse the help center</a></li>
+          </ul>
+        </div>
+      </div>
+
+    </aside>
+
+  </div>
+
+  <!-- ================= FOOTER ================= -->
+  <site-footer></site-footer>
+
+  <!-- =========================================================
+       Third-party libraries (globals required by markdown-renderer.js)
+       ========================================================= -->
+  <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+
+  <!-- Modular elements -->
+  <script type="module" src="./js/components/site-header.js"></script>
+  <script type="module" src="./js/components/site-footer.js"></script>
+
+  <!-- markdown-renderer.js is an ES module -->
+  <script defer type="module">
+    import { initAskQuestionEditor } from "./js/ask-question-editor.js";
+    initAskQuestionEditor();
+  </script>
+
+</body>
+</html>

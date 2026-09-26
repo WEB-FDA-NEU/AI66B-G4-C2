@@ -1,8 +1,8 @@
 /**
  * question-page.js
  *
- * Renders a Q&A page from a JSON payload and wires up the answer editor's
- * live markdown preview.
+ * Renders a Q&A page from a JSON payload and wires up the answer editor
+ * (toolbar insertions, tab-to-indent, live markdown preview).
  *
  * Data can be supplied three ways:
  *   1. fetch a JSON file:        init({ src: './data/question.json' })
@@ -14,6 +14,12 @@
  */
 
 import { renderMarkdown } from './markdown-renderer.js';
+import {
+  bindToolbar,
+  bindTabInsert,
+  bindPreviewToggle,
+  INSERTIONS
+} from './ask-question-editor.js';
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
@@ -177,7 +183,7 @@ export function renderQuestionPage(data, root = document.getElementById('questio
     <!-- Title -->
     <div class="d-flex ai-start jc-space-between g16 mb8">
       <h1 class="fs-headline1 fw-normal mb0">${escapeHtml(data.title)}</h1>
-      <a class="s-btn flex-shrink0" href="#">Ask Question</a>
+      <a class="s-btn flex-shrink0" href="./ask-question.html">Ask Question</a>
     </div>
 
     <!-- Meta -->
@@ -269,44 +275,50 @@ export function renderQuestionPage(data, root = document.getElementById('questio
 }
 
 /* ------------------------------------------------------------------ */
-/* Live preview for the answer editor                                  */
+/* Live editor for the "Your Answer" form                              */
 /* ------------------------------------------------------------------ */
 
-export function initAnswerPreview({
-  button   = document.getElementById('preview-toggle'),
+/**
+ * Wire up the answer editor: toolbar insertions, tab-to-indent, and the
+ * markdown preview toggle.
+ *
+ * Returns a `destroy()` function that unbinds everything, or `null` if the
+ * core elements (toggle/textarea/preview) can't be found.
+ */
+export function initAnswerEditor({
+  toolbar  = document.querySelector('.editor-toolbar'),
+  toggle   = document.getElementById('preview-toggle'),
   textarea = document.getElementById('answer-body'),
   preview  = document.getElementById('answer-preview')
 } = {}) {
-  if (!button || !textarea || !preview) return null;
+  // Preview is the minimum; without it there's nothing to do.
+  if (!toggle || !textarea || !preview) return null;
 
-  const onClick = () => {
-    const showing = preview.style.display === 'block';
+  const teardown = [];
 
-    if (showing) {
-      preview.style.display = 'none';
-      textarea.style.display = '';
-      button.textContent = 'Preview';
-      return;
+  // Preview toggle
+  teardown.push(bindPreviewToggle({ toggle, textarea, preview }));
+
+  // Toolbar insertions (bold, italic, code, link, image, quote, ul, ol)
+  if (toolbar) {
+    teardown.push(bindToolbar({ toolbar, textarea, insertions: INSERTIONS }));
+  }
+
+  // Tab inserts two spaces inside the textarea
+  teardown.push(bindTabInsert({ textarea }));
+
+  return function destroy() {
+    while (teardown.length) {
+      try { teardown.pop()(); } catch (e) { console.error(e); }
     }
-
-    try {
-      renderMarkdown(
-        textarea.value.trim() || '_Nothing to preview yet._',
-        preview
-      );
-    } catch (e) {
-      preview.innerHTML =
-        `<p class="markdown-error">Preview failed: ${escapeHtml(e.message)}</p>`;
-    }
-
-    preview.style.display = 'block';
-    textarea.style.display = 'none';
-    button.textContent = 'Edit';
   };
-
-  button.addEventListener('click', onClick);
-  return () => button.removeEventListener('click', onClick);
 }
+
+/**
+ * Backwards-compatible alias for the old name.
+ * @deprecated Use `initAnswerEditor` instead.
+ */
+export const initAnswerPreview = initAnswerEditor;
 
 /* ------------------------------------------------------------------ */
 /* Data loading                                                        */
@@ -328,7 +340,9 @@ export async function loadQuestionData(url) {
  *   2. data-src on #question-root  → fetch()
  *   3. inline #question-data       → JSON.parse()
  *
- * Returns { stop } where stop() halts the relative-time ticker.
+ * Returns { stop, editor } where:
+ *   - stop()   halts the relative-time ticker
+ *   - editor   is the answer-editor teardown (or null)
  */
 export async function init({ src, root, autoStartTicker = true } = {}) {
   const rootEl = root || document.getElementById('question-root');
@@ -341,7 +355,6 @@ export async function init({ src, root, autoStartTicker = true } = {}) {
     if (!rootEl) throw new Error('#question-root not found');
 
     const url = src || rootEl.dataset.src;
-    console.log(url)
     if (url) {
       data = await loadQuestionData(url);
     } else if (dataEl) {
@@ -366,9 +379,12 @@ export async function init({ src, root, autoStartTicker = true } = {}) {
     }
   }
 
-  initAnswerPreview();
+  const destroyEditor = initAnswerEditor();
 
-  return { stop: () => stopTicker && stopTicker() };
+  return {
+    stop: () => stopTicker && stopTicker(),
+    editor: destroyEditor
+  };
 }
 
 /* Auto-bootstrap when loaded as a module and no explicit call is made. */
@@ -381,6 +397,7 @@ export async function init({ src, root, autoStartTicker = true } = {}) {
 export default {
   init,
   renderQuestionPage,
+  initAnswerEditor,
   initAnswerPreview,
   loadQuestionData,
   refreshRelativeTimes,
