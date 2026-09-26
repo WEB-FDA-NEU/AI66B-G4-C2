@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My Content — Tech4Rum</title>
+
+  <link rel="stylesheet" href="./css/reset.css">
+  <link rel="stylesheet" href="./css/tokens.css">
+  <link rel="stylesheet" href="./css/layout.css">
+  <link rel="stylesheet" href="./css/components.css">
+  <link rel="stylesheet" href="./css/extra.css">
+</head>
+
+<body class="theme-light">
+
+  <a href="#main" class="v-visible-sr">Skip to main content</a>
+
+  <!-- ================= TOP BAR ================= -->
+  <site-header></site-header>
+
+  <!-- ================= PAGE ================= -->
+  <div class="d-flex ai-start g24 wmx12 mx-auto px16 py24">
+
+    <!-- ---------- LEFT RAIL ---------- -->
+    <aside class="sidebar-left sm:d-none" aria-label="Section navigation">
+      <nav class="s-navigation s-navigation__vertical">
+        <a class="s-navigation--item" href="./index.html">Home</a>
+        <a class="s-navigation--item" href="./questions.html">Questions</a>
+        <a class="s-navigation--item" href="./discussions.html">Discussion</a>
+        <a class="s-navigation--item" href="./tag-detail.html">Tags</a>
+        <a class="s-navigation--item is-selected" href="#" aria-current="page">Users</a>
+        <a class="s-navigation--item" href="./admin.html">Admin</a>
+      </nav>
+    </aside>
+
+    <!-- ---------- MAIN ---------- -->
+    <main id="main" class="my-content-page">
+
+      <!-- Header -->
+      <div class="d-flex ai-start jc-space-between g16 mb16 fw-wrap">
+        <div>
+          <h1 class="fs-headline1 fw-normal mb4">My Content</h1>
+          <p class="fc-black-500 fs-body1 mb0" id="me-line">Loading…</p>
+        </div>
+        <a class="s-btn" href="./ask-question.html">Ask Question</a>
+      </div>
+
+      <!-- Tabs -->
+      <nav class="s-navigation mb16" id="content-tabs" aria-label="My content sections">
+        <button class="s-navigation--item is-selected" type="button" data-tab="posts">Posts</button>
+        <button class="s-navigation--item" type="button" data-tab="answers">Answers</button>
+        <button class="s-navigation--item" type="button" data-tab="comments">Comments</button>
+      </nav>
+
+      <!-- Count -->
+      <div class="fc-black-500 fs-caption mb12" id="content-count">Loading…</div>
+
+      <!-- List -->
+      <div id="content-list" class="question-list"></div>
+
+    </main>
+
+  </div>
+
+  <!-- ================= FOOTER ================= -->
+  <site-footer></site-footer>
+
+  <script src="./js/render-my-content.js" defer></script>
+  <script type="module" src="./js/components/site-header.js"></script>
+  <script type="module" src="./js/components/site-footer.js"></script>
+
+</body>
+</html>
