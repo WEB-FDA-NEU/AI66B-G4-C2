@@ -271,6 +271,15 @@
 .post-actions .s-link:hover {
     color: var(--black-500);
 }
+/* ---------- Report link in post-actions ---------- */
+.post-actions .s-link__danger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--su4);
+}
+.post-actions .s-link__danger .svg-icon {
+  fill: currentColor;
+}
 
 /* ---------- Comments ---------- */
 .comment-list {

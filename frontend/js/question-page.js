@@ -60,6 +60,16 @@ export function timeElement(iso, verb = '') {
   return `${prefix}<time datetime="${escapeHtml(iso)}" data-iso="${escapeHtml(iso)}" title="${escapeHtml(formatAbsolute(iso))}">${escapeHtml(timeAgo(iso))}</time>`;
 }
 
+/**
+ * Build a URL to the report page for a question or an answer.
+ * @param {'question'|'answer'} type
+ * @param {string|number} id
+ */
+export function reportUrl(type, id) {
+  const params = new URLSearchParams({ type, id: String(id) });
+  return `./report.html?${params.toString()}`;
+}
+
 /** Update every [data-iso] element under `root` with a fresh label. */
 export function refreshRelativeTimes(root = document) {
   root.querySelectorAll('time[data-iso]').forEach((el) => {
@@ -212,7 +222,17 @@ export function renderQuestionPage(data, root = document.getElementById('questio
             <a class="s-link" href="./edit-question.html">Edit</a>
             <a class="s-link" href="#">Follow</a>
             <a class="s-link" href="#">Close</a>
-            <a class="s-link" href="#">Flag</a>
+            <a class="s-link s-link__danger"
+              href="${reportUrl('question', data.id)}"
+              data-report
+              data-report-type="question"
+              data-report-id="${escapeHtml(data.id)}"
+              title="Report this question">
+              <svg class="svg-icon" aria-hidden="true" width="14" height="14" viewBox="0 0 14 14">
+                <path d="M7 1 1 12h12L7 1Zm0 3.25.75 3.5h-1.5L7 4.25ZM7 10.5a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z"/>
+              </svg>
+              Report
+            </a>
           </div>
           ${userCard(data.author, 'asked', data.time)}
         </div>
@@ -245,6 +265,17 @@ export function renderQuestionPage(data, root = document.getElementById('questio
                 <a class="s-link" href="#">Share</a>
                 <a class="s-link" href="#">Edit</a>
                 <a class="s-link" href="#">Follow</a>
+                <a class="s-link s-link__danger"
+                  href="${reportUrl('answer', a.id)}"
+                  data-report
+                  data-report-type="answer"
+                  data-report-id="${escapeHtml(a.id)}"
+                  title="Report this answer">
+                  <svg class="svg-icon" aria-hidden="true" width="14" height="14" viewBox="0 0 14 14">
+                    <path d="M7 1 1 12h12L7 1Zm0 3.25.75 3.5h-1.5L7 4.25ZM7 10.5a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z"/>
+                  </svg>
+                  Report
+                </a>
               </div>
               ${userCard(a.author, 'answered', a.time)}
             </div>
@@ -405,5 +436,6 @@ export default {
   escapeHtml,
   timeAgo,
   formatAbsolute,
-  timeElement
+  timeElement,
+  reportUrl,
 };
