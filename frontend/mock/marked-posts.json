@@ -1,0 +1,82 @@
+[
+  {
+    "id": 1,
+    "title": "How to make money fast with Python?",
+    "url": "#",
+    "mark": "Violated",
+    "markTone": "danger",
+    "markedBy": "Auto-detected",
+    "markedByTone": "bot",
+    "markedAt": "2026-09-25T12:06:00Z",
+    "score": -3,
+    "actions": [
+      { "label": "Review", "tone": "clear" },
+      { "label": "Unmark", "tone": "clear" },
+      { "label": "Delete", "tone": "danger" }
+    ]
+  },
+  {
+    "id": 2,
+    "title": "Why doesn't my code work?",
+    "url": "#",
+    "mark": "Duplicated",
+    "markTone": "info",
+    "markedBy": "kenji_rs",
+    "markedByTone": null,
+    "markedAt": "2026-09-25T11:46:00Z",
+    "score": 0,
+    "actions": [
+      { "label": "Review", "tone": "clear" },
+      { "label": "Unmark", "tone": "clear" },
+      { "label": "Delete", "tone": "danger" }
+    ]
+  },
+  {
+    "id": 3,
+    "title": "What's the best pizza in NYC?",
+    "url": "#",
+    "mark": "Off-topic",
+    "markTone": "warning",
+    "markedBy": "mira_k",
+    "markedByTone": null,
+    "markedAt": "2026-09-25T11:16:00Z",
+    "score": -5,
+    "actions": [
+      { "label": "Review", "tone": "clear" },
+      { "label": "Unmark", "tone": "clear" },
+      { "label": "Delete", "tone": "danger" }
+    ]
+  },
+  {
+    "id": 4,
+    "title": "useEffect runs twice under StrictMode — is this a bug?",
+    "url": "#",
+    "mark": "Duplicated",
+    "markTone": "info",
+    "markedBy": "Auto-detected",
+    "markedByTone": "bot",
+    "markedAt": "2026-09-25T10:16:00Z",
+    "score": 1,
+    "actions": [
+      { "label": "Review", "tone": "clear" },
+      { "label": "Unmark", "tone": "clear" },
+      { "label": "Delete", "tone": "danger" }
+    ]
+  },
+  {
+    "id": 5,
+    "title": "Cracked version of popular IDE — download link",
+    "url": "#",
+    "mark": "Violated",
+    "markTone": "danger",
+    "markedBy": "dba_raj",
+    "markedByTone": null,
+    "markedAt": "2026-09-25T08:20:00Z",
+    "score": -12,
+    "actions": [
+      { "label": "Review", "tone": "clear" },
+      { "label": "Unmark", "tone": "clear" },
+      { "label": "Delete", "tone": "danger" }
+    ]
+  }
+]
