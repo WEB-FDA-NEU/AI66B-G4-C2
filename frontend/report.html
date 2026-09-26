@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Report this post — devforge</title>
+
+  <link rel="stylesheet" href="./css/reset.css">
+  <link rel="stylesheet" href="./css/tokens.css">
+  <link rel="stylesheet" href="./css/layout.css">
+  <link rel="stylesheet" href="./css/components.css">
+  <link rel="stylesheet" href="./css/extra.css">
+  
+</head>
+
+<body class="theme-light">
+
+  <a href="#main" class="v-visible-sr">Skip to main content</a>
+
+  <!-- ================= TOP BAR ================= -->
+  <site-header></site-header>
+
+  <!-- ================= PAGE ================= -->
+  <div class="d-flex ai-start g24 wmx12 mx-auto px16 py24">
+
+    <!-- ---------- LEFT RAIL ---------- -->
+    <aside class="sidebar-left sm:d-none" aria-label="Section navigation">
+      <nav class="s-navigation s-navigation__vertical">
+        <a class="s-navigation--item" href="./index.html">Home</a>
+        <a class="s-navigation--item is-selected" href="./posts.html" aria-current="page">Questions</a>
+        <a class="s-navigation--item" href="#">Discussion</a>
+        <a class="s-navigation--item" href="#">Tags</a>
+        <a class="s-navigation--item" href="#">Users</a>
+        <a class="s-navigation--item" href="./admin.html">Admin</a>
+      </nav>
+    </aside>
+
+    <!-- ---------- MAIN ---------- -->
+    <main id="main" class="question-feed">
+
+      <!-- Breadcrumb -->
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href="./posts.html">Questions</a>
+        <span class="breadcrumb-sep">›</span>
+        <a href="./post-detail-beta.html">Why does React re-render my component twice inside StrictMode?</a>
+        <span class="breadcrumb-sep">›</span>
+        <span aria-current="page">Report</span>
+      </nav>
+
+      <h1 class="fs-headline1 fw-normal mb16">Report this post</h1>
+
+      <!-- ============ REPORT FORM ============ -->
+      <form id="report-form" class="edit-form" novalidate>
+
+        <!-- Reported post context -->
+        <div class="context-card">
+          <div class="context-card--header">
+            <svg class="svg-icon" aria-hidden="true" width="14" height="14" viewBox="0 0 14 14">
+              <path d="M7 1a6 6 0 1 0 0 12A6 6 0 0 0 7 1Zm0 2.5a.75.75 0 1 1 0 1.5.75.75 0 0 1 0-1.5ZM7.75 10.5h-1.5V6h1.5v4.5Z"/>
+            </svg>
+            You are reporting a post by
+            <a href="#" class="fw-bold">@mira_k</a>
+            <span aria-hidden="true">·</span>
+            <span>asked 4 minutes ago</span>
+          </div>
+          <a class="context-card--title" href="./post-detail-beta.html">
+            Why does React re-render my component twice inside StrictMode?
+          </a>
+          <div class="context-card--excerpt">
+            I have a small counter component and every time I click the button the
+            <code>console.log</code> inside the render body fires twice. I understand that
+            React StrictMode intentionally double-invokes render in development…
+          </div>
+        </div>
+
+        <!-- Error strip (hidden until validation fails) -->
+        <div class="form-error" data-form-error hidden role="alert"></div>
+
+        <!-- Reason picker -->
+        <fieldset class="s-form-group mb24" data-reason-group>
+          <legend class="s-label" id="reason-legend">
+            Why are you reporting this post?
+            <span class="s-required-symbol" aria-hidden="true">*</span>
+          </legend>
+          <p class="s-description mb8">
+            Choose the option that best describes the problem. Reports are reviewed by moderators.
+          </p>
+
+          <div class="reason-list" role="radiogroup" aria-labelledby="reason-legend">
+
+            <label class="reason-card">
+              <input type="radio" name="reason" value="spam">
+              <span class="reason-card--body">
+                <span class="reason-card--title">Spam or advertising</span>
+                <span class="reason-card--desc">Promotional content, undisclosed affiliation, or repeated low-quality posts.</span>
+              </span>
+            </label>
+
+            <label class="reason-card">
+              <input type="radio" name="reason" value="abuse">
+              <span class="reason-card--body">
+                <span class="reason-card--title">Rude or abusive</span>
+                <span class="reason-card--desc">Harassment, hate speech, personal attacks, or threats.</span>
+              </span>
+            </label>
+
+            <label class="reason-card">
+              <input type="radio" name="reason" value="off-topic">
+              <span class="reason-card--body">
+                <span class="reason-card--title">Not an answer / off-topic</span>
+                <span class="reason-card--desc">Doesn't attempt to answer the question, or belongs on a different site.</span>
+              </span>
+            </label>
+
+            <label class="reason-card">
+              <input type="radio" name="reason" value="duplicate">
+              <span class="reason-card--body">
+                <span class="reason-card--title">Duplicate content</span>
+                <span class="reason-card--desc">The same content has been posted elsewhere — link it in the details below.</span>
+              </span>
+            </label>
+
+            <label class="reason-card">
+              <input type="radio" name="reason" value="plagiarism">
+              <span class="reason-card--body">
+                <span class="reason-card--title">Plagiarism or copyright</span>
+                <span class="reason-card--desc">Content copied from another source without attribution or permission.</span>
+              </span>
+            </label>
+
+            <label class="reason-card">
+              <input type="radio" name="reason" value="other">
+              <span class="reason-card--body">
+                <span class="reason-card--title">Something else</span>
+                <span class="reason-card--desc">A problem that doesn't fit any of the categories above — tell us more below.</span>
+              </span>
+            </label>
+
+          </div>
+        </fieldset>
+
+        <!-- Additional details -->
+        <div class="s-form-group mb24">
+          <label class="s-label" for="report-details">
+            Additional details
+            <span class="fc-black-400 fw-normal">(optional)</span>
+          </label>
+          <p class="s-description mb4">
+            Include links, screenshots, or anything moderators should know.
+            Please don't paste personal information about anyone.
+          </p>
+          <textarea id="report-details" name="details" class="s-textarea"
+                    maxlength="500" rows="5"
+                    placeholder="e.g. This answer copies the top Stack Overflow result verbatim…"
+                    aria-describedby="report-details-message"></textarea>
+          <p class="s-input-message" id="report-details-message">
+            <span data-char-count>0</span> / 500 characters
+          </p>
+        </div>
+
+        <!-- Confirmation -->
+        <div class="s-form-group mb24">
+          <label class="s-checkbox">
+            <input type="checkbox" id="report-confirm" name="confirm">
+            <span class="s-label">
+              I understand that deliberately false reports may result in my account being
+              restricted.
+            </span>
+          </label>
+        </div>
+
+        <!-- Actions -->
+        <div class="d-flex ai-center g8 fw-wrap pt16 bt bc-light">
+          <button type="submit" class="s-btn s-btn__danger">
+            <svg class="svg-icon" aria-hidden="true" width="14" height="14" viewBox="0 0 14 14">
+              <path d="M7 1 1 12h12L7 1Zm0 3.25.75 3.5h-1.5L7 4.25ZM7 10.5a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z"/>
+            </svg>
+            Submit report
+          </button>
+          <a class="s-btn s-btn__clear" href="./posts.html">Cancel</a>
+          <span class="fc-black-400 fs-caption ml8">
+            We usually respond within 24 hours.
+          </span>
+        </div>
+
+      </form>
+
+      <!-- ============ SUCCESS PANEL (hidden until submit) ============ -->
+      <section id="report-success" class="success-panel" hidden aria-live="polite">
+        <span class="success-panel--icon">
+          <svg aria-hidden="true" width="32" height="32" viewBox="0 0 32 32">
+            <path d="M16 2a14 14 0 1 0 0 28A14 14 0 0 0 16 2Zm-1.2 19.5-5-5 1.8-1.8 3.2 3.2 7.2-7.2 1.8 1.8-9 9Z"/>
+          </svg>
+        </span>
+        <h2>Thanks — your report is in the queue</h2>
+        <p>
+          A moderator will review the post and take action if it violates our
+          <a class="s-link" href="#">community guidelines</a>. You'll get a
+          notification once a decision has been made.
+        </p>
+        <div class="d-flex ai-center jc-center g8">
+          <a class="s-btn" href="./posts.html">Back to questions</a>
+          <a class="s-btn s-btn__clear" href="#">View my reports</a>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- ---------- RIGHT RAIL ---------- -->
+    <aside class="sidebar-right md:d-none" aria-label="Report guidance">
+
+      <!-- Guidance -->
+      <div class="guide-widget">
+        <h2>Before you report</h2>
+        <p>
+          Reporting is a signal to moderators, not a way to win an argument. Please
+          use it in good faith.
+        </p>
+        <ul>
+          <li>If you disagree with an answer, downvote it — don't report it.</li>
+          <li>If the post is simply unclear, leave a comment asking for clarification.</li>
+          <li>If it's a duplicate, link to the original in the details field.</li>
+          <li>If someone is in immediate danger, contact local authorities first.</li>
+        </ul>
+      </div>
+
+      <!-- What happens next -->
+      <div class="widget">
+        <div class="widget-header">What happens next</div>
+        <div class="widget-body">
+          <ol class="step-list">
+            <li>Your report goes into a moderator queue.</li>
+            <li>A moderator reviews the post and its context.</li>
+            <li>Action is taken if the post breaks the guidelines — edit, lock, or delete.</li>
+            <li>You're notified of the outcome in your inbox.</li>
+          </ol>
+        </div>
+      </div>
+
+      <!-- Urgent cases -->
+      <div class="widget">
+        <div class="widget-header">Urgent cases</div>
+        <div class="widget-body">
+          <p class="mb8">
+            If the post contains an immediate threat or child-safety concern, don't
+            wait for a moderator queue.
+          </p>
+          <a class="s-link" href="#">Contact us directly →</a>
+        </div>
+      </div>
+
+      <!-- Related policies -->
+      <div class="widget">
+        <div class="widget-header">Related policies</div>
+        <div class="widget-body">
+          <ul class="widget-list">
+            <li><a href="#">Community guidelines</a></li>
+            <li><a href="#">Acceptable use policy</a></li>
+            <li><a href="#">Moderator code of conduct</a></li>
+            <li><a href="#">Appeals process</a></li>
+          </ul>
+        </div>
+      </div>
+
+    </aside>
+
+  </div>
+
+  <!-- ================= FOOTER ================= -->
+  <site-footer></site-footer>
+
+  <script type="module" src="./js/components/site-header.js"></script>
+  <script type="module" src="./js/components/site-footer.js"></script>
+
+  <!-- ================= VALIDATION + SUBMIT ================= -->
+  <script type="module" src="./js/report-form.js"></script>
+
+</body>
+</html>
