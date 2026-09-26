@@ -8,6 +8,10 @@
 //  Không build step, không thư viện — `customElements` là API có sẵn
 //  của trình duyệt từ 2018.
 //
+//  Trạng thái đăng nhập (debug):
+//      <site-header is-logged-in="true"></site-header>   → hiện avatar
+//      <site-header></site-header>                        → hiện Log in / Sign up
+//
 //  TODO: sửa nội dung header ở đây — sửa một lần, mọi trang đổi theo.
 // ============================================================
 
@@ -27,18 +31,38 @@ const TEMPLATE = /* html */ `
     </svg>
   </div>
 
+  <!-- Auth actions: rendered by JS depending on is-logged-in -->
+  <div class="header-auth d-flex ai-center g4" data-auth-slot></div>
+</header>`;
+
+const AUTH_GUEST = /* html */ `
   <a class="s-btn s-btn__clear s-btn__sm" href="./login.html">Log in</a>
   <a class="s-btn s-btn__sm" href="./register.html">Sign up</a>
+`;
 
-  <!-- <a href="#" class="s-avatar bg-blue-300 ml4" aria-label="Your profile">
+const AUTH_USER = /* html */ `
+  <a href="./profile.html"
+     class="s-avatar bg-blue-300 ml4 header-user-avatar"
+     aria-label="Your profile"
+     title="Your profile">
     <span class="s-avatar--letter">A</span>
-  </a> -->
-</header>`;
+  </a>
+`;
 
 const LOGO_LIGHT = './img/Tech4Rum_logo.png';
 const LOGO_DARK  = './img/Tech4Rum_dark_logo.png';
 
 class SiteHeader extends HTMLElement {
+  // Tell the browser to call attributeChangedCallback for this attribute.
+  static get observedAttributes() {
+    return ['is-logged-in'];
+  }
+
+  get isLoggedIn() {
+    // Strict match — "TRUE", "1", "" etc. all count as logged out.
+    return this.getAttribute('is-logged-in') === 'true';
+  }
+
   connectedCallback() {
     this.innerHTML = TEMPLATE;
 
@@ -68,6 +92,21 @@ class SiteHeader extends HTMLElement {
     if (active) {
       this.querySelector(`[data-nav="${active}"]`)?.classList.add('is-active');
     }
+
+    // Initial auth state.
+    this._renderAuth();
+  }
+
+  attributeChangedCallback(name, oldValue, newValue) {
+    if (name === 'is-logged-in' && oldValue !== newValue) {
+      this._renderAuth();
+    }
+  }
+
+  _renderAuth() {
+    const slot = this.querySelector('[data-auth-slot]');
+    if (!slot) return;
+    slot.innerHTML = this.isLoggedIn ? AUTH_USER : AUTH_GUEST;
   }
 }
 

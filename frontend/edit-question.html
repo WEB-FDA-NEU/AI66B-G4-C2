@@ -3,20 +3,22 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Ask a public question — Tech4Rum</title>
+  <title>Edit question — Tech4Rum</title>
 
-  <!-- Design system -->
   <link rel="stylesheet" href="./css/reset.css">
   <link rel="stylesheet" href="./css/tokens.css">
   <link rel="stylesheet" href="./css/layout.css">
   <link rel="stylesheet" href="./css/components.css">
   <link rel="stylesheet" href="./css/extra.css">
 
-  <!-- KaTeX + highlight.js themes -->
+  <!-- KaTeX (math) -->
   <link rel="stylesheet"
         href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+
+  <!-- highlight.js theme (light) -->
   <link rel="stylesheet"
         href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github.min.css">
+
 </head>
 
 <body class="theme-light">
@@ -29,18 +31,19 @@
   <!-- ================= HERO ================= -->
   <div class="ask-hero">
     <div class="ask-hero__inner d-flex ai-center g16">
-      <h1 class="fs-headline1 fw-normal mb0 fl-grow1">Ask a public question</h1>
+      <h1 class="fs-headline1 fw-normal mb0 fl-grow1">Edit question</h1>
       <svg class="ask-hero__illustration d-none md:d-block" width="120" height="78"
            viewBox="0 0 120 78" aria-hidden="true">
         <rect x="4" y="10" width="76" height="52" rx="4" fill="none"
               stroke="currentColor" stroke-width="2"/>
         <path d="M16 24h44M16 34h52M16 44h34" stroke="currentColor"
               stroke-width="2" stroke-linecap="round"/>
-        <circle cx="98" cy="30" r="14" fill="none" stroke="currentColor" stroke-width="2"/>
-        <path d="M108 40l10 10" stroke="currentColor" stroke-width="2"
-              stroke-linecap="round"/>
-        <path d="M92 30h12M98 24v12" stroke="currentColor" stroke-width="2"
-              stroke-linecap="round"/>
+        <path d="M88 60 L104 44 L110 50 L94 66 L88 66 Z"
+              fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linejoin="round"/>
+        <path d="M104 44 L108 40 L114 46 L110 50"
+              fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linejoin="round"/>
       </svg>
     </div>
   </div>
@@ -63,7 +66,16 @@
     <!-- ---------- MAIN ---------- -->
     <main id="main" class="fl-grow1" style="min-width: 0;">
 
-      <form class="s-form-group" action="#" method="post" novalidate>
+      <!-- Edit-context strip (populated by JS) -->
+      <div class="edit-context mb16" id="edit-context" role="status" aria-live="polite">
+        <svg class="svg-icon" aria-hidden="true" width="16" height="16" viewBox="0 0 16 16">
+          <path d="M8 1a7 7 0 1 1 0 14A7 7 0 0 1 8 1Zm0 1.2a5.8 5.8 0 1 0 0 11.6A5.8 5.8 0 0 0 8 2.2ZM7.4 11h1.2v1.2H7.4V11Zm0-6.4h1.2v5H7.4v-5Z"/>
+        </svg>
+        <span id="edit-context-text">Loading question…</span>
+      </div>
+
+      <form class="s-form-group edit-form is-loading" id="edit-form"
+            action="#" method="post" novalidate>
 
         <!-- ===== Title ===== -->
         <div class="s-form-group">
@@ -76,30 +88,6 @@
                  maxlength="150" autocomplete="off" required>
           <div class="s-input-message fc-black-400">
             <span id="title-count" class="fw-bold">0</span> / 150 characters
-          </div>
-
-          <div class="similar-questions" role="status">
-            <h4>
-              <svg class="svg-icon va-text-bottom mr4" aria-hidden="true"
-                   width="14" height="14" viewBox="0 0 14 14">
-                <path d="M7 1a6 6 0 1 1 0 12A6 6 0 0 1 7 1Zm0 1.2a4.8 4.8 0 1 0 0 9.6 4.8 4.8 0 0 0 0-9.6ZM6.4 8.6h1.2V10H6.4V8.6Zm0-4.6h1.2v3.6H6.4V4Z"/>
-              </svg>
-              Questions that may already have your answer
-            </h4>
-            <ul>
-              <li>
-                <a href="#">React StrictMode double-invokes effects — how do I avoid duplicate fetches?</a>
-                <span class="fc-black-400">· 12 answers</span>
-              </li>
-              <li>
-                <a href="#">Is double rendering in React 18 development mode a bug?</a>
-                <span class="fc-black-400">· 4 answers</span>
-              </li>
-              <li>
-                <a href="#">Why is my useEffect running twice on mount?</a>
-                <span class="fc-black-400">· 9 answers</span>
-              </li>
-            </ul>
           </div>
         </div>
 
@@ -127,9 +115,9 @@
               <button class="tool-btn" type="button" id="preview-toggle">Preview</button>
             </div>
 
-            <label class="v-visible-sr" for="answer-body">Your question body</label>
-            <textarea id="answer-body" name="body" class="s-textarea" rows="10"
-                      placeholder="Thanks for contributing a question to Tech4Rum!&#10;&#10;Markdown and $LaTeX$ are supported."></textarea>
+            <label class="v-visible-sr" for="answer-body">Question body</label>
+            <textarea id="answer-body" name="body" class="s-textarea" rows="14"
+                      placeholder="Describe the problem, what you've tried, and what you expected to happen…"></textarea>
 
             <div id="answer-preview" class="s-prose editor-preview" style="display:none;"></div>
           </div>
@@ -153,50 +141,50 @@
           </div>
 
           <div class="tag-editor" id="tag-editor">
-            <span class="s-tag" data-tag="reactjs">
-              reactjs
-              <button type="button" class="s-tag--dismiss" aria-label="Remove tag reactjs">
-                <svg viewBox="0 0 14 14" aria-hidden="true">
-                  <path d="M7 5.586 11.293 1.293l1.414 1.414L8.414 7l4.293 4.293-1.414 1.414L7 8.414l-4.293 4.293-1.414-1.414L5.586 7 1.293 2.707l1.414-1.414L7 5.586Z"/>
-                </svg>
-              </button>
-            </span>
-            <span class="s-tag" data-tag="javascript">
-              javascript
-              <button type="button" class="s-tag--dismiss" aria-label="Remove tag javascript">
-                <svg viewBox="0 0 14 14" aria-hidden="true">
-                  <path d="M7 5.586 11.293 1.293l1.414 1.414L8.414 7l4.293 4.293-1.414 1.414L7 8.414l-4.293 4.293-1.414-1.414L5.586 7 1.293 2.707l1.414-1.414L7 5.586Z"/>
-                </svg>
-              </button>
-            </span>
             <input id="tag-input" type="text" placeholder="e.g. rust" autocomplete="off"
                    aria-label="Add a tag">
           </div>
 
           <div class="s-input-message fc-black-400">
-            <span id="tag-count" class="fw-bold">2</span> / 5 tags
+            <span id="tag-count" class="fw-bold">0</span> / 5 tags
           </div>
         </div>
 
-        <!-- ===== Extras ===== -->
+        <!-- ===== Edit summary ===== -->
         <div class="s-form-group">
-          <label class="s-checkbox">
-            <input type="checkbox" name="self-answer">
-            <span class="s-label">
-              Answer your own question
-              <span class="s-description">
-                Share your knowledge Q&amp;A-style — you can post an answer at the same time as your question.
-              </span>
-            </span>
+          <label class="s-label" for="edit-summary">
+            Edit summary
+            <span class="s-badge s-badge__sm s-badge__warning">required</span>
           </label>
+          <div class="s-description">
+            Briefly describe your changes. This helps reviewers understand what you fixed and
+            appears in the revision history.
+          </div>
+          <input class="s-input" id="edit-summary" name="edit-summary" type="text"
+                 maxlength="300" autocomplete="off" required
+                 placeholder="e.g. Fixed grammar, added an AbortController example, corrected the effect snippet">
+          <div class="s-input-message fc-black-400">
+            <span id="summary-count" class="fw-bold">0</span> / 300 characters
+          </div>
         </div>
 
         <!-- ===== Actions ===== -->
         <div class="d-flex ai-center g8 fw-wrap mt8">
-          <button type="submit" class="s-btn">Post your question</button>
-          <button type="button" class="s-btn s-btn__clear">Save as draft</button>
+          <button type="submit" class="s-btn" id="save-btn" disabled>Save edits</button>
+          <a class="s-btn s-btn__clear" href="./post-detail-beta.html">Cancel</a>
           <span class="fl-grow1"></span>
-          <button type="button" class="s-btn s-btn__link s-btn__link__danger">Discard draft</button>
+          <button type="button" class="s-btn s-btn__link s-btn__link__danger" id="delete-btn">
+            Delete post
+          </button>
+        </div>
+
+        <!-- ===== Danger zone note ===== -->
+        <div class="danger-zone">
+          <div class="fc-black-400 fs-caption" style="max-width: 46rem;">
+            Once saved, your edits become publicly visible and will appear in the post's
+            revision history. Deleted posts can be restored within 30 days by a moderator.
+          </div>
+          <a class="s-link s-link__muted fs-caption" href="#">Editing help</a>
         </div>
 
       </form>
@@ -204,58 +192,42 @@
     </main>
 
     <!-- ---------- RIGHT RAIL ---------- -->
-    <aside class="sidebar-right md:d-none" aria-label="Question guidance">
+    <aside class="sidebar-right md:d-none" aria-label="Edit guidance">
 
       <div class="guide-widget">
-        <h2>Step 1: Summarize the problem</h2>
+        <h2>How to edit a post</h2>
         <p>
-          The community is here to help you with specific coding, algorithm, or language problems.
-        </p>
-        <p>
-          Avoid asking opinion-based questions.
+          Editing is for clarifying meaning, not changing it. Keep the original author's
+          intent intact.
         </p>
         <ul>
-          <li>Include details about your goal</li>
-          <li>Describe expected and actual results</li>
-          <li>Include any error messages</li>
+          <li><strong>Fix typos &amp; grammar</strong> — small edits that don't change meaning.</li>
+          <li><strong>Add missing context</strong> — versions, error messages, repro steps.</li>
+          <li><strong>Improve formatting</strong> — fenced code blocks, tags, headings.</li>
+          <li><strong>Don't</strong> answer in the question body. Use a separate answer.</li>
         </ul>
       </div>
 
-      <div class="guide-widget">
-        <h2>Step 2: Describe what you've tried</h2>
-        <p>
-          Show what you've tried and tell us what you found (on this site or elsewhere) and why it didn't meet your needs. You can get better answers when you provide research.
-        </p>
-      </div>
-
-      <div class="guide-widget">
-        <h2>Step 3: Show some code</h2>
-        <p>
-          When appropriate, share the minimum amount of code others need to reproduce your problem (also called a <a href="#">minimum, reproducible example</a>)
-        </p>
+      <div class="widget">
+        <div class="widget-header">Revision history</div>
+        <div class="widget-body" style="padding-top: var(--su8); padding-bottom: var(--su8);">
+          <ul class="revision-list" id="revision-list">
+            <!-- populated by JS -->
+          </ul>
+        </div>
       </div>
 
       <div class="widget">
-        <div class="widget-header">Before you post</div>
+        <div class="widget-header">Post preview</div>
         <div class="widget-body">
-          <ul class="list-reset d-flex fd-column g8">
-            <li class="d-flex g8">
-              <span class="fc-green-400 fw-bold">✓</span>
-              <span>Title summarizes the specific problem</span>
-            </li>
-            <li class="d-flex g8">
-              <span class="fc-green-400 fw-bold">✓</span>
-              <span>Problem introduced in the body</span>
-            </li>
-            <li class="d-flex g8">
-              <span class="fc-green-400 fw-bold">✓</span>
-              <span>Code shown as a minimal, reproducible example</span>
-            </li>
-            <li class="d-flex g8">
-              <span class="fc-green-400 fw-bold">✓</span>
-              <span>Relevant tags added</span>
-            </li>
-          </ul>
+          <p class="mb8">
+            <a class="s-link" href="./post-detail-beta.html" id="view-post-link">
+              View the current post →
+            </a>
+          </p>
+          <p class="fc-black-400 mb0">
+            Open the published version in a new tab so you can compare while you edit.
+          </p>
         </div>
       </div>
 
@@ -263,8 +235,8 @@
         <div class="widget-header">Need more help?</div>
         <div class="widget-body">
           <ul class="list-reset d-flex fd-column g8">
+            <li><a class="s-link" href="#">Editing help</a></li>
             <li><a class="s-link" href="#">How to Ask a good question</a></li>
-            <li><a class="s-link" href="#">Take the tour</a></li>
             <li><a class="s-link" href="#">Browse the help center</a></li>
           </ul>
         </div>
@@ -288,10 +260,12 @@
   <script type="module" src="./js/components/site-header.js"></script>
   <script type="module" src="./js/components/site-footer.js"></script>
 
-  <!-- markdown-renderer.js is an ES module -->
-  <script defer type="module">
-    import { initAskQuestionEditor } from "./js/ask-question-editor.js";
-    initAskQuestionEditor();
+  <script type="module">
+    import { initEditQuestionPage } from './js/edit-question-page.js';
+
+    const page = await initEditQuestionPage({
+        src: './mock/question.json',
+    });
   </script>
 
 </body>
