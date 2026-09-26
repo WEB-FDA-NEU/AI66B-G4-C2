@@ -15,7 +15,8 @@
   <!-- KaTeX + highlight.js themes -->
   <link rel="stylesheet"
         href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
-  <link rel="stylesheet"
+  <link id="highlight-theme"
+        rel="stylesheet"
         href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
 </head>
 
@@ -29,17 +30,17 @@
   <!-- ================= PAGE ================= -->
   <div class="d-flex ai-start g24 wmx12 mx-auto px16 py24">
 
-  <!-- ---------- LEFT RAIL ---------- -->
-  <aside class="sidebar-left sm:d-none" aria-label="Section navigation">
-    <nav class="s-navigation s-navigation__vertical">
-      <a class="s-navigation--item" href="./index.html">Home</a>
-      <a class="s-navigation--item is-selected" href="./posts.html" aria-current="page">Questions</a>
-      <a class="s-navigation--item" href="#">Discussion</a>
-      <a class="s-navigation--item" href="#">Tags</a>
-      <a class="s-navigation--item" href="#">Users</a>
-      <a class="s-navigation--item" href="./admin.html">Admin</a>
-    </nav>
-  </aside>
+    <!-- ---------- LEFT RAIL ---------- -->
+    <aside class="sidebar-left sm:d-none" aria-label="Section navigation">
+      <nav class="s-navigation s-navigation__vertical">
+        <a class="s-navigation--item" href="./index.html">Home</a>
+        <a class="s-navigation--item is-selected" href="./posts.html" aria-current="page">Questions</a>
+        <a class="s-navigation--item" href="#">Discussion</a>
+        <a class="s-navigation--item" href="#">Tags</a>
+        <a class="s-navigation--item" href="#">Users</a>
+        <a class="s-navigation--item" href="./admin.html">Admin</a>
+      </nav>
+    </aside>
 
     <!-- ---------- MAIN ---------- -->
     <main id="main" class="question-feed">
@@ -136,7 +137,22 @@
     import { init } from "./js/question-page.js";
     init({ src: "./mock/question.json" });
   </script>
+  
   <script type="module" src="./js/components/site-header.js"></script>
   <script type="module" src="./js/components/site-footer.js"></script>
+
+  <script>
+    const highlightTheme = document.getElementById('highlight-theme');
+
+    function updateHighlightTheme() {
+      const isDark = document.body.classList.contains('theme-dark');
+
+      highlightTheme.href = isDark
+        ? 'https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/stackoverflow-dark.min.css'
+        : 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css';
+    }
+
+    updateHighlightTheme();
+  </script>
 </body>
 </html>
