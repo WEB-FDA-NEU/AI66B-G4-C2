@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin — Tech4Rum</title>
+
+  <!-- Design system (5 files) -->
+  <link rel="stylesheet" href="./css/reset.css">
+  <link rel="stylesheet" href="./css/tokens.css">
+  <link rel="stylesheet" href="./css/layout.css">
+  <link rel="stylesheet" href="./css/components.css">
+  <link rel="stylesheet" href="./css/extra.css">
+</head>
+
+<body class="theme-light">
+
+  <a href="#main" class="v-visible-sr">Skip to main content</a>
+
+  <!-- ================= TOP BAR ================= -->
+  <site-header></site-header>
+
+  <!-- ================= PAGE ================= -->
+  <div class="d-flex ai-start g24 wmx12 mx-auto px16 py24">
+
+    <!-- ---------- LEFT RAIL ---------- -->
+    <aside class="sidebar-left sm:d-none" aria-label="Section navigation">
+      <nav class="s-navigation s-navigation__vertical">
+        <a class="s-navigation--item" href="./index.html">Home</a>
+        <a class="s-navigation--item" href="./posts.html">Questions</a>
+        <a class="s-navigation--item" href="#">Discussion</a>
+        <a class="s-navigation--item" href="#">Tags</a>
+        <a class="s-navigation--item" href="#">Users</a>
+        <a class="s-navigation--item is-selected" href="./admin.html" aria-current="page">Admin</a>
+      </nav>
+    </aside>
+
+    <!-- ---------- MAIN ---------- -->
+    <main id="main" class="question-feed">
+
+      <!-- Heading -->
+      <div class="d-flex ai-center jc-space-between g8 fw-wrap mb8">
+        <h1 class="fs-headline1 fw-normal mb0">Admin</h1>
+        <span class="s-badge s-badge__admin">Restricted area</span>
+      </div>
+      <p class="fc-black-500 fs-body1 mb16">
+        Internal moderation console. Only visible to moderators and administrators.
+      </p>
+
+      <div class="s-notice s-notice__warning pl12 bar-md mb24" role="status">
+        All actions taken here are logged and attributed to your account.
+      </div>
+
+      <!-- ================= HORIZONTAL TABS ================= -->
+      <nav class="s-navigation mb24" id="admin-tabs" aria-label="Admin sections">
+        <button class="s-navigation--item is-selected" type="button"
+                data-tab="reports" aria-selected="true">Reports</button>
+        <button class="s-navigation--item" type="button"
+                data-tab="marked" aria-selected="false">Marked Posts</button>
+        <button class="s-navigation--item" type="button"
+                data-tab="users" aria-selected="false">Users</button>
+      </nav>
+
+      <!-- ==================== PANEL: REPORTS ==================== -->
+      <section data-panel="reports" aria-label="Reports listing">
+        <div class="d-flex ai-center jc-space-between g8 fw-wrap mb16">
+          <div>
+            <h2 class="fs-title fw-normal mb4">Reports</h2>
+            <p class="fc-black-400 fs-caption mb0">
+              Content flagged by members of the community.
+            </p>
+          </div>
+
+          <nav class="s-navigation s-navigation__sm" data-filter-nav="reports" aria-label="Report filters">
+            <button class="s-navigation--item is-selected" type="button" data-filter="pending">Pending</button>
+            <button class="s-navigation--item" type="button" data-filter="reviewed">Reviewed</button>
+            <button class="s-navigation--item" type="button" data-filter="all">All</button>
+          </nav>
+        </div>
+
+        <div class="s-table-container">
+          <table class="s-table s-table__stripes">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Reported content</th>
+                <th>Reason</th>
+                <th>Reporter</th>
+                <th>Reported</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="reports-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ==================== PANEL: MARKED POSTS ==================== -->
+      <section data-panel="marked" aria-label="Marked posts listing" hidden>
+        <div class="d-flex ai-center jc-space-between g8 fw-wrap mb16">
+          <div>
+            <h2 class="fs-title fw-normal mb4">Marked Posts</h2>
+            <p class="fc-black-400 fs-caption mb0">
+              Posts flagged as duplicated, violated, off-topic, or otherwise unsuitable.
+            </p>
+          </div>
+
+          <nav class="s-navigation s-navigation__sm" data-filter-nav="marked" aria-label="Mark filters">
+            <button class="s-navigation--item is-selected" type="button" data-filter="all">All marks</button>
+            <button class="s-navigation--item" type="button" data-filter="duplicated">Duplicated</button>
+            <button class="s-navigation--item" type="button" data-filter="violated">Violated</button>
+            <button class="s-navigation--item" type="button" data-filter="off-topic">Off-topic</button>
+          </nav>
+        </div>
+
+        <div class="s-table-container">
+          <table class="s-table s-table__stripes">
+            <thead>
+              <tr>
+                <th>Post</th>
+                <th>Mark</th>
+                <th>Marked by</th>
+                <th>Marked</th>
+                <th>Score</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="marked-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ==================== PANEL: USERS ==================== -->
+      <section data-panel="users" aria-label="Users listing" hidden>
+        <div class="d-flex ai-center jc-space-between g8 fw-wrap mb16">
+          <div>
+            <h2 class="fs-title fw-normal mb4">Users</h2>
+            <p class="fc-black-400 fs-caption mb0">
+              Account records and moderation status. Not visible to regular members.
+            </p>
+          </div>
+
+          <nav class="s-navigation s-navigation__sm" data-filter-nav="users" aria-label="User filters">
+            <button class="s-navigation--item is-selected" type="button" data-filter="all">All</button>
+            <button class="s-navigation--item" type="button" data-filter="suspended">Suspended</button>
+            <button class="s-navigation--item" type="button" data-filter="banned">Banned</button>
+            <button class="s-navigation--item" type="button" data-filter="staff">Staff</button>
+          </nav>
+        </div>
+
+        <div class="s-table-container">
+          <table class="s-table s-table__stripes">
+            <thead>
+              <tr>
+                <th>User</th>
+                <th>Email</th>
+                <th>Reputation</th>
+                <th>Joined</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="users-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- ---------- RIGHT RAIL ---------- -->
+    <aside class="sidebar-right md:d-none" aria-label="Moderation summary">
+
+      <div class="widget">
+        <div class="widget-header">Moderation queue</div>
+        <div class="widget-body">
+          <ul class="widget-list">
+            <li><span class="widget-count">12</span><a href="#" data-tab-jump="reports">Pending reports</a></li>
+            <li><span class="widget-count">7</span><a href="#" data-tab-jump="marked">Marked posts</a></li>
+            <li><span class="widget-count">3</span><a href="#" data-tab-jump="users">Suspended users</a></li>
+            <li><span class="widget-count">2</span><a href="#" data-tab-jump="users">Banned users</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="guide-widget">
+        <h2>Moderation guidelines</h2>
+        <ul>
+          <li>Act on clear violations first — spam, malware, and abuse.</li>
+          <li>Prefer <strong>dismiss</strong> over <strong>delete</strong> when in doubt.</li>
+          <li>Leave a short note when removing content.</li>
+          <li>Escalate ambiguous cases to a senior moderator.</li>
+        </ul>
+      </div>
+
+      <div class="widget">
+        <div class="widget-header">Quick actions</div>
+        <div class="widget-body">
+          <ul class="list-reset d-flex fd-column g8">
+            <li><a class="s-link" href="#">View full moderation log</a></li>
+            <li><a class="s-link" href="#">Export report history</a></li>
+            <li><a class="s-link" href="#">Site-wide settings</a></li>
+          </ul>
+        </div>
+      </div>
+
+    </aside>
+
+  </div>
+
+  <!-- ================= FOOTER ================= -->
+  <site-footer></site-footer>
+
+  <!-- Modular components + page behaviour -->
+  <script type="module" src="./js/components/site-header.js"></script>
+  <script type="module" src="./js/components/site-footer.js"></script>
+  <script type="module" src="./js/pages/admin.js"></script>
+
+</body>
+</html>

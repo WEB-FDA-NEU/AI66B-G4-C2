@@ -1,0 +1,105 @@
+[
+  {
+    "id": 101,
+    "username": "ada_lovelace",
+    "avatarLetter": "A",
+    "avatarColor": "bg-blue-300",
+    "email": "ada@example.com",
+    "reputation": 12480,
+    "joinedAt": "2024-01-12T00:00:00Z",
+    "role": "Admin",
+    "roleTone": "admin",
+    "status": "Active",
+    "statusTone": "success",
+    "actions": [
+      { "label": "Edit", "tone": "clear" }
+    ]
+  },
+  {
+    "id": 102,
+    "username": "dba_raj",
+    "avatarLetter": "D",
+    "avatarColor": "bg-blue-300",
+    "email": "raj@example.com",
+    "reputation": 24900,
+    "joinedAt": "2024-02-03T00:00:00Z",
+    "role": "Moderator",
+    "roleTone": "moderator",
+    "status": "Active",
+    "statusTone": "success",
+    "actions": [
+      { "label": "Edit", "tone": "clear" },
+      { "label": "Demote", "tone": "clear" }
+    ]
+  },
+  {
+    "id": 103,
+    "username": "mira_k",
+    "avatarLetter": "M",
+    "avatarColor": "bg-orange-300",
+    "email": "mira@example.com",
+    "reputation": 1284,
+    "joinedAt": "2024-03-18T00:00:00Z",
+    "role": "User",
+    "roleTone": null,
+    "status": "Active",
+    "statusTone": "success",
+    "actions": [
+      { "label": "Edit", "tone": "clear" },
+      { "label": "Suspend", "tone": "clear" },
+      { "label": "Ban", "tone": "danger" }
+    ]
+  },
+  {
+    "id": 104,
+    "username": "spam_bot_42",
+    "avatarLetter": "S",
+    "avatarColor": "bg-black-300",
+    "email": "spam@spam.io",
+    "reputation": -10,
+    "joinedAt": "2026-09-20T00:00:00Z",
+    "role": "User",
+    "roleTone": null,
+    "status": "Suspended",
+    "statusTone": "warning",
+    "actions": [
+      { "label": "Edit", "tone": "clear" },
+      { "label": "Restore", "tone": "clear" },
+      { "label": "Ban", "tone": "danger" }
+    ]
+  },
+  {
+    "id": 105,
+    "username": "bad_actor",
+    "avatarLetter": "B",
+    "avatarColor": "bg-black-300",
+    "email": "bad@ex.io",
+    "reputation": -200,
+    "joinedAt": "2026-09-15T00:00:00Z",
+    "role": "User",
+    "roleTone": null,
+    "status": "Banned",
+    "statusTone": "danger",
+    "actions": [
+      { "label": "View history", "tone": "clear" }
+    ]
+  },
+  {
+    "id": 106,
+    "username": "lena.ts",
+    "avatarLetter": "L",
+    "avatarColor": "bg-purple-300",
+    "email": "lena@example.com",
+    "reputation": 8017,
+    "joinedAt": "2024-05-22T00:00:00Z",
+    "role": "User",
+    "roleTone": null,
+    "status": "Active",
+    "statusTone": "success",
+    "actions": [
+      { "label": "Edit", "tone": "clear" },
+      { "label": "Promote", "tone": "clear" },
+      { "label": "Ban", "tone": "danger" }
+    ]
+  }
+]
