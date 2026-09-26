@@ -1,0 +1,83 @@
+[
+  {
+    "id": "q-1024",
+    "title": "SQL Server not null column expects input value in SP even though it is set to be an output parameter",
+    "excerpt": "I have done my due diligence and searched web for this one, but I am stumped! I will say that this code worked fine several weeks ago, but suddenly started in with errors…",
+    "tags": ["c#", "sql", "server"],
+    "votes": 0,
+    "answerCount": 0,
+    "views": 2,
+    "author": {
+      "name": "Che Clark",
+      "avatarColor": "bg-blue-300",
+      "avatarLetter": "C"
+    },
+    "action": "asked",
+    "time": "2026-09-26T08:55:00Z"
+  },
+  {
+    "id": "q-1023",
+    "title": "Joining 3 tables and multiple parameters",
+    "excerpt": "I have three tables as below: Ticket type table: id, ticket_type_id, ticket_type_name, event_id, campaign_id…",
+    "tags": ["sql", "mysql", "mariadb"],
+    "votes": 0,
+    "answerCount": 2,
+    "views": 67,
+    "author": {
+      "name": "Ravi",
+      "avatarColor": "bg-green-300",
+      "avatarLetter": "R"
+    },
+    "action": "modified",
+    "time": "2026-09-26T08:50:00Z"
+  },
+  {
+    "id": "q-1022",
+    "title": "Continue running Python script in background",
+    "excerpt": "How do I have a Python script continue running in the background? I'm familiar with nohup and &; I'm more interested in something similar to C's fork()…",
+    "tags": ["python", "linux", "fork"],
+    "votes": 0,
+    "answerCount": 2,
+    "views": 220,
+    "author": {
+      "name": "user4157124",
+      "avatarColor": "bg-purple-300",
+      "avatarLetter": "U"
+    },
+    "action": "modified",
+    "time": "2026-09-26T08:48:00Z"
+  },
+  {
+    "id": "q-1021",
+    "title": "Is Array.prototype.reduce more efficient than Math.sumPrecise for summing an array of integers?",
+    "excerpt": "The classical way for summing an array of numbers in JS is arr.reduce((a, b) => a + b). In 2026, Math.sumPrecise() was added to the specification…",
+    "tags": ["javascript", "arrays", "performance", "sum", "reduce"],
+    "votes": -3,
+    "answerCount": 2,
+    "views": 277,
+    "author": {
+      "name": "CacheLine",
+      "avatarColor": "bg-orange-300",
+      "avatarLetter": "C"
+    },
+    "action": "answered",
+    "time": "2026-09-26T08:45:00Z"
+  },
+  {
+    "id": "q-1020",
+    "title": "Android Toolbar to appear at the bottom of the screen instead of the top",
+    "excerpt": "I am trying to set a toolbar at the bottom of the screen after an event but the toolbar is tied to the top of the screen. Any idea how do i set it to be at the bottom?",
+    "tags": ["android", "layout", "toolbar"],
+    "votes": 2,
+    "answerCount": 3,
+    "views": 8000,
+    "author": {
+      "name": "Community",
+      "avatarColor": "bg-black-200",
+      "avatarLetter": "C",
+      "badge": { "label": "Bot", "variant": "bot" }
+    },
+    "action": "modified",
+    "time": "2026-09-26T08:29:00Z"
+  }
+]
