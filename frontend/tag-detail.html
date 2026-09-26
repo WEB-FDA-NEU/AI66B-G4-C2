@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tag — Tech4Rum</title>
+
+  <link rel="stylesheet" href="./css/reset.css">
+  <link rel="stylesheet" href="./css/tokens.css">
+  <link rel="stylesheet" href="./css/layout.css">
+  <link rel="stylesheet" href="./css/components.css">
+  <link rel="stylesheet" href="./css/extra.css">
+</head>
+
+<body class="theme-light">
+
+  <a href="#main" class="v-visible-sr">Skip to main content</a>
+
+  <!-- ================= TOP BAR ================= -->
+  <site-header></site-header>
+
+  <!-- ================= PAGE ================= -->
+  <div class="d-flex ai-start g24 wmx12 mx-auto px16 py24">
+
+    <!-- ---------- LEFT RAIL ---------- -->
+    <aside class="sidebar-left sm:d-none" aria-label="Section navigation">
+      <nav class="s-navigation s-navigation__vertical">
+        <a class="s-navigation--item" href="./home_beta.html">Home</a>
+        <a class="s-navigation--item" href="./questions.html">Questions</a>
+        <a class="s-navigation--item" href="./discussions.html">Discussion</a>
+        <a class="s-navigation--item is-selected"  aria-current="page">Tags</a>
+        <a class="s-navigation--item" href="./user-profile.html" >Users</a>
+        <a class="s-navigation--item" href="./admin.html">Admin</a>
+      </nav>
+    </aside>
+
+    <!-- ---------- MAIN ---------- -->
+    <main id="main" class="question-feed">
+
+      <!-- Tag header -->
+      <div class="d-flex ai-center jc-space-between g8 mb4">
+        <h1 class="fs-headline1 fw-normal mb0" id="tag-name">tag</h1>
+        <button class="s-btn" type="button" id="watch-tag-btn">Watch tag</button>
+      </div>
+      <p class="fc-black-500 fs-body1 mb16" id="tag-description">Loading…</p>
+
+      <!-- Type tabs -->
+      <nav class="s-navigation mb12" id="type-tabs" aria-label="Post type">
+        <button class="s-navigation--item is-selected" type="button" data-type="quest">Questions</button>
+        <button class="s-navigation--item" type="button" data-type="discuss">Discussions</button>
+      </nav>
+
+      <div class="d-flex ai-center jc-space-between g8 fw-wrap mb16">
+        <div class="fc-black-500 fs-caption" data-question-count>Loading…</div>
+
+        <nav class="s-navigation s-navigation__sm" id="quest-filters" aria-label="Question filters">
+          <a class="s-navigation--item is-selected" data-filter="newest"  aria-current="true">Newest</a>
+          <a class="s-navigation--item" data-filter="active" >Active</a>
+          <a class="s-navigation--item" data-filter="bountied" >Bountied</a>
+          <a class="s-navigation--item" data-filter="unanswered" >Unanswered</a>
+        </nav>
+
+        <nav class="s-navigation s-navigation__sm d-none" id="discuss-filters" aria-label="Discussion filters">
+          <a class="s-navigation--item is-selected" data-filter="newest"  aria-current="true">Newest</a>
+          <a class="s-navigation--item" data-filter="active" >Active</a>
+          <a class="s-navigation--item" data-filter="most-commented" >Most commented</a>
+          <a class="s-navigation--item" data-filter="no-replies" >No replies</a>
+        </nav>
+      </div>
+
+      <!-- QUESTION LIST -->
+      <div id="question-list" class="question-list"></div>
+
+    </main>
+
+  </div>
+
+  <!-- ================= FOOTER ================= -->
+  <site-footer></site-footer>
+
+  <script src="./js/tag-detail.js" defer></script>
+
+  <script type="module" src="./js/components/site-header.js"></script>
+  <script type="module" src="./js/components/site-footer.js"></script>
+
+</body>
+</html>
