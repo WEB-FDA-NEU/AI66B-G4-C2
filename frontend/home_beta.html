@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, minimum-scale=1.0">
+  <meta name="description" content="Tech4Rum — Where developers learn, share, and build careers">
+  <title>Tech4Rum — Where Developers Learn &amp; Share</title>
+
+  <link rel="stylesheet" href="./css/reset.css">
+  <link rel="stylesheet" href="./css/tokens.css">
+  <link rel="stylesheet" href="./css/layout.css">
+  <link rel="stylesheet" href="./css/components.css">
+  <link rel="stylesheet" href="./css/extra.css">
+</head>
+
+<body class="home-page">
+
+  <a href="#main" class="v-visible-sr">Skip to main content</a>
+
+  <!-- ============================================================
+       SITE HEADER — để extra.css lo styling
+       ============================================================ -->
+  <header class="site-header">
+    <a class="site-logo" href="/" aria-label="Tech4Rum home">
+      <img alt="Tech4Rum" src="./img/logo.png" width="125">
+    </a>
+
+    <div class="header-search ps-relative wmx4 mx8">
+      <label class="v-visible-sr" for="site-search">Search Tech4Rum</label>
+      <input id="site-search" class="s-input s-input__search w100" type="search"
+             placeholder="Search for a question…" autocomplete="off">
+      <svg class="s-input-icon s-input-icon__search svg-icon" aria-hidden="true"
+           width="18" height="18" viewBox="0 0 18 18">
+        <path d="m18 16.5-5.14-5.18h-.35a7 7 0 1 0-1.19 1.19v.35L16.5 18l1.5-1.5ZM7 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8Z"/>
+      </svg>
+    </div>
+
+    <!-- Avatar — hover hiện "Bùi Đụt" -->
+    <a href="#" class="s-avatar s-avatar__32 ml4"
+       aria-label="Bùi Đụt" title="Bùi Đụt">
+      <img class="s-avatar--image" src="./img/avatar_beta.png" alt="Bùi Đụt" width="32" height="32">
+    </a>
+
+    <!-- Help icon — hover hiện "Trung tâm trợ giúp" -->
+    <a href="#" class="s-btn s-btn__clear s-btn__icon ml4"
+       aria-label="Trung tâm trợ giúp" title="Trung tâm trợ giúp">
+      <svg aria-hidden="true" class="svg-icon" width="18" height="18" viewBox="0 0 18 18">
+        <path d="M9 1C4.64 1 1 4.64 1 9s3.64 8 8 8 8-3.64 8-8-3.64-8-8-8m.81 12.13c-.02.71-.55 1.15-1.24 1.13-.66-.02-1.17-.49-1.15-1.2.02-.72.56-1.18 1.22-1.16.7.03 1.2.51 1.17 1.23M11.77 8c-.59.66-1.78 1.09-2.05 1.97a4 4 0 0 0-.09.75c0 .05-.03.16-.18.16H7.88c-.16 0-.18-.1-.18-.15.06-1.35.66-2.2 1.83-2.88.39-.29.7-.75.7-1.24.01-1.24-1.64-1.82-2.35-.72-.21.33-.18.73-.18 1.1H5.75c0-1.97 1.03-3.26 3.03-3.26 1.75 0 3.47.87 3.47 2.83 0 .57-.2 1.05-.48 1.44"/>
+      </svg>
+    </a>
+  </header>
+
+  <!-- ============================================================
+       BỐ CỤC CHÍNH — dùng đúng container của reference
+       (py24 khớp với top: calc(56px + var(--su24)) của extra.css)
+       ============================================================ -->
+  <div class="d-flex ai-start g24 wmx12 mx-auto px16 py24">
+
+    <!-- ---------- LEFT RAIL — extra.css lo sticky ---------- -->
+    <aside class="sidebar-left sm:d-none" aria-label="Section navigation">
+      <nav class="s-navigation s-navigation__vertical">
+        <a class="s-navigation--item" href="#">Home</a>
+        <a class="s-navigation--item is-selected" href="#" aria-current="page">Questions</a>
+        <a class="s-navigation--item" href="#">Discussion</a>
+        <a class="s-navigation--item" href="#">Tags</a>
+        <a class="s-navigation--item" href="#">Users</a>
+      </nav>
+    </aside>
+
+    <!-- ---------- MAIN CONTENT ---------- -->
+    <main id="main" class="question-feed" role="main">
+
+      <section class="s-card p16 mb16">
+        <div class="d-flex jc-space-between ai-center g16 fw-wrap">
+          <div class="fl-grow1">
+            <h1 class="fs-title fw-bold mb4">
+              Hey Anh Tuấn, what do you want to learn today?
+            </h1>
+            <p class="fc-black-400 mb0">
+              Get instant answers with AI Assist, grounded in community-verified knowledge.
+            </p>
+          </div>
+          <a href="./ask.html" class="s-btn s-btn__outlined ws-nowrap">Ask Question</a>
+        </div>
+      </section>
+
+      <div class="d-grid g16 mb24 grid__3 md:grid__2 sm:grid__1">
+
+        <div class="s-card p16 d-flex fd-column g12">
+          <div class="fw-bold fs-body2 fc-black-600">Reputation</div>
+          <div class="d-flex jc-space-around ai-center g12">
+            <span class="fs-headline1 fc-black-500 fl-shrink1" data-testid="reputation-value">1</span>
+            <div class="ws2-300" aria-hidden="true">
+              <svg width="100%" viewBox="0 0 180 30" preserveAspectRatio="none">
+                <rect width="100%" height="33%" fill="var(--blue-200)"></rect>
+                <rect width="100%" height="33%" fill="var(--blue-200)" y="20"></rect>
+                <path stroke="var(--blue-400)" stroke-dasharray="6,6" fill="none" stroke-width="3"
+                      d="M0 27 L90 9.86 L108 13.29 L126 9.86 L144 13.29 L180 3"></path>
+              </svg>
+            </div>
+          </div>
+          <span class="fc-black-400 s-anchors s-anchors__underlined">
+            Earn reputation by <a href="#">Asking</a>, <a href="#">Answering</a> &amp; <a href="#">Editing</a>.
+          </span>
+        </div>
+
+        <div class="s-card p16 d-flex fd-column g12">
+          <div class="fw-bold fs-body2 fc-black-600">Badge progress</div>
+          <div class="d-flex fd-column g16">
+            <span class="fc-black-400">Take the tour to earn your first badge!</span>
+            <a class="s-btn s-btn__filled as-start" href="./tour.html" target="_blank">Get started here</a>
+          </div>
+        </div>
+
+        <div class="s-card p16 d-flex fd-column g12">
+          <div class="d-flex jc-space-between ai-center">
+            <div class="fw-bold fs-body2 fc-black-600">Watched tags</div>
+            <button type="button" class="s-btn s-btn__muted s-btn__icon" title="Watch more tags" aria-label="Watch more tags">
+              <svg aria-hidden="true" class="svg-icon" width="18" height="18" viewBox="0 0 18 18">
+                <path d="m14.53 6.3.28.67C17 7.77 17 7.86 17 8.12V9.8c0 .26 0 .35-2.18 1.22l-.27.66c.98 2.11.91 2.18.73 2.37l-1.3 1.29h-.15q-.3 0-2.14-.8l-.66.27C10.23 17 10.13 17 9.88 17H8.2c-.26 0-.35 0-1.21-2.18l-.67-.27c-1.81.84-2.03.84-2.1.84h-.14l-.12-.1-1.19-1.2c-.18-.18-.24-.25.7-2.4l-.28-.65C1 10.24 1 10.14 1 9.88V8.2c0-.27 0-.35 2.18-1.21l.27-.66c-.98-2.12-.91-2.19-.72-2.39l1.28-1.28h.16q.3.01 2.14.8l.66-.27C7.77 1 7.87 1 8.12 1H9.8c.26 0 .34 0 1.2 2.18l.67.28c1.82-.84 2.03-.84 2.1-.84h.14l.12.1 1.2 1.19c.18.18.24.25-.7 2.4m-8.4 3.9a3.1 3.1 0 1 0 5.73-2.4 3.1 3.1 0 0 0-5.72 2.4"/>
+              </svg>
+            </button>
+          </div>
+          <div class="d-flex fd-column g12">
+            <div class="fc-black-400"><em>You're not watching any tags yet!</em></div>
+            <button type="button" class="s-btn s-btn__outlined as-start" title="Customize your feed">
+              Customize your feed
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <section class="mb24">
+        <header class="d-flex fd-column mb16">
+          <div class="fs-title fw-bold">Interesting posts for you</div>
+          <div class="fs-body1 fc-black-400">
+            Based on your viewing history and watched tags.
+            <button class="s-btn s-btn__link__underlined js-customize-your-feed">Customize your feed</button>
+          </div>
+        </header>
+
+        <ol id="question-mini-list" class="s-card p0 list-reset">
+
+          <li class="bb bc-black-200">
+            <div class="s-post-summary p16">
+              <div class="d-flex fd-column ai-center g8 fl-shrink0">
+                <div class="ta-center">
+                  <div class="fs-body2 fw-bold">0</div>
+                  <div class="fs-fine fc-black-400">votes</div>
+                </div>
+                <div class="ta-center">
+                  <div class="fs-body2 fw-bold">0</div>
+                  <div class="fs-fine fc-black-400">answers</div>
+                </div>
+                <div class="ta-center">
+                  <div class="fs-caption">2</div>
+                  <div class="fs-fine fc-black-400">views</div>
+                </div>
+              </div>
+              <div class="s-post-summary--content">
+                <h3 class="s-post-summary--title">
+                  <a class="s-post-summary--title-link" href="#">
+                    SQL Server not null column expects input value in SP even though it is set to be an output parameter
+                  </a>
+                </h3>
+                <div class="s-post-summary--excerpt fc-black-500">
+                  I have done my due diligence and searched web for this one, but I am stumped! I will say that this code worked fine several weeks ago, but suddenly started in with errors…
+                </div>
+                <div class="d-flex jc-space-between ai-center fw-wrap g8 mt8">
+                  <ul class="list-reset d-flex g4 fw-wrap m0">
+                    <li><a class="s-tag" href="#">c#</a></li>
+                    <li><a class="s-tag" href="#">sql</a></li>
+                    <li><a class="s-tag" href="#">server</a></li>
+                  </ul>
+                  <div class="s-user-card">
+                    <a class="s-avatar s-avatar__16" href="#" aria-hidden="true"></a>
+                    <div class="s-user-card--info">
+                      <a class="s-user-card--link" href="#">Che Clark</a>
+                    </div>
+                    <time class="s-user-card--time">
+                      <a class="s-link s-link__muted" href="#">asked 5 mins ago</a>
+                    </time>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </li>
+
+          <li class="bb bc-black-200">
+            <div class="s-post-summary p16">
+              <div class="d-flex fd-column ai-center g8 fl-shrink0">
+                <div class="ta-center">
+                  <div class="fs-body2 fw-bold">0</div>
+                  <div class="fs-fine fc-black-400">votes</div>
+                </div>
+                <div class="ta-center">
+                  <div class="fs-body2 fw-bold fc-green-500">2</div>
+                  <div class="fs-fine fc-black-400">answers</div>
+                </div>
+                <div class="ta-center">
+                  <div class="fs-caption">67</div>
+                  <div class="fs-fine fc-black-400">views</div>
+                </div>
+              </div>
+              <div class="s-post-summary--content">
+                <h3 class="s-post-summary--title">
+                  <a class="s-post-summary--title-link" href="#">Joining 3 tables and multiple parameters</a>
+                </h3>
+                <div class="s-post-summary--excerpt fc-black-500">
+                  I have three tables as below: Ticket type table: id, ticket_type_id, ticket_type_name, event_id, campaign_id…
+                </div>
+                <div class="d-flex jc-space-between ai-center fw-wrap g8 mt8">
+                  <ul class="list-reset d-flex g4 fw-wrap m0">
+                    <li><a class="s-tag" href="#">sql</a></li>
+                    <li><a class="s-tag" href="#">mysql</a></li>
+                    <li><a class="s-tag" href="#">mariadb</a></li>
+                  </ul>
+                  <div class="s-user-card">
+                    <a class="s-avatar s-avatar__16" href="#" aria-hidden="true"></a>
+                    <div class="s-user-card--info">
+                      <a class="s-user-card--link" href="#">Ravi</a>
+                    </div>
+                    <time class="s-user-card--time">
+                      <a class="s-link s-link__muted" href="#">modified 10 mins ago</a>
+                    </time>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </li>
+
+          <li class="bb bc-black-200">
+            <div class="s-post-summary p16">
+              <div class="d-flex fd-column ai-center g8 fl-shrink0">
+                <div class="ta-center">
+                  <div class="fs-body2 fw-bold">0</div>
+                  <div class="fs-fine fc-black-400">votes</div>
+                </div>
+                <div class="ta-center">
+                  <div class="fs-body2 fw-bold">2</div>
+                  <div class="fs-fine fc-black-400">answers</div>
+                </div>
+                <div class="ta-center">
+                  <div class="fs-caption">220</div>
+                  <div class="fs-fine fc-black-400">views</div>
+                </div>
+              </div>
+              <div class="s-post-summary--content">
+                <h3 class="s-post-summary--title">
+                  <a class="s-post-summary--title-link" href="#">Continue running Python script in background</a>
+                </h3>
+                <div class="s-post-summary--excerpt fc-black-500">
+                  How do I have a Python script continue running in the background? I'm familiar with nohup and &amp;; I'm more interested in something similar to C's fork()…
+                </div>
+                <div class="d-flex jc-space-between ai-center fw-wrap g8 mt8">
+                  <ul class="list-reset d-flex g4 fw-wrap m0">
+                    <li><a class="s-tag" href="#">python</a></li>
+                    <li><a class="s-tag" href="#">linux</a></li>
+                    <li><a class="s-tag" href="#">fork</a></li>
+                  </ul>
+                  <div class="s-user-card">
+                    <a class="s-avatar s-avatar__16" href="#" aria-hidden="true"></a>
+                    <div class="s-user-card--info">
+                      <a class="s-user-card--link" href="#">user4157124</a>
+                    </div>
+                    <time class="s-user-card--time">
+                      <a class="s-link s-link__muted" href="#">modified 12 mins ago</a>
+                    </time>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </li>
+
+          <li class="bb bc-black-200">
+            <div class="s-post-summary p16">
+              <div class="d-flex fd-column ai-center g8 fl-shrink0">
+                <div class="ta-center">
+                  <div class="fs-body2 fw-bold fc-red-500">-3</div>
+                  <div class="fs-fine fc-black-400">votes</div>
+                </div>
+                <div class="ta-center">
+                  <div class="fs-body2 fw-bold fc-green-500">2</div>
+                  <div class="fs-fine fc-black-400">answers</div>
+                </div>
+                <div class="ta-center">
+                  <div class="fs-caption">277</div>
+                  <div class="fs-fine fc-black-400">views</div>
+                </div>
+              </div>
+              <div class="s-post-summary--content">
+                <h3 class="s-post-summary--title">
+                  <a class="s-post-summary--title-link" href="#">
+                    Is Array.prototype.reduce more efficient than Math.sumPrecise for summing an array of integers?
+                  </a>
+                </h3>
+                <div class="s-post-summary--excerpt fc-black-500">
+                  The classical way for summing an array of numbers in JS is arr.reduce((a, b) =&gt; a + b). In 2026, Math.sumPrecise() was added to the specification…
+                </div>
+                <div class="d-flex jc-space-between ai-center fw-wrap g8 mt8">
+                  <ul class="list-reset d-flex g4 fw-wrap m0">
+                    <li><a class="s-tag" href="#">javascript</a></li>
+                    <li><a class="s-tag" href="#">arrays</a></li>
+                    <li><a class="s-tag" href="#">performance</a></li>
+                    <li><a class="s-tag" href="#">sum</a></li>
+                    <li><a class="s-tag" href="#">reduce</a></li>
+                  </ul>
+                  <div class="s-user-card">
+                    <a class="s-avatar s-avatar__16" href="#" aria-hidden="true"></a>
+                    <div class="s-user-card--info">
+                      <a class="s-user-card--link" href="#">CacheLine</a>
+                    </div>
+                    <time class="s-user-card--time">
+                      <a class="s-link s-link__muted" href="#">answered 15 mins ago</a>
+                    </time>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </li>
+
+          <li>
+            <div class="s-post-summary p16">
+              <div class="d-flex fd-column ai-center g8 fl-shrink0">
+                <div class="ta-center">
+                  <div class="fs-body2 fw-bold">2</div>
+                  <div class="fs-fine fc-black-400">votes</div>
+                </div>
+                <div class="ta-center">
+                  <div class="fs-body2 fw-bold">3</div>
+                  <div class="fs-fine fc-black-400">answers</div>
+                </div>
+                <div class="ta-center">
+                  <div class="fs-caption">8k</div>
+                  <div class="fs-fine fc-black-400">views</div>
+                </div>
+              </div>
+              <div class="s-post-summary--content">
+                <h3 class="s-post-summary--title">
+                  <a class="s-post-summary--title-link" href="#">
+                    Android Toolbar to appear at the bottom of the screen instead of the top
+                  </a>
+                </h3>
+                <div class="s-post-summary--excerpt fc-black-500">
+                  I am trying to set a toolbar at the bottom of the screen after an event but the toolbar is tied to the top of the screen. Any idea how do i set it to be at the bottom?
+                </div>
+                <div class="d-flex jc-space-between ai-center fw-wrap g8 mt8">
+                  <ul class="list-reset d-flex g4 fw-wrap m0">
+                    <li><a class="s-tag" href="#">android</a></li>
+                    <li><a class="s-tag" href="#">layout</a></li>
+                    <li><a class="s-tag" href="#">toolbar</a></li>
+                  </ul>
+                  <div class="s-user-card">
+                    <a class="s-avatar s-avatar__16" href="#" aria-hidden="true"></a>
+                    <div class="s-user-card--info">
+                      <a class="s-user-card--link" href="#">Community</a>
+                      <span class="s-badge s-badge__xs s-badge__bot">Bot</span>
+                    </div>
+                    <time class="s-user-card--time">
+                      <a class="s-link s-link__muted" href="#">modified 31 mins ago</a>
+                    </time>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </li>
+
+        </ol>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ================= FOOTER ================= -->
+  <footer class="site-footer">
+    <div class="d-flex fw-wrap g16 wmx12 mx-auto px16 py24">
+      <div class="d-flex fd-column g4" style="min-width: 160px;">
+        <span class="fw-bold fc-black-600 fs-caption">Tech4Rum</span>
+        <a href="#">Questions</a>
+        <a href="#">Discussion</a>
+        <a href="#">Tags</a>
+        <a href="#">Users</a>
+      </div>
+      <div class="d-flex fd-column g4 fl-grow1" style="min-width: 220px;">
+        <span class="fw-bold fc-black-600 fs-caption">Tech4Rum</span>
+        <p class="fc-black-400 fs-fine mb8">
+          If you're having a bad day, just remember that tomorrow could be a good day. It's a gamble. And once you realise you're gambling, you'll be happy again because gambling is awesome.
+        </p>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
