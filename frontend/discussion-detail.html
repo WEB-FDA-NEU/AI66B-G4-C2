@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Discussion — Tech4Rum</title>
+
+  <link rel="stylesheet" href="./css/reset.css">
+  <link rel="stylesheet" href="./css/tokens.css">
+  <link rel="stylesheet" href="./css/layout.css">
+  <link rel="stylesheet" href="./css/components.css">
+  <link rel="stylesheet" href="./css/extra.css">
+
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+</head>
+
+<body class="theme-light">
+
+  <a href="#main" class="v-visible-sr">Skip to main content</a>
+
+  <site-header></site-header>
+
+  <div class="d-flex ai-start g24 wmx12 mx-auto px16 py24">
+
+    <!-- ---------- LEFT RAIL ---------- -->
+    <aside class="sidebar-left sm:d-none" aria-label="Section navigation">
+      <nav class="s-navigation s-navigation__vertical">
+        <a class="s-navigation--item" href="./index.html">Home</a>
+        <a class="s-navigation--item" href="./questions.html">Questions</a>
+        <a class="s-navigation--item is-selected" href="./discussions.html" aria-current="page">Discussion</a>
+        <a class="s-navigation--item" href="#">Tags</a>
+        <a class="s-navigation--item" href="#">Users</a>
+        <a class="s-navigation--item" href="./admin.html">Admin</a>
+      </nav>
+    </aside>
+
+    <!-- ---------- MAIN ---------- -->
+    <main id="main" class="question-feed">
+
+      <!-- Filled by js/pages/discussion-detail.js -->
+      <div id="discussion-root" aria-live="polite"></div>
+
+      <!-- ============ YOUR REPLY (plain text only) ============ -->
+      <section class="mt32" aria-labelledby="reply-heading">
+        <h2 id="reply-heading" class="fs-title fw-normal mb16">Your Reply</h2>
+
+        <div class="reply-editor">
+          <label class="v-visible-sr" for="reply-body">Your reply</label>
+          <textarea id="reply-body" class="s-textarea" rows="6"
+                    placeholder="Share your thoughts…"></textarea>
+        </div>
+
+        <div class="d-flex g8 ai-center mt16 fw-wrap">
+          <button class="s-btn" type="button">Post Reply</button>
+          <span class="fs-caption fc-black-400">
+            Replies are plain text — no markdown formatting.
+          </span>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- ---------- RIGHT RAIL ---------- -->
+    <aside class="sidebar-right md:d-none" aria-label="Sidebar">
+
+      <div class="guide-widget">
+        <h2>Discussion etiquette</h2>
+        <ul>
+          <li>Reply to the point, not the person.</li>
+          <li>If you disagree, explain why — don't just downvote.</li>
+          <li>Long threads are fine; off-topic ones get locked.</li>
+          <li>Reports go to moderators, not to the other person.</li>
+        </ul>
+      </div>
+
+      <div class="widget">
+        <div class="widget-header">Related discussions</div>
+        <div class="widget-body">
+          <ul class="widget-list">
+            <li><span class="widget-count">31</span><a href="#">Managing .env files across multiple projects</a></li>
+            <li><span class="widget-count">19</span><a href="#">1Password vs Bitwarden for engineering teams</a></li>
+            <li><span class="widget-count">12</span><a href="#">How do you onboard a new dev without secrets in Slack?</a></li>
+            <li><span class="widget-count">8</span><a href="#">direnv workflows that actually stick</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="widget">
+        <div class="widget-header">Need more help?</div>
+        <div class="widget-body">
+          <ul class="list-reset d-flex fd-column g8">
+            <li><a class="s-link" href="#">Discussion guidelines</a></li>
+            <li><a class="s-link" href="#">Report a post</a></li>
+            <li><a class="s-link" href="#">Browse the help center</a></li>
+          </ul>
+        </div>
+      </div>
+
+    </aside>
+
+  </div>
+
+  <site-footer></site-footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+  <script type="module" src="./js/components/site-header.js"></script>
+  <script type="module" src="./js/components/site-footer.js"></script>
+  <script type="module" src="./js/pages/discussion-detail.js"></script>
+
+</body>
+</html>

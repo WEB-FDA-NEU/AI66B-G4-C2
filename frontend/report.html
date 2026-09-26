@@ -27,8 +27,8 @@
     <aside class="sidebar-left sm:d-none" aria-label="Section navigation">
       <nav class="s-navigation s-navigation__vertical">
         <a class="s-navigation--item" href="./index.html">Home</a>
-        <a class="s-navigation--item is-selected" href="./posts.html" aria-current="page">Questions</a>
-        <a class="s-navigation--item" href="#">Discussion</a>
+        <a class="s-navigation--item is-selected" href="./questions.html" aria-current="page">Questions</a>
+        <a class="s-navigation--item" href="./discussions.html">Discussion</a>
         <a class="s-navigation--item" href="#">Tags</a>
         <a class="s-navigation--item" href="#">Users</a>
         <a class="s-navigation--item" href="./admin.html">Admin</a>
@@ -40,9 +40,9 @@
 
       <!-- Breadcrumb -->
       <nav class="breadcrumb" aria-label="Breadcrumb">
-        <a href="./posts.html">Questions</a>
+        <a href="./questions.html">Questions</a>
         <span class="breadcrumb-sep">›</span>
-        <a href="./post-detail-beta.html">Why does React re-render my component twice inside StrictMode?</a>
+        <a href="./question-detail.html">Why does React re-render my component twice inside StrictMode?</a>
         <span class="breadcrumb-sep">›</span>
         <span aria-current="page">Report</span>
       </nav>
@@ -63,7 +63,7 @@
             <span aria-hidden="true">·</span>
             <span>asked 4 minutes ago</span>
           </div>
-          <a class="context-card--title" href="./post-detail-beta.html">
+          <a class="context-card--title" href="./question-detail.html">
             Why does React re-render my component twice inside StrictMode?
           </a>
           <div class="context-card--excerpt">
@@ -88,7 +88,7 @@
 
           <div class="reason-list" role="radiogroup" aria-labelledby="reason-legend">
 
-            <label class="reason-card">
+            <label class="reason-card" data-types="question discussion">
               <input type="radio" name="reason" value="spam">
               <span class="reason-card--body">
                 <span class="reason-card--title">Spam or advertising</span>
@@ -96,7 +96,7 @@
               </span>
             </label>
 
-            <label class="reason-card">
+            <label class="reason-card" data-types="question discussion">
               <input type="radio" name="reason" value="abuse">
               <span class="reason-card--body">
                 <span class="reason-card--title">Rude or abusive</span>
@@ -104,7 +104,7 @@
               </span>
             </label>
 
-            <label class="reason-card">
+            <label class="reason-card" data-types="question">
               <input type="radio" name="reason" value="off-topic">
               <span class="reason-card--body">
                 <span class="reason-card--title">Not an answer / off-topic</span>
@@ -112,7 +112,15 @@
               </span>
             </label>
 
-            <label class="reason-card">
+            <label class="reason-card" data-types="question discussion">
+              <input type="radio" name="reason" value="off-topic-discussion">
+              <span class="reason-card--body">
+                <span class="reason-card--title">Off-topic</span>
+                <span class="reason-card--desc">Doesn't fit the discussion's topic, or is a low-effort drive-by take.</span>
+              </span>
+            </label>
+
+            <label class="reason-card" data-types="question">
               <input type="radio" name="reason" value="duplicate">
               <span class="reason-card--body">
                 <span class="reason-card--title">Duplicate content</span>
@@ -120,7 +128,7 @@
               </span>
             </label>
 
-            <label class="reason-card">
+            <label class="reason-card" data-types="question discussion">
               <input type="radio" name="reason" value="plagiarism">
               <span class="reason-card--body">
                 <span class="reason-card--title">Plagiarism or copyright</span>
@@ -128,7 +136,7 @@
               </span>
             </label>
 
-            <label class="reason-card">
+            <label class="reason-card" data-types="question discussion">
               <input type="radio" name="reason" value="other">
               <span class="reason-card--body">
                 <span class="reason-card--title">Something else</span>
@@ -177,7 +185,7 @@
             </svg>
             Submit report
           </button>
-          <a class="s-btn s-btn__clear" href="./posts.html">Cancel</a>
+          <a class="s-btn s-btn__clear" href="./questions.html">Cancel</a>
           <span class="fc-black-400 fs-caption ml8">
             We usually respond within 24 hours.
           </span>
@@ -199,7 +207,7 @@
           notification once a decision has been made.
         </p>
         <div class="d-flex ai-center jc-center g8">
-          <a class="s-btn" href="./posts.html">Back to questions</a>
+          <a class="s-btn" href="./questions.html">Back to questions</a>
           <a class="s-btn s-btn__clear" href="#">View my reports</a>
         </div>
       </section>

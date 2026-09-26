@@ -6,7 +6,6 @@
     "views": 48,
     "votes": 0,
     "tags": ["reactjs", "javascript", "react-strictmode", "react-hooks"],
-    "badge": null,
     "author": {
       "name": "mira_k",
       "rep": "1,284",
@@ -26,7 +25,6 @@
     "views": 1204,
     "votes": 12,
     "tags": ["postgresql", "sql", "indexing", "performance"],
-    "badge": { "label": "Bounty", "variant": "info" },
     "author": {
       "name": "dba_raj",
       "rep": "24.9k",
@@ -47,7 +45,6 @@
     "views": 73,
     "votes": 5,
     "tags": ["typescript", "type-narrowing", "generics"],
-    "badge": { "label": "Featured", "variant": "featured" },
     "author": {
       "name": "lena.ts",
       "rep": "8,017",
@@ -64,7 +61,6 @@
     "views": 9412,
     "votes": 31,
     "tags": ["rust", "borrow-checker", "lifetimes"],
-    "badge": null,
     "author": {
       "name": "kenji_rs",
       "rep": "3,460",
@@ -84,7 +80,6 @@
     "views": 612,
     "votes": 8,
     "tags": ["docker", "github-actions", "continuous-integration"],
-    "badge": null,
     "author": {
       "name": "priya_dev",
       "rep": "742",
@@ -103,7 +98,6 @@
     "views": 156,
     "votes": 3,
     "tags": ["css", "container-queries", "responsive-design"],
-    "badge": null,
     "author": {
       "name": "nova_css",
       "rep": "521",
@@ -120,14 +114,13 @@
     "views": 177013,
     "votes": 1337,
     "tags": ["natural-stupidity", "parody"],
-    "badge": null,
     "author": {
       "name": "Smart_Calendar1874",
       "rep": "36",
       "avatarColor": "bg-pink-300",
       "avatarLetter": "S"
     },
-    "body": "I want a card grid that reflows based on the width of its container rather than the viewport, because the same component is used inside a narrow sidebar and a full-width page.",
+    "body": "It is imperative that the cylinder and the target object remain unharmed.",
     "answers": []
   }
 ]

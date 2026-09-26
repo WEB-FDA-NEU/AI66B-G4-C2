@@ -27,8 +27,8 @@
     <aside class="sidebar-left sm:d-none" aria-label="Section navigation">
       <nav class="s-navigation s-navigation__vertical">
         <a class="s-navigation--item" href="./index.html">Home</a>
-        <a class="s-navigation--item" href="./posts.html">Questions</a>
-        <a class="s-navigation--item" href="#">Discussion</a>
+        <a class="s-navigation--item" href="./questions.html">Questions</a>
+        <a class="s-navigation--item" href="./discussions.html">Discussion</a>
         <a class="s-navigation--item" href="#">Tags</a>
         <a class="s-navigation--item" href="#">Users</a>
         <a class="s-navigation--item is-selected" href="./admin.html" aria-current="page">Admin</a>
@@ -83,6 +83,7 @@
             <thead>
               <tr>
                 <th>ID</th>
+                <th>Type</th>
                 <th>Reported content</th>
                 <th>Reason</th>
                 <th>Reporter</th>
@@ -111,6 +112,7 @@
             <button class="s-navigation--item" type="button" data-filter="duplicated">Duplicated</button>
             <button class="s-navigation--item" type="button" data-filter="violated">Violated</button>
             <button class="s-navigation--item" type="button" data-filter="off-topic">Off-topic</button>
+            <button class="s-navigation--item" type="button" data-filter="spam">Spam</button>
           </nav>
         </div>
 
@@ -168,44 +170,6 @@
       </section>
 
     </main>
-
-    <!-- ---------- RIGHT RAIL ---------- -->
-    <aside class="sidebar-right md:d-none" aria-label="Moderation summary">
-
-      <div class="widget">
-        <div class="widget-header">Moderation queue</div>
-        <div class="widget-body">
-          <ul class="widget-list">
-            <li><span class="widget-count">12</span><a href="#" data-tab-jump="reports">Pending reports</a></li>
-            <li><span class="widget-count">7</span><a href="#" data-tab-jump="marked">Marked posts</a></li>
-            <li><span class="widget-count">3</span><a href="#" data-tab-jump="users">Suspended users</a></li>
-            <li><span class="widget-count">2</span><a href="#" data-tab-jump="users">Banned users</a></li>
-          </ul>
-        </div>
-      </div>
-
-      <div class="guide-widget">
-        <h2>Moderation guidelines</h2>
-        <ul>
-          <li>Act on clear violations first — spam, malware, and abuse.</li>
-          <li>Prefer <strong>dismiss</strong> over <strong>delete</strong> when in doubt.</li>
-          <li>Leave a short note when removing content.</li>
-          <li>Escalate ambiguous cases to a senior moderator.</li>
-        </ul>
-      </div>
-
-      <div class="widget">
-        <div class="widget-header">Quick actions</div>
-        <div class="widget-body">
-          <ul class="list-reset d-flex fd-column g8">
-            <li><a class="s-link" href="#">View full moderation log</a></li>
-            <li><a class="s-link" href="#">Export report history</a></li>
-            <li><a class="s-link" href="#">Site-wide settings</a></li>
-          </ul>
-        </div>
-      </div>
-
-    </aside>
 
   </div>
 

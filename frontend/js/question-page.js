@@ -132,11 +132,6 @@ function voteCell(votes, accepted) {
           <path d="M3 2h12v15l-6-4-6 4V2Zm2 2v9.5l4-2.7 4 2.7V4H5Z"/>
         </svg>
       </button>
-      <button class="post-side-btn" type="button" aria-label="Timeline">
-        <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
-          <path d="M9 1a8 8 0 1 0 0 16A8 8 0 0 0 9 1Zm0 2a6 6 0 1 1 0 12A6 6 0 0 1 9 3Zm-.75 2v5.25l4.25 2.5.75-1.25-3.5-2V5H8.25Z"/>
-        </svg>
-      </button>
     </div>
   `;
 }
@@ -222,7 +217,7 @@ export function renderQuestionPage(data, root = document.getElementById('questio
             <a class="s-link" href="./edit-question.html">Edit</a>
             <a class="s-link" href="#">Follow</a>
             <a class="s-link" href="#">Close</a>
-            <a class="s-link s-link__danger"
+            <a class="s-btn s-btn__danger s-btn__xs"
               href="${reportUrl('question', data.id)}"
               data-report
               data-report-type="question"

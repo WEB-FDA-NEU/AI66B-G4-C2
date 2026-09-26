@@ -1,0 +1,95 @@
+{
+  "id": 9001,
+  "title": "What's your preferred way to handle environment secrets in local dev?",
+  "time": "2026-09-25T10:16:00Z",
+  "modifiedAt": "2026-09-25T10:16:00Z",
+  "views": 412,
+  "votes": 27,
+  "tags": ["devops", "secrets", "local-dev"],
+  "author": {
+    "name": "dba_raj",
+    "rep": "24.9k",
+    "avatarColor": "bg-blue-300",
+    "avatarLetter": "D"
+  },
+  "body": "I've tried `.env`, direnv, 1Password CLI, and just exporting things in my shell config. Curious what everyone lands on for a daily driver — especially when juggling five projects at once.\n\nBonus points if it plays nicely with Docker Compose and doesn't leak into git by accident.",
+  "comments": [
+    {
+      "id": 10001,
+      "score": 42,
+      "time": "2026-09-25T10:22:00Z",
+      "author": { "name": "kenji_rs", "rep": "3,460" },
+      "body": "direnv + 1Password CLI is the combo that finally stuck for me. Each project gets a `.envrc` with `op run --env-file` and the secrets never hit disk as plaintext.",
+      "replies": [
+        {
+          "id": 10002,
+          "score": 18,
+          "time": "2026-09-25T10:25:00Z",
+          "author": { "name": "mira_k", "rep": "1,284" },
+          "body": "Seconded. The `op run` wrapper is the killer feature — you get the secret injected into the subprocess only.",
+          "replies": [
+            {
+              "id": 10003,
+              "score": 5,
+              "time": "2026-09-25T10:30:00Z",
+              "author": { "name": "priya_dev", "rep": "742" },
+              "body": "Does that work with VSCode's debugger? I remember hitting friction there.",
+              "replies": [
+                {
+                  "id": 10004,
+                  "score": 2,
+                  "time": "2026-09-25T10:33:00Z",
+                  "author": { "name": "kenji_rs", "rep": "3,460" },
+                  "body": "You have to launch VSCode from inside the direnv shell — the debugger inherits the env. Not elegant but works.",
+                  "replies": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": 10005,
+          "score": 7,
+          "time": "2026-09-25T10:41:00Z",
+          "author": { "name": "lena.ts", "rep": "8,017" },
+          "body": "Has anyone measured the startup cost? direnv adds a bit of latency to every `cd`.",
+          "replies": []
+        }
+      ]
+    },
+    {
+      "id": 10010,
+      "score": 31,
+      "time": "2026-09-25T10:35:00Z",
+      "author": { "name": "nova_css", "rep": "521" },
+      "body": "Honestly I just use a `secrets.local.json` file that's gitignored, and a tiny `make` target that exports it. Zero tooling, works everywhere, and I never accidentally commit it because it's in `.gitignore` from the start.",
+      "replies": [
+        {
+          "id": 10011,
+          "score": 14,
+          "time": "2026-09-25T10:40:00Z",
+          "author": { "name": "dba_raj", "rep": "24.9k" },
+          "body": "This is what I'm running now. My concern is: what stops a collaborator from accidentally copying their production values into the local file?",
+          "replies": [
+            {
+              "id": 10012,
+              "score": 9,
+              "time": "2026-09-25T10:44:00Z",
+              "author": { "name": "nova_css", "rep": "521" },
+              "body": "A README warning and code review, which I admit is fragile. But so is every solution here.",
+              "replies": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 10020,
+      "score": 8,
+      "time": "2026-09-25T11:02:00Z",
+      "author": { "name": "priya_dev", "rep": "742" },
+      "body": "We use HashiCorp Vault in prod but for local dev we generate short-lived credentials on `make dev`. Zero persistent secrets on laptops. Would recommend if you already have Vault.",
+      "replies": []
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 /* render-questions.js
- * Fetches questions.json and renders the feed using the Tech4Rum
- * design-system components. No dependencies.
+ * Fetches question-list.json and renders the feed using the Tech4Rum
+ * design-system components. Adds the "Question" badge at the top of
+ * the stats column, mirroring the discussion feed.
  */
 (function () {
   'use strict';
@@ -67,22 +68,7 @@
     };
   }
 
-  function badgeClass(variant) {
-    var map = {
-      info:     's-badge__info',
-      warning:  's-badge__warning',
-      danger:   's-badge__danger',
-      success:  's-badge__success',
-      featured: 's-badge__featured',
-      critical: 's-badge__critical',
-      new:      's-badge__new',
-      tonal:    's-badge__tonal'
-    };
-    var key = String(variant || 'info').toLowerCase();
-    return map[key] || 's-badge__info';
-  }
-
-  /* ---------- renderers ---------- */
+  /* ---------- renderer ---------- */
 
   function renderQuestion(q) {
     var stats    = summariseAnswers(q.answers);
@@ -91,14 +77,6 @@
     var hasAns   = stats.total > 0;
 
     var answeredCls = stats.accepted ? ' post-stat--answered' : '';
-
-    var badgeHtml = '';
-    if (q.badge && q.badge.label) {
-      badgeHtml =
-        '<span class="s-badge ' + badgeClass(q.badge.variant) + ' s-badge__sm">' +
-          escapeHtml(q.badge.label) +
-        '</span>';
-    }
 
     var tagsHtml = (q.tags || []).map(function (t) {
       return '<a class="s-tag" href="#">' + escapeHtml(t) + '</a>';
@@ -116,7 +94,10 @@
 
     return [
       '<div class="s-post-summary" data-question-id="' + escapeHtml(q.id) + '">',
+
+        /* Stats column — Question badge goes here, at the top */
         '<div class="s-post-summary--stats s-post-summary--sm-hide">',
+          '<span class="question-badge">Question</span>',
           '<div class="post-stat">',
             '<span class="post-stat--num">' + escapeHtml(formatCount(votes)) + '</span>',
             plural(votes, 'vote'),
@@ -130,8 +111,7 @@
 
         '<div class="s-post-summary--content">',
           '<h3 class="s-post-summary--title mb0">',
-            '<a class="s-post-summary--title-link" href="./post-detail-beta.html">' + escapeHtml(q.title) + '</a>', // TODO: remove that href link. It was added for demo purpose only
-            badgeHtml,
+            '<a class="s-post-summary--title-link" href="./post-detail-beta.html">' + escapeHtml(q.title) + '</a>',
           '</h3>',
 
           excerpt

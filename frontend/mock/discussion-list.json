@@ -1,0 +1,68 @@
+[
+  {
+    "id": 9001,
+    "title": "What's your preferred way to handle environment secrets in local dev?",
+    "time": "2026-09-25T10:16:00Z",
+    "views": 412,
+    "votes": 27,
+    "replyCount": 34,
+    "tags": ["devops", "secrets", "local-dev"],
+    "author": { "name": "dba_raj", "rep": "24.9k", "avatarColor": "bg-blue-300", "avatarLetter": "D" },
+    "body": "I've tried `.env`, direnv, 1Password CLI, and just exporting things in my shell config. Curious what everyone lands on for a daily driver — especially when juggling five projects at once."
+  },
+  {
+    "id": 9002,
+    "title": "Unpopular opinion: most code reviews are performative theatre",
+    "time": "2026-09-25T09:42:00Z",
+    "views": 1893,
+    "votes": 142,
+    "replyCount": 78,
+    "tags": ["career", "code-review", "opinion"],
+    "author": { "name": "mira_k", "rep": "1,284", "avatarColor": "bg-orange-300", "avatarLetter": "M" },
+    "body": "I keep seeing teams where reviewers rubber-stamp huge diffs, then bikeshed variable names on a 5-line PR. Is this really the best we can do, or am I missing something?"
+  },
+  {
+    "id": 9003,
+    "title": "When do you actually reach for a monorepo?",
+    "time": "2026-09-25T08:55:00Z",
+    "views": 640,
+    "votes": 41,
+    "replyCount": 22,
+    "tags": ["monorepo", "architecture", "tooling"],
+    "author": { "name": "kenji_rs", "rep": "3,460", "avatarColor": "bg-green-300", "avatarLetter": "K" },
+    "body": "Debating whether to merge three repos at work. What's the actual threshold — team size, shared types, deploy cadence? Or is it more about org structure than tech?"
+  },
+  {
+    "id": 9004,
+    "title": "How do you stay productive during the 3pm slump?",
+    "time": "2026-09-25T07:30:00Z",
+    "views": 208,
+    "votes": 19,
+    "replyCount": 47,
+    "tags": ["productivity", "wellbeing"],
+    "author": { "name": "nova_css", "rep": "521", "avatarColor": "bg-yellow-300", "avatarLetter": "N" },
+    "body": "Coffee stopped working. Naps are great but not always possible. Looking for realistic habits that don't involve \"just take a walk\" every time."
+  },
+  {
+    "id": 9005,
+    "title": "Is Rust's learning curve really as bad as people say?",
+    "time": "2026-09-25T06:12:00Z",
+    "views": 1204,
+    "votes": 63,
+    "replyCount": 91,
+    "tags": ["rust", "learning", "career"],
+    "author": { "name": "lena.ts", "rep": "8,017", "avatarColor": "bg-purple-300", "avatarLetter": "L" },
+    "body": "I'm comfortable with Go and TypeScript. Every time I try Rust the borrow checker humbles me in the first hour. Does it get better, or do you just build a mental model and stop fighting it?"
+  },
+  {
+    "id": 9006,
+    "title": "Conference talks: slides or live coding?",
+    "time": "2026-09-25T05:02:00Z",
+    "views": 96,
+    "votes": 12,
+    "replyCount": 14,
+    "tags": ["conferences", "public-speaking"],
+    "author": { "name": "priya_dev", "rep": "742", "avatarColor": "bg-pink-300", "avatarLetter": "P" },
+    "body": "I'm submitting a talk for the first time. Half the advice I read says 'never live-code', the other half says 'slides are boring'. Which actually works in practice?"
+  }
+]
