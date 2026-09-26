@@ -130,7 +130,7 @@
 
         '<div class="s-post-summary--content">',
           '<h3 class="s-post-summary--title mb0">',
-            '<a class="s-post-summary--title-link" href="#">' + escapeHtml(q.title) + '</a>',
+            '<a class="s-post-summary--title-link" href="./post-detail-beta.html">' + escapeHtml(q.title) + '</a>', // TODO: remove that href link. It was added for demo purpose only
             badgeHtml,
           '</h3>',
 
