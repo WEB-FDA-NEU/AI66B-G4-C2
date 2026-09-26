@@ -1,5 +1,5 @@
 /* render-questions.js
- * Fetches questions.json and renders the feed using the devforge
+ * Fetches questions.json and renders the feed using the Tech4Rum
  * design-system components. No dependencies.
  */
 (function () {
