@@ -3,22 +3,20 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Edit question — Tech4Rum</title>
+  <title>Start a new discussion — Tech4Rum</title>
 
+  <!-- Design system -->
   <link rel="stylesheet" href="./css/reset.css">
   <link rel="stylesheet" href="./css/tokens.css">
   <link rel="stylesheet" href="./css/layout.css">
   <link rel="stylesheet" href="./css/components.css">
   <link rel="stylesheet" href="./css/extra.css">
 
-  <!-- KaTeX (math) -->
+  <!-- KaTeX + highlight.js themes -->
   <link rel="stylesheet"
         href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
-
-  <!-- highlight.js theme (light) -->
   <link rel="stylesheet"
         href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github.min.css">
-
 </head>
 
 <body class="theme-light">
@@ -32,21 +30,18 @@
   <div class="ask-hero">
     <div class="ask-hero__inner d-flex ai-center g16">
       <div class="fl-grow1">
-        <span class="question-badge mb8">Question</span>
-        <h1 class="fs-headline1 fw-normal mb0">Edit question</h1>
+        <span class="discussion-badge mb8">Discussion</span>
+        <h1 class="fs-headline1 fw-normal mb0">Start a new discussion</h1>
       </div>
       <svg class="ask-hero__illustration d-none md:d-block" width="120" height="78"
            viewBox="0 0 120 78" aria-hidden="true">
-        <rect x="4" y="10" width="76" height="52" rx="4" fill="none"
-              stroke="currentColor" stroke-width="2"/>
-        <path d="M16 24h44M16 34h52M16 44h34" stroke="currentColor"
+        <path d="M10 14h74a4 4 0 0 1 4 4v32a4 4 0 0 1-4 4H42L22 70V54H10a4 4 0 0 1-4-4V18a4 4 0 0 1 4-4Z"
+              fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M22 28h50M22 38h42M22 48h30" stroke="currentColor"
               stroke-width="2" stroke-linecap="round"/>
-        <path d="M88 60 L104 44 L110 50 L94 66 L88 66 Z"
-              fill="none" stroke="currentColor" stroke-width="2"
-              stroke-linejoin="round"/>
-        <path d="M104 44 L108 40 L114 46 L110 50"
-              fill="none" stroke="currentColor" stroke-width="2"
-              stroke-linejoin="round"/>
+        <circle cx="100" cy="42" r="12" fill="none" stroke="currentColor" stroke-width="2"/>
+        <path d="M92 42h16M100 34v16" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round"/>
       </svg>
     </div>
   </div>
@@ -58,8 +53,8 @@
     <aside class="sidebar-left sm:d-none" aria-label="Section navigation">
       <nav class="s-navigation s-navigation__vertical">
         <a class="s-navigation--item" href="./index.html">Home</a>
-        <a class="s-navigation--item is-selected" href="./questions.html" aria-current="page">Questions</a>
-        <a class="s-navigation--item" href="./discussions.html">Discussion</a>
+        <a class="s-navigation--item" href="./questions.html">Questions</a>
+        <a class="s-navigation--item is-selected" href="./discussions.html" aria-current="page">Discussion</a>
         <a class="s-navigation--item" href="#">Tags</a>
         <a class="s-navigation--item" href="#">Users</a>
         <a class="s-navigation--item" href="./admin.html">Admin</a>
@@ -69,25 +64,16 @@
     <!-- ---------- MAIN ---------- -->
     <main id="main" class="fl-grow1" style="min-width: 0;">
 
-      <!-- Edit-context strip (populated by JS) -->
-      <div class="edit-context mb16" id="edit-context" role="status" aria-live="polite">
-        <svg class="svg-icon" aria-hidden="true" width="16" height="16" viewBox="0 0 16 16">
-          <path d="M8 1a7 7 0 1 1 0 14A7 7 0 0 1 8 1Zm0 1.2a5.8 5.8 0 1 0 0 11.6A5.8 5.8 0 0 0 8 2.2ZM7.4 11h1.2v1.2H7.4V11Zm0-6.4h1.2v5H7.4v-5Z"/>
-        </svg>
-        <span id="edit-context-text">Loading question…</span>
-      </div>
-
-      <form class="s-form-group edit-form is-loading" id="edit-form"
-            action="#" method="post" novalidate>
+      <form class="s-form-group" action="#" method="post" novalidate>
 
         <!-- ===== Title ===== -->
         <div class="s-form-group">
-          <label class="s-label" for="question-title">Title</label>
+          <label class="s-label" for="question-title">Topic</label>
           <div class="s-description">
-            Be specific and imagine you're asking a question to another person.
+            Give your discussion a clear, specific title. It's the first thing people read.
           </div>
           <input class="s-input" id="question-title" name="title" type="text"
-                 placeholder="e.g. Why does React re-render my component twice inside StrictMode?"
+                 placeholder="e.g. What's your preferred way to handle environment secrets in local dev?"
                  maxlength="150" autocomplete="off" required>
           <div class="s-input-message fc-black-400">
             <span id="title-count" class="fw-bold">0</span> / 150 characters
@@ -96,10 +82,10 @@
 
         <!-- ===== Body ===== -->
         <div class="s-form-group">
-          <label class="s-label" for="answer-body">What are the details of your problem?</label>
+          <label class="s-label" for="answer-body">What would you like to discuss?</label>
           <div class="s-description">
-            Introduce the problem and expand on what you put in the title. Minimum 20 characters.
-            Markdown, <code>$LaTeX$</code>, and fenced code blocks are supported.
+            Share context, opinions, or open questions. There is no "right answer" here —
+            markdown, <code>$LaTeX$</code>, and fenced code blocks are supported.
           </div>
 
           <div class="editor">
@@ -118,9 +104,9 @@
               <button class="tool-btn" type="button" id="preview-toggle">Preview</button>
             </div>
 
-            <label class="v-visible-sr" for="answer-body">Question body</label>
-            <textarea id="answer-body" name="body" class="s-textarea" rows="14"
-                      placeholder="Describe the problem, what you've tried, and what you expected to happen…"></textarea>
+            <label class="v-visible-sr" for="answer-body">Your discussion body</label>
+            <textarea id="answer-body" name="body" class="s-textarea" rows="12"
+                      placeholder="Kick things off. What have you tried? What's your take?&#10;&#10;Markdown and $LaTeX$ are supported."></textarea>
 
             <div id="answer-preview" class="s-prose editor-preview" style="display:none;"></div>
           </div>
@@ -140,11 +126,11 @@
         <div class="s-form-group">
           <label class="s-label" for="tag-input">Tags</label>
           <div class="s-description">
-            Add up to 5 tags to describe what your question is about. Press <kbd>Enter</kbd> or <kbd>,</kbd> to add.
+            Add up to 5 tags to help people find your discussion. Press <kbd>Enter</kbd> or <kbd>,</kbd> to add.
           </div>
 
           <div class="tag-editor" id="tag-editor">
-            <input id="tag-input" type="text" placeholder="e.g. rust" autocomplete="off"
+            <input id="tag-input" type="text" placeholder="e.g. devops" autocomplete="off"
                    aria-label="Add a tag">
           </div>
 
@@ -153,41 +139,12 @@
           </div>
         </div>
 
-        <!-- ===== Edit summary ===== -->
-        <div class="s-form-group">
-          <label class="s-label" for="edit-summary">
-            Edit summary
-            <span class="s-badge s-badge__sm s-badge__warning">required</span>
-          </label>
-          <div class="s-description">
-            Briefly describe your changes. This helps reviewers understand what you fixed and
-            appears in the revision history.
-          </div>
-          <input class="s-input" id="edit-summary" name="edit-summary" type="text"
-                 maxlength="300" autocomplete="off" required
-                 placeholder="e.g. Fixed grammar, added an AbortController example, corrected the effect snippet">
-          <div class="s-input-message fc-black-400">
-            <span id="summary-count" class="fw-bold">0</span> / 300 characters
-          </div>
-        </div>
-
         <!-- ===== Actions ===== -->
         <div class="d-flex ai-center g8 fw-wrap mt8">
-          <button type="submit" class="s-btn" id="save-btn" disabled>Save edits</button>
-          <a class="s-btn s-btn__clear" href="./question-detail.html">Cancel</a>
+          <button type="submit" class="s-btn">Post discussion</button>
+          <button type="button" class="s-btn s-btn__clear">Save as draft</button>
           <span class="fl-grow1"></span>
-          <button type="button" class="s-btn s-btn__link s-btn__link__danger" id="delete-btn">
-            Delete post
-          </button>
-        </div>
-
-        <!-- ===== Danger zone note ===== -->
-        <div class="danger-zone">
-          <div class="fc-black-400 fs-caption" style="max-width: 46rem;">
-            Once saved, your edits become publicly visible and will appear in the post's
-            revision history. Deleted posts can be restored within 30 days by a moderator.
-          </div>
-          <a class="s-link s-link__muted fs-caption" href="#">Editing help</a>
+          <button type="button" class="s-btn s-btn__link s-btn__link__danger">Discard draft</button>
         </div>
 
       </form>
@@ -195,42 +152,59 @@
     </main>
 
     <!-- ---------- RIGHT RAIL ---------- -->
-    <aside class="sidebar-right md:d-none" aria-label="Edit guidance">
+    <aside class="sidebar-right md:d-none" aria-label="Discussion guidance">
 
       <div class="guide-widget">
-        <h2>How to edit a post</h2>
+        <h2>Step 1: Frame the topic</h2>
         <p>
-          Editing is for clarifying meaning, not changing it. Keep the original author's
-          intent intact.
+          A good discussion title invites a real conversation — it's specific enough
+          to answer, open enough to disagree about.
         </p>
         <ul>
-          <li><strong>Fix typos &amp; grammar</strong> — small edits that don't change meaning.</li>
-          <li><strong>Add missing context</strong> — versions, error messages, repro steps.</li>
-          <li><strong>Improve formatting</strong> — fenced code blocks, tags, headings.</li>
-          <li><strong>Don't</strong> answer in the question body. Use a separate answer.</li>
+          <li>Make the claim or question clear up front</li>
+          <li>Say why it matters to you right now</li>
+          <li>Avoid bait-y phrasing and sweeping generalisations</li>
         </ul>
       </div>
 
-      <div class="widget">
-        <div class="widget-header">Revision history</div>
-        <div class="widget-body" style="padding-top: var(--su8); padding-bottom: var(--su8);">
-          <ul class="revision-list" id="revision-list">
-            <!-- populated by JS -->
-          </ul>
-        </div>
+      <div class="guide-widget">
+        <h2>Step 2: Share your own take</h2>
+        <p>
+          Discussions work best when the OP doesn't just ask — it starts. Share what
+          you currently do, what you've tried, or what changed your mind, and others
+          will respond in kind.
+        </p>
+      </div>
+
+      <div class="guide-widget">
+        <h2>Step 3: Invite disagreement</h2>
+        <p>
+          Good discussions welcome pushback. Instead of "am I right?", try "here's
+          why I think X — what am I missing?". You'll get better replies.
+        </p>
       </div>
 
       <div class="widget">
-        <div class="widget-header">Post preview</div>
+        <div class="widget-header">Before you post</div>
         <div class="widget-body">
-          <p class="mb8">
-            <a class="s-link" href="./question-detail.html" id="view-post-link">
-              View the current post →
-            </a>
-          </p>
-          <p class="fc-black-400 mb0">
-            Open the published version in a new tab so you can compare while you edit.
-          </p>
+          <ul class="list-reset d-flex fd-column g8">
+            <li class="d-flex g8">
+              <span class="fc-green-400 fw-bold">✓</span>
+              <span>The title makes the topic clear</span>
+            </li>
+            <li class="d-flex g8">
+              <span class="fc-green-400 fw-bold">✓</span>
+              <span>Your own perspective is included</span>
+            </li>
+            <li class="d-flex g8">
+              <span class="fc-green-400 fw-bold">✓</span>
+              <span>Relevant tags are added</span>
+            </li>
+            <li class="d-flex g8">
+              <span class="fc-green-400 fw-bold">✓</span>
+              <span>It isn't a question in disguise</span>
+            </li>
+          </ul>
         </div>
       </div>
 
@@ -238,8 +212,8 @@
         <div class="widget-header">Need more help?</div>
         <div class="widget-body">
           <ul class="list-reset d-flex fd-column g8">
-            <li><a class="s-link" href="#">Editing help</a></li>
-            <li><a class="s-link" href="#">How to Ask a good question</a></li>
+            <li><a class="s-link" href="#">Discussion guidelines</a></li>
+            <li><a class="s-link" href="#">How moderation works</a></li>
             <li><a class="s-link" href="#">Browse the help center</a></li>
           </ul>
         </div>
@@ -263,12 +237,10 @@
   <script type="module" src="./js/components/site-header.js"></script>
   <script type="module" src="./js/components/site-footer.js"></script>
 
-  <script type="module">
-    import { initEditQuestionPage } from './js/edit-question-page.js';
-
-    const page = await initEditQuestionPage({
-        src: './mock/question.json',
-    });
+  <!-- Reuse the ask-question editor: IDs match, so no new module is needed -->
+  <script defer type="module">
+    import { initAskQuestionEditor } from "./js/ask-question-editor.js";
+    initAskQuestionEditor();
   </script>
 
 </body>

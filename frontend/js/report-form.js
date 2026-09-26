@@ -95,6 +95,23 @@ export function initReportForm({
 } = {}) {
   const E = { ...defaultEls(), ...(els || {}) };
 
+  /* ---------- Type-aware reason filtering ---------- */
+  const params = new URLSearchParams(window.location.search);
+  const reportType = (params.get('type') || 'question').toLowerCase();
+
+  E.reasonList?.querySelectorAll('.reason-card[data-types]').forEach((card) => {
+    const allowed = (card.dataset.types || '').split(/\s+/);
+    if (!allowed.includes(reportType)) {
+      card.hidden = true;
+      // Uncheck hidden radios so validation doesn't trip on them.
+      const radio = card.querySelector('input[type="radio"]');
+      if (radio) radio.checked = false;
+    }
+  });
+
+// Update the reason list to only inspect visible radios.
+E.reasonInputs = E.reasonInputs.filter((r) => !r.closest('.reason-card')?.hidden);
+
   // Requirement: both form and success containers must exist.
   if (!E.form || !E.success) return null;
 

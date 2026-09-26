@@ -78,5 +78,23 @@
       { "label": "Unmark", "tone": "clear" },
       { "label": "Delete", "tone": "danger" }
     ]
+  },
+
+  {
+    "id": 6,
+    "type": "discussion",
+    "title": "Why is everyone obsessed with Rust? (rant inside)",
+    "url": "#",
+    "mark": "Violated",
+    "markTone": "danger",
+    "markedBy": "Auto-detected",
+    "markedByTone": "bot",
+    "markedAt": "2026-09-25T06:40:00Z",
+    "score": -8,
+    "actions": [
+      { "label": "Review", "tone": "clear" },
+      { "label": "Unmark", "tone": "clear" },
+      { "label": "Delete", "tone": "danger" }
+    ]
   }
 ]
