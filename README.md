@@ -41,6 +41,6 @@ The defining characteristic of Tech4Rum is that the same person can be both a qu
 | Student id | Role | Name | Gihub |
 |---|---|---|---|
 | 11247255 | Leader | Bui Tuan Anh | [BuiDut](https://github.com/BuiDut) |
-| 11247334 | Member | Pham Le Minh Nhat | [Altimaey](https://github.com/Altimary) |
+| 11247334 | Member | Pham Le Minh Nhat | [Altimary](https://github.com/Altimary) |
 | 11247349 | Member | Nguyen Dinh Thang | [thangkaka](https://github.com/thangkaka26)
 | 11247261 | Member | Nguyễn Việt Anh | [VizAnh](https://github.com/VizAnh)
