@@ -209,7 +209,7 @@ export function renderQuestionPage(data, root = document.getElementById('questio
         <div class="post-footer">
           <div class="post-actions">
             <a class="s-link" href="#">Share</a>
-            <a class="s-link" href="#">Edit</a>
+            <a class="s-link" href="./edit-question.html">Edit</a>
             <a class="s-link" href="#">Follow</a>
             <a class="s-link" href="#">Close</a>
             <a class="s-link" href="#">Flag</a>

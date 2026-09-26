@@ -593,3 +593,79 @@
 .similar-questions a {
     color: var(--blue-500);
 }
+
+/* ---------- Edit-context strip ---------- */
+.edit-context {
+    display: flex;
+    align-items: center;
+    gap: var(--su8);
+    padding: var(--su8) var(--su12);
+    background-color: var(--blue-100);
+    border: 1px solid var(--blue-200);
+    border-radius: var(--br-md);
+    color: var(--blue-500);
+    font-size: var(--fs-caption);
+}
+.edit-context a {
+    color: var(--blue-500);
+    font-weight: 600;
+}
+
+/* ---------- Form loading state ---------- */
+.edit-form.is-loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+.edit-form.is-loading::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+}
+
+/* ---------- Revision history ---------- */
+.revision-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+.revision-list li {
+    display: flex;
+    gap: var(--su8);
+    padding: var(--su8) 0;
+    font-size: var(--fs-caption);
+    line-height: var(--lh-sm);
+    color: var(--black-500);
+}
+.revision-list li + li {
+    border-top: 1px solid var(--bc-light);
+}
+.revision-dot {
+    flex: 0 0 auto;
+    width: 8px;
+    height: 8px;
+    border-radius: var(--br-circle);
+    background-color: var(--black-300);
+    margin-top: 6px;
+}
+.revision-dot--current {
+    background-color: var(--green-400);
+}
+.revision-list a {
+    color: var(--black-600);
+    text-decoration: none;
+}
+.revision-list a:hover {
+    color: var(--blue-400);
+}
+
+/* ---------- Danger zone ---------- */
+.danger-zone {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--su16);
+    flex-wrap: wrap;
+    border-top: 1px solid var(--bc-light);
+    margin-top: var(--su24);
+    padding-top: var(--su16);
+}
