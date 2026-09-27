@@ -84,7 +84,7 @@
           '<div class="d-flex ai-center jc-space-between g8 fw-wrap mt8">',
             '<div class="s-post-summary--tags mt0">',
               (d.tags || []).map(function (t) {
-                return '<a class="s-tag" href="#">' + escapeHtml(t) + '</a>';
+                return '<a class="s-tag" href="' + tagUrl(t) + '">' + escapeHtml(t) + '</a>';
               }).join(''),
             '</div>',
 

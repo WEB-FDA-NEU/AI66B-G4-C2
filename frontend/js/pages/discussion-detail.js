@@ -18,6 +18,7 @@ import {
   loadQuestionData,
   reportUrl
 } from '../question-page.js';
+import { tagUrl } from '../tag-url.js';
 
 const MAX_DEPTH = 3;   // 3 visual levels: 0, 1, 2
 
@@ -143,7 +144,7 @@ function renderDiscussionPage(data, root) {
         <div class="s-prose" id="discussion-body"></div>
 
         <div class="post-tags">
-          ${(data.tags || []).map(t => `<a class="s-tag" href="#">${escapeHtml(t)}</a>`).join('')}
+          ${(data.tags || []).map(t => `<a class="s-tag" href="${tagUrl(t)}">${escapeHtml(t)}</a>`).join('')}
         </div>
 
         <div class="post-footer">

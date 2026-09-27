@@ -13,7 +13,9 @@
     "display_name": "Nguyen Dev",
     "avatar": "/static/images/avatars/default.png",
     "bio": "Python developer.",
-    "reputation": 340
+    "reputation": 340,
+    "website": "https://nguyen.dev",
+    "location": "Hà Nội, Việt Nam"
   },
   {
     "id": 103,
