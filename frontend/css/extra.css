@@ -1118,3 +1118,61 @@ a.s-tag:focus-visible {
 .thread-continue a:hover {
     color: var(--blue-400);
 }
+/* ------------------------------------------------------------------
+   Header logout button — same shape as Sign up,
+   red background, white text
+   ------------------------------------------------------------------ */
+
+.header-logout-btn {
+  color: #ffffff !important;
+  background-color: #d1383d !important;   /* red-500 */
+  border-color: #d1383d !important;
+}
+
+.header-logout-btn:hover,
+.header-logout-btn:focus,
+.header-logout-btn:active {
+  color: #ffffff !important;
+  background-color: #b22d31 !important;   /* darker red on hover */
+  border-color: #b22d31 !important;
+}
+
+.header-logout-btn:focus-visible {
+  outline: 2px solid #d1383d !important;
+  outline-offset: 2px;
+}
+
+/* Dark theme variant (body.theme-dark) */
+.theme-dark .header-logout-btn {
+  color: #ffffff !important;
+  background-color: #b22d31 !important;
+  border-color: #b22d31 !important;
+}
+
+.theme-dark .header-logout-btn:hover,
+.theme-dark .header-logout-btn:focus,
+.theme-dark .header-logout-btn:active {
+  color: #ffffff !important;
+  background-color: #8f1f23 !important;
+  border-color: #8f1f23 !important;
+}
+/* ------------------------------------------------------------------
+   Header avatar — circular clip
+   ------------------------------------------------------------------ */
+
+.header-user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.header-user-avatar .s-avatar--image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}

@@ -70,10 +70,6 @@ function renderTag(tag) {
   const count = Number(tag.questionCount) || 0;
   const url   = makeTagUrl(name);
 
-  const activityHtml = (tag.activity || []).map((a, i) =>
-    `${i > 0 ? ', ' : ''}<a href="${url}" title="${escapeHtml(a.title || '')}">${escapeHtml(a.label)}</a>`
-  ).join('');
-
   return `
     <div class="grid--item s-card js-tag-cell d-flex fd-column" role="listitem">
       <div class="d-flex jc-space-between ai-center mb12">
@@ -86,9 +82,8 @@ function renderTag(tag) {
         ? `<div class="flex--item fc-black-500 mb12 v-truncate4">${escapeHtml(tag.description)}</div>`
         : ''}
 
-      <div class="mt-auto d-flex jc-space-between fs-caption fc-black-400">
-        <div class="flex--item">${count.toLocaleString()} questions</div>
-        <div class="flex--item s-anchors s-anchors__inherit">${activityHtml}</div>
+      <div class="mt-auto fs-caption fc-black-400">
+        ${count.toLocaleString()} posts
       </div>
     </div>`;
 }

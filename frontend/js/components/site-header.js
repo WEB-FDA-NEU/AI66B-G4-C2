@@ -49,6 +49,14 @@ const AUTH_USER = /* html */ `
          class="s-avatar--image"
          width="32" height="32">
   </a>
+
+  <a href="./login.html"
+     class="s-btn s-btn__clear s-btn__sm ml4 header-logout-btn"
+     aria-label="Log out"
+     title="Log out"
+     data-logout>
+    Log out
+  </a>
 `;
 
 const LOGO_LIGHT = './img/Tech4Rum_logo.png';
@@ -99,6 +107,20 @@ class SiteHeader extends HTMLElement {
     const slot = this.querySelector('[data-auth-slot]');
     if (!slot) return;
     slot.innerHTML = this.isLoggedIn ? AUTH_USER : AUTH_GUEST;
+    this._wireLogout();
+  }
+
+  _wireLogout() {
+    const btn = this.querySelector('[data-logout]');
+    if (!btn) return;
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      try {
+        localStorage.removeItem('app_token');
+        localStorage.removeItem('app_user');
+      } catch { /* ignore */ }
+      window.location.href = './login.html';
+    });
   }
 
   _initSearch() {
