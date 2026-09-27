@@ -1,277 +1,431 @@
+/**
+ * tag-detail.js
+ *
+ * Renders a single tag's page (tag-detail.html).
+ *   - reads ?tag=<name> from the URL
+ *   - shows tag name + description from ./mock/tags.json
+ *   - lists questions (from ./mock/question-list.json)  under the "Questions" tab
+ *   - lists discussions (from ./mock/discussion-list.json) under the "Discussions" tab
+ *   - sort tabs: Trending / Newest / Most upvotes / Most views / Most replies
+ *
+ * Classic script (loaded with <script src> not type=module), so everything
+ * lives inside an IIFE to avoid polluting the global scope.
+ *
+ * Tag links go through makeTagUrl(), which prefers window.tagUrl when
+ * ./js/tag-url.js has run and falls back to building the URL locally
+ * otherwise. That way load order between the two scripts doesn't matter.
+ */
+
 (function () {
   'use strict';
 
-  var QUEST_JSON   = './mock/question-list.json';
-  var DISCUSS_JSON = './mock/discussion-list.json';
-  var DEFAULT_TAG  = 'javascript';
-  var EXCERPT_LENGTH = 180;
+  const TAGS_URL        = './mock/tags.json';
+  const QUESTIONS_URL   = './mock/question-list.json';
+  const DISCUSSIONS_URL = './mock/discussion-list.json';
 
-  var listEl         = document.getElementById('question-list');
-  var tagNameEl      = document.getElementById('tag-name');
-  var tagDescEl      = document.getElementById('tag-description');
-  var countLabelEl   = document.querySelector('[data-question-count]');
-  var typeTabsEl     = document.getElementById('type-tabs');
-  var questFiltersEl   = document.getElementById('quest-filters');
-  var discussFiltersEl = document.getElementById('discuss-filters');
+  /* ---------------------------------------------------------------- */
+  /* State                                                            */
+  /* ---------------------------------------------------------------- */
 
-  if (!listEl) return;
+  const state = {
+    tag: null,
+    type: 'quest',       // 'quest' | 'discuss'
+    sort: 'trending',
+    questions: [],
+    discussions: []
+  };
 
-  var questItems   = [];
-  var discussItems = [];
-  var activeTag  = DEFAULT_TAG;
-  var activeType = 'quest';
-  var activeQuestFilter   = 'trending';
-  var activeDiscussFilter = 'trending';
-
-  /* ---------------- Helpers ---------------- */
+  /* ---------------------------------------------------------------- */
+  /* Helpers                                                          */
+  /* ---------------------------------------------------------------- */
 
   function escapeHtml(value) {
-    return String(value == null ? '' : value)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
+    return String(value ?? '').replace(/[&<>"']/g, (c) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
   }
 
   function formatCount(n) {
-    var num = Number(n) || 0;
-    if (num >= 1000000) return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'm';
-    if (num >= 1000)    return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+    const num = Number(n) || 0;
+    const abs = Math.abs(num);
+    if (abs >= 1_000_000) return (num / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'm';
+    if (abs >= 1_000)     return (num / 1_000).toFixed(1).replace(/\.0$/, '') + 'k';
     return String(num);
   }
 
-  function truncate(text, len) {
-    var s = String(text || '').replace(/\s+/g, ' ').trim();
-    if (s.length <= len) return s;
-    return s.slice(0, len).replace(/\s+\S*$/, '') + '…';
+  function formatRelativeTime(iso) {
+    if (!iso) return '';
+    const then = new Date(iso).getTime();
+    if (Number.isNaN(then)) return '';
+    const sec = Math.floor(Math.max(0, Date.now() - then) / 1000);
+    if (sec < 60)    return 'just now';
+    const min = Math.floor(sec / 60);
+    if (min < 60)    return min + (min === 1 ? ' minute ago' : ' minutes ago');
+    const hr = Math.floor(min / 60);
+    if (hr < 24)     return hr + (hr === 1 ? ' hour ago' : ' hours ago');
+    const day = Math.floor(hr / 24);
+    if (day < 30)    return day + (day === 1 ? ' day ago' : ' days ago');
+    const mo = Math.floor(day / 30);
+    if (mo < 12)     return mo + (mo === 1 ? ' month ago' : ' months ago');
+    const yr = Math.floor(mo / 12);
+    return yr + (yr === 1 ? ' year ago' : ' years ago');
   }
 
-  function plural(count, word) {
-    return count === 1 ? word : word + 's';
+  function plural(count, singular, pluralForm) {
+    return count === 1 ? singular : (pluralForm || singular + 's');
   }
 
-  /* ---------------- Card renderers ---------------- */
-
-  function renderCard(item, options) {
-    var isDiscuss   = options.isDiscuss;
-    var detailUrl   = options.detailUrl;
-    var replyLabel  = isDiscuss ? 'reply' : 'answer';
-    var replyCount  = options.replyCount;
-    var hasAccepted = options.hasAccepted;
-
-    var votes = Number(item.votes) || 0;
-    var views = Number(item.views) || 0;
-
-    var badgeHtml = isDiscuss
-      ? '<span class="discussion-badge">Discussion</span>'
-      : '<span class="question-badge">Question</span>';
-
-    var answeredCls = hasAccepted ? ' post-stat--answered' : '';
-
-    var tagsHtml = (item.tags || []).map(function (t) {
-      return '<a class="s-tag" href="' + tagUrl(t) + '">' + escapeHtml(t) + '</a>';
-    }).join('');
-
-    return [
-      '<div class="s-post-summary">',
-        '<div class="s-post-summary--stats s-post-summary--sm-hide">',
-          badgeHtml,
-          '<div class="post-stat">',
-            '<span class="post-stat--num">' + escapeHtml(formatCount(votes)) + '</span>',
-            plural(votes, 'vote'),
-          '</div>',
-          '<div class="post-stat' + answeredCls + '">',
-            '<span class="post-stat--num">' + escapeHtml(formatCount(replyCount)) + '</span>',
-            plural(replyCount, replyLabel),
-          '</div>',
-          '<div class="post-stat">',
-            '<span class="post-stat--num">' + escapeHtml(formatCount(views)) + '</span>',
-            plural(views, 'view'),
-          '</div>',
-        '</div>',
-        '<div class="s-post-summary--content">',
-          '<h3 class="s-post-summary--title mb0">',
-            '<a class="s-post-summary--title-link" href="' + detailUrl + '">' + escapeHtml(item.title) + '</a>',
-          '</h3>',
-          '<div class="s-post-summary--excerpt v-truncate2">' + escapeHtml(truncate(item.body, EXCERPT_LENGTH)) + '</div>',
-          '<div class="s-post-summary--tags mt8">' + tagsHtml + '</div>',
-        '</div>',
-      '</div>'
-    ].join('');
+  function truncate(text, max = 200) {
+    const s = String(text ?? '').replace(/\s+/g, ' ').trim();
+    if (s.length <= max) return s;
+    return s.slice(0, max).replace(/\s+\S*$/, '') + '…';
   }
 
-  function renderQuestCard(q) {
-    var answers = Array.isArray(q.answers) ? q.answers : [];
-    var hasAccepted = answers.some(function (a) { return a && a.accepted === true; });
-    return renderCard(q, {
-      isDiscuss: false,
-      detailUrl: './question-detail.html?id=' + encodeURIComponent(q.id),
-      replyCount: answers.length,
-      hasAccepted: hasAccepted
-    });
+  /**
+   * Single point for building tag links.
+   * Prefer window.tagUrl (set by ./js/tag-url.js) when available;
+   * fall back to the canonical shape otherwise. Safe in any load order.
+   */
+  function makeTagUrl(name) {
+    if (typeof window.tagUrl === 'function') return window.tagUrl(name);
+    return './tag-detail.html?tag=' + encodeURIComponent(String(name || ''));
   }
 
-  function renderDiscussCard(d) {
-    var replies = Number(d.replyCount) || 0;
-    return renderCard(d, {
-      isDiscuss: true,
-      detailUrl: './discussion-detail.html?id=' + encodeURIComponent(d.id),
-      replyCount: replies,
-      hasAccepted: false
-    });
+  function readQuery() {
+    const p = new URLSearchParams(location.search);
+    return (p.get('tag') || '').trim().toLowerCase();
   }
 
-  /* ---------------- Filtering / sorting ---------------- */
-
-  function byTag(items) {
-    return items.filter(function (item) {
-      return (item.tags || []).some(function (t) { return t.toLowerCase() === activeTag; });
-    });
-  }
-
-  function timeValue(item) {
-    return new Date(item.time || item.createdAt || 0).getTime() || 0;
-  }
-
-  // "Trending" is a rough score combining votes and views. There's no
-  // real trending signal in the mock data, so this is a reasonable stand-in.
-  function trendingScore(item) {
-    var votes = Number(item.votes) || 0;
-    var views = Number(item.views) || 0;
-    return votes * 3 + views;
-  }
-
-  function sortBy(mode, items) {
-    var copy = items.slice();
-    switch (mode) {
-      case 'newest':
-        return copy.sort(function (a, b) { return timeValue(b) - timeValue(a); });
-      case 'upvotes':
-        return copy.sort(function (a, b) { return (Number(b.votes) || 0) - (Number(a.votes) || 0); });
-      case 'views':
-        return copy.sort(function (a, b) { return (Number(b.views) || 0) - (Number(a.views) || 0); });
-      case 'replies':
-        return copy.sort(function (a, b) { return (Number(b.replyCount) || 0) - (Number(a.replyCount) || 0); });
-      case 'trending':
-      default:
-        return copy.sort(function (a, b) { return trendingScore(b) - trendingScore(a); });
+  async function fetchJson(url) {
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText} — ${url}`);
+    const text = await res.text();
+    if (!text.trim()) throw new Error(`Empty response from ${url}`);
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      throw new Error(`Invalid JSON at ${url}: ${e.message}`);
     }
   }
 
-  function filterQuest(items) {
-    return sortBy(activeQuestFilter, items);
+  /* ---------------------------------------------------------------- */
+  /* Data shaping                                                     */
+  /* ---------------------------------------------------------------- */
+
+  function questionHasTag(q, tagName) {
+    return Array.isArray(q.tags)
+      && q.tags.some((t) => String(t).toLowerCase() === tagName);
   }
 
-  function filterDiscuss(items) {
-    return sortBy(activeDiscussFilter, items);
+  function discussionHasTag(d, tagName) {
+    return Array.isArray(d.tags)
+      && d.tags.some((t) => String(t).toLowerCase() === tagName);
   }
 
-  /* ---------------- Render ---------------- */
+  function shapeQuestion(q) {
+    const answers = Array.isArray(q.answers) ? q.answers : [];
+    const author = q.author || {};
+    return {
+      id: q.id,
+      type: 'question',
+      title: q.title,
+      excerpt: truncate(q.body),
+      tags: q.tags || [],
+      votes: Number(q.votes) || 0,
+      answers: answers.length,
+      views: Number(q.views) || 0,
+      action: answers.length === 0 ? 'asked' : 'answered',
+      time: q.time,
+      author: {
+        name: author.name,
+        reputation: author.rep,
+        avatarColor: author.avatarColor,
+        avatarLetter: author.avatarLetter
+      }
+    };
+  }
 
-  function render() {
-    var isDiscuss = activeType === 'discuss';
-    var raw = byTag(isDiscuss ? discussItems : questItems);
-    var items = isDiscuss ? filterDiscuss(raw) : filterQuest(raw);
+  function shapeDiscussion(d) {
+    const author = d.author || {};
+    return {
+      id: d.id,
+      type: 'discussion',
+      title: d.title,
+      excerpt: truncate(d.body),
+      tags: d.tags || [],
+      votes: Number(d.votes) || 0,
+      answers: Number(d.replyCount) || 0,
+      views: Number(d.views) || 0,
+      action: 'started',
+      time: d.time,
+      author: {
+        name: author.name,
+        reputation: author.rep,
+        avatarColor: author.avatarColor,
+        avatarLetter: author.avatarLetter
+      }
+    };
+  }
 
-    if (tagNameEl) tagNameEl.textContent = activeTag;
-    if (tagDescEl) tagDescEl.textContent = 'Posts tagged [' + activeTag + ']';
-    if (countLabelEl) {
-      countLabelEl.textContent = items.length + ' ' +
-        plural(items.length, isDiscuss ? 'discussion' : 'question');
+  /* ---------------------------------------------------------------- */
+  /* Sorting                                                          */
+  /* ---------------------------------------------------------------- */
+
+  function sortPosts(list, mode) {
+    const copy = [...list];
+    if (mode === 'newest') {
+      copy.sort((a, b) => (new Date(b.time).getTime() || 0) - (new Date(a.time).getTime() || 0));
+    } else if (mode === 'upvotes') {
+      copy.sort((a, b) => b.votes - a.votes);
+    } else if (mode === 'views') {
+      copy.sort((a, b) => b.views - a.views);
+    } else if (mode === 'replies') {
+      copy.sort((a, b) => b.answers - a.answers);
+    } else {
+      // trending: a light score — votes + 2×answers, tie-break by views
+      copy.sort((a, b) => {
+        const sa = a.votes + 2 * a.answers;
+        const sb = b.votes + 2 * b.answers;
+        if (sb !== sa) return sb - sa;
+        return b.views - a.views;
+      });
     }
+    return copy;
+  }
 
-    if (!items.length) {
-      listEl.innerHTML =
-        '<div class="s-empty-state py48">' +
-          '<div class="s-empty-state--title">Nothing here yet for [' + escapeHtml(activeTag) + ']</div>' +
-        '</div>';
+  /* ---------------------------------------------------------------- */
+  /* Row template                                                     */
+  /* ---------------------------------------------------------------- */
+
+  function renderRow(post) {
+    const votes   = post.votes;
+    const answers = post.answers;
+    const views   = post.views;
+    const author  = post.author || {};
+
+    const voteCls   = votes < 0   ? ' fc-red-500'   : '';
+    const answerCls = answers > 0 ? ' fc-green-500' : '';
+
+    const tagsHtml = (post.tags || []).map((t) =>
+      `<li><a class="s-tag" href="${makeTagUrl(t)}">${escapeHtml(t)}</a></li>`
+    ).join('');
+
+    const avatarHtml = author.avatarLetter
+      ? `<a class="s-avatar s-avatar__16 ${escapeHtml(author.avatarColor || 'bg-blue-300')}"
+            href="#" aria-hidden="true" tabindex="-1">
+           <span class="s-avatar--letter">${escapeHtml(author.avatarLetter)}</span>
+         </a>`
+      : `<a class="s-avatar s-avatar__16" href="#" aria-hidden="true" tabindex="-1"></a>`;
+
+    return `
+      <li class="bb bc-black-200">
+        <div class="s-post-summary p16">
+          <div class="d-flex fd-column ai-center g8 fl-shrink0">
+            <div class="ta-center">
+              <div class="fs-body2 fw-bold${voteCls}">${escapeHtml(votes)}</div>
+              <div class="fs-fine fc-black-400">${plural(votes, 'vote')}</div>
+            </div>
+            <div class="ta-center">
+              <div class="fs-body2 fw-bold${answerCls}">${escapeHtml(answers)}</div>
+              <div class="fs-fine fc-black-400">${plural(answers, post.type === 'discussion' ? 'reply' : 'answer', post.type === 'discussion' ? 'replies' : 'answers')}</div>
+            </div>
+            <div class="ta-center">
+              <div class="fs-caption">${escapeHtml(formatCount(views))}</div>
+              <div class="fs-fine fc-black-400">${plural(views, 'view')}</div>
+            </div>
+          </div>
+
+          <div class="s-post-summary--content">
+            <h3 class="s-post-summary--title">
+              <a class="s-post-summary--title-link" href="#">${escapeHtml(post.title)}</a>
+            </h3>
+
+            ${post.excerpt
+              ? `<div class="s-post-summary--excerpt fc-black-500">${escapeHtml(post.excerpt)}</div>`
+              : ''}
+
+            <div class="d-flex jc-space-between ai-center fw-wrap g8 mt8">
+              <ul class="list-reset d-flex g4 fw-wrap m0">${tagsHtml}</ul>
+
+              <div class="s-user-card">
+                ${avatarHtml}
+                <div class="s-user-card--info">
+                  <a class="s-user-card--link" href="#">${escapeHtml(author.name || 'anonymous')}</a>
+                  <span class="s-user-card--rep">${escapeHtml(author.reputation ?? '')}</span>
+                </div>
+                <time class="s-user-card--time" datetime="${escapeHtml(post.time)}">
+                  ${escapeHtml(post.action || 'asked')}
+                  <a class="s-link s-link__muted" href="#">${escapeHtml(formatRelativeTime(post.time))}</a>
+                </time>
+              </div>
+            </div>
+          </div>
+        </div>
+      </li>`;
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Rendering                                                        */
+  /* ---------------------------------------------------------------- */
+
+  function currentPosts() {
+    const source = state.type === 'discuss' ? state.discussions : state.questions;
+    return sortPosts(source, state.sort);
+  }
+
+  function renderList() {
+    const listEl = document.getElementById('question-list');
+    if (!listEl) return;
+
+    const posts = currentPosts();
+
+    listEl.removeAttribute('aria-busy');
+
+    if (!posts.length) {
+      const label = state.type === 'discuss' ? 'discussions' : 'questions';
+      listEl.innerHTML = `
+        <div class="s-card p24 ta-center fc-black-400">
+          No ${escapeHtml(label)} tagged <strong>${escapeHtml(state.tag || '')}</strong> yet.
+        </div>`;
+      updateCount(0);
       return;
     }
 
-    listEl.innerHTML = items.map(isDiscuss ? renderDiscussCard : renderQuestCard).join('');
+    listEl.innerHTML = `<ol class="s-card p0 list-reset">${posts.map(renderRow).join('')}</ol>`;
+    updateCount(posts.length);
   }
 
-  function switchType(type) {
-    activeType = type;
-    if (typeTabsEl) {
-      typeTabsEl.querySelectorAll('[data-type]').forEach(function (btn) {
-        btn.classList.toggle('is-selected', btn.dataset.type === type);
-      });
+  function updateCount(n) {
+    const el = document.querySelector('[data-question-count]');
+    if (!el) return;
+    const label = state.type === 'discuss' ? 'discussion' : 'question';
+    el.textContent = `${n} ${plural(n, label)}`;
+  }
+
+  function renderTagHeader(tag) {
+    const nameEl = document.getElementById('tag-name');
+    const descEl = document.getElementById('tag-description');
+    if (nameEl) nameEl.textContent = tag ? tag.name : (state.tag || 'Tag');
+    if (descEl) {
+      descEl.textContent = tag && tag.description
+        ? tag.description
+        : 'No description available.';
     }
-    if (questFiltersEl)   questFiltersEl.classList.toggle('d-none', type !== 'quest');
-    if (discussFiltersEl) discussFiltersEl.classList.toggle('d-none', type !== 'discuss');
-
-    updateFilterUI(questFiltersEl, activeQuestFilter);
-    updateFilterUI(discussFiltersEl, activeDiscussFilter);
-
-    render();
+    document.title = `${tag ? tag.name : state.tag} — Tech4Rum`;
   }
 
-  /* ---------------- Filter UI helpers ---------------- */
+  /* ---------------------------------------------------------------- */
+  /* Wiring                                                           */
+  /* ---------------------------------------------------------------- */
 
-  function updateFilterUI(navEl, activeFilter) {
-    if (!navEl) return;
-    navEl.querySelectorAll('[data-filter]').forEach(function (a) {
-      var on = a.dataset.filter === activeFilter;
-      a.classList.toggle('is-selected', on);
-      if (on) a.setAttribute('aria-current', 'true');
-      else    a.removeAttribute('aria-current');
-    });
-  }
-
-  function handleFilterClick(navEl, e, which) {
-    var link = e.target.closest('[data-filter]');
-    if (!link || !navEl.contains(link)) return;
-    e.preventDefault();
-    if (which === 'quest') {
-      activeQuestFilter = link.dataset.filter;
-      updateFilterUI(questFiltersEl, activeQuestFilter);
-    } else {
-      activeDiscussFilter = link.dataset.filter;
-      updateFilterUI(discussFiltersEl, activeDiscussFilter);
-    }
-    render();
-  }
-
-  if (typeTabsEl) {
-    typeTabsEl.addEventListener('click', function (e) {
-      var btn = e.target.closest('[data-type]');
-      if (btn) switchType(btn.dataset.type);
-    });
-  }
-
-  if (questFiltersEl) {
-    questFiltersEl.addEventListener('click', function (e) {
-      handleFilterClick(questFiltersEl, e, 'quest');
-    });
-  }
-  if (discussFiltersEl) {
-    discussFiltersEl.addEventListener('click', function (e) {
-      handleFilterClick(discussFiltersEl, e, 'discuss');
-    });
-  }
-
-  /* ---------------- Load ---------------- */
-
-  function load() {
-    var params = new URLSearchParams(window.location.search);
-    activeTag = (params.get('tag') || DEFAULT_TAG).toLowerCase();
-
-    Promise.all([
-      fetch(QUEST_JSON).then(function (r) { return r.json(); }),
-      fetch(DISCUSS_JSON).then(function (r) { return r.json(); })
-    ])
-      .then(function (results) {
-        questItems   = Array.isArray(results[0]) ? results[0] : [];
-        discussItems = Array.isArray(results[1]) ? results[1] : [];
-        render();
-      })
-      .catch(function () {
-        listEl.innerHTML =
-          '<div class="s-notice s-notice__danger mt16">Could not load posts.</div>';
+  function bindTypeTabs() {
+    const nav = document.getElementById('type-tabs');
+    if (!nav) return;
+    nav.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-type]');
+      if (!btn) return;
+      e.preventDefault();
+      state.type = btn.dataset.type;
+      state.sort = 'trending';
+      nav.querySelectorAll('[data-type]').forEach((b) =>
+        b.classList.toggle('is-selected', b === btn));
+      ['#quest-filters', '#discuss-filters'].forEach((sel) => {
+        const n = document.querySelector(sel);
+        if (!n) return;
+        n.querySelectorAll('[data-filter]').forEach((b) =>
+          b.classList.toggle('is-selected', b.dataset.filter === 'trending'));
       });
+      renderList();
+    });
   }
 
-  load();
+  function bindSortNav() {
+    document.querySelectorAll('#quest-filters, #discuss-filters').forEach((nav) => {
+      nav.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-filter]');
+        if (!btn) return;
+        e.preventDefault();
+        state.sort = btn.dataset.filter;
+        nav.querySelectorAll('[data-filter]').forEach((b) =>
+          b.classList.toggle('is-selected', b === btn));
+        renderList();
+      });
+    });
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Bootstrap                                                        */
+  /* ---------------------------------------------------------------- */
+
+  async function init() {
+    const listEl = document.getElementById('question-list');
+
+    state.tag = readQuery();
+
+    if (!state.tag) {
+      renderTagHeader(null);
+      if (listEl) {
+        listEl.innerHTML = `
+          <div class="s-card p24 ta-center fc-black-400">
+            No tag specified. Try <a class="s-link" href="./tags.html">browsing all tags</a>.
+          </div>`;
+      }
+      return;
+    }
+
+    if (listEl) listEl.setAttribute('aria-busy', 'true');
+
+    if (location.protocol === 'file:') {
+      if (listEl) {
+        listEl.innerHTML = `
+          <div class="s-card p24 ta-center fc-red-400">
+            Page opened via file:// — fetch is blocked. Serve the project over HTTP.
+          </div>`;
+      }
+      return;
+    }
+
+    try {
+      const [tagsData, questionsRaw, discussionsRaw] = await Promise.all([
+        fetchJson(TAGS_URL).catch(() => ({ tags: [] })),
+        fetchJson(QUESTIONS_URL),
+        fetchJson(DISCUSSIONS_URL)
+      ]);
+
+      const allTags = Array.isArray(tagsData) ? tagsData : (tagsData.tags || []);
+      const tagMeta = allTags.find((t) => String(t.name || '').toLowerCase() === state.tag);
+      renderTagHeader(tagMeta);
+
+      const questionsRaw2   = Array.isArray(questionsRaw)   ? questionsRaw   : [];
+      const discussionsRaw2 = Array.isArray(discussionsRaw) ? discussionsRaw : [];
+
+      state.questions   = questionsRaw2
+        .filter((q) => questionHasTag(q, state.tag))
+        .map(shapeQuestion);
+
+      state.discussions = discussionsRaw2
+        .filter((d) => discussionHasTag(d, state.tag))
+        .map(shapeDiscussion);
+
+      bindTypeTabs();
+      bindSortNav();
+      renderList();
+    } catch (err) {
+      console.error('[tag-detail] Failed to load:', err);
+      if (listEl) {
+        listEl.removeAttribute('aria-busy');
+        listEl.innerHTML = `
+          <div class="s-card p24 ta-center fc-red-400">
+            Could not load tag data. ${escapeHtml(err.message)}
+          </div>`;
+      }
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init, { once: true });
+  } else {
+    init();
+  }
+
 })();

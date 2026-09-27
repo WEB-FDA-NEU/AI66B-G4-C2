@@ -5,33 +5,31 @@
 //      <site-header></site-header>
 //      <script type="module" src="./js/components/site-header.js"></script>
 //
-//  Không build step, không thư viện — `customElements` là API có sẵn
-//  của trình duyệt từ 2018.
-//
 //  Trạng thái đăng nhập (debug):
 //      <site-header is-logged-in="true"></site-header>   → hiện avatar
 //      <site-header></site-header>                        → hiện Log in / Sign up
-//
-//  TODO: sửa nội dung header ở đây — sửa một lần, mọi trang đổi theo.
 // ============================================================
+
+const SEARCH_URL = './search_result.html';
 
 const TEMPLATE = /* html */ `
 <header class="site-header">
-  <a class="site-logo" href="/" aria-label="Tech4Rum home">
+  <a class="site-logo" href="./index.html" aria-label="Tech4Rum home">
      <img src="./img/Tech4Rum_logo.png" alt="Tech4Rum" class="h48" data-logo />
   </a>
 
-  <div class="header-search ps-relative fl-grow1 wmx4 mx8">
+  <form class="header-search ps-relative fl-grow1 wmx4 mx8"
+        role="search" action="${SEARCH_URL}" method="get"
+        data-search-form>
     <label class="v-visible-sr" for="site-search">Search Tech4Rum</label>
     <input id="site-search" class="s-input s-input__search w100" type="search"
-           placeholder="Search for a question…" autocomplete="off">
+           name="q" placeholder="Search for a question…" autocomplete="off">
     <svg class="s-input-icon s-input-icon__search svg-icon" aria-hidden="true"
          width="18" height="18" viewBox="0 0 18 18">
       <path d="m18 16.5-5.14-5.18h-.35a7 7 0 1 0-1.19 1.19v.35L16.5 18l1.5-1.5ZM7 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8Z"/>
     </svg>
-  </div>
+  </form>
 
-  <!-- Auth actions: rendered by JS depending on is-logged-in -->
   <div class="header-auth d-flex ai-center g4" data-auth-slot></div>
 </header>`;
 
@@ -42,10 +40,13 @@ const AUTH_GUEST = /* html */ `
 
 const AUTH_USER = /* html */ `
   <a href="./profile.html"
-     class="s-avatar bg-blue-300 ml4 header-user-avatar"
-     aria-label="Your profile"
-     title="Your profile">
-    <span class="s-avatar--letter">A</span>
+     class="s-avatar ml4 header-user-avatar"
+     aria-label="Bùi Đụt"
+     title="Bùi Đụt">
+    <img src="./img/avatar.png"
+         alt=""
+         class="s-avatar--image"
+         width="32" height="32">
   </a>
 `;
 
@@ -79,8 +80,8 @@ class SiteHeader extends HTMLElement {
 
     syncLogo();  // trạng thái ban đầu
 
-    // Theo dõi class trên <body>. Khi theme switcher (settings.js)
-    // bật/tắt 'theme-dark', observer tự chạy lại syncLogo().
+    // Theo dõi class trên <body>. Khi theme switcher bật/tắt 'theme-dark',
+    // observer tự chạy lại syncLogo().
     new MutationObserver(syncLogo).observe(document.body, {
       attributes: true,
       attributeFilter: ['class']
@@ -92,6 +93,9 @@ class SiteHeader extends HTMLElement {
     if (active) {
       this.querySelector(`[data-nav="${active}"]`)?.classList.add('is-active');
     }
+
+    // Pre-fill + wire the search box.
+    this._initSearch();
 
     // Initial auth state.
     this._renderAuth();
@@ -107,6 +111,29 @@ class SiteHeader extends HTMLElement {
     const slot = this.querySelector('[data-auth-slot]');
     if (!slot) return;
     slot.innerHTML = this.isLoggedIn ? AUTH_USER : AUTH_GUEST;
+  }
+
+  _initSearch() {
+    const input = this.querySelector('#site-search');
+    if (!input) return;
+
+    // Pre-fill from ?q=… when we're already on the search page.
+    try {
+      const params = new URLSearchParams(location.search);
+      const q = params.get('q');
+      if (q) input.value = q;
+    } catch { /* ignore */ }
+
+    // The form uses method=get + action=./search_result.html,
+    // so a native submit already produces ?q=<value>.
+    // Just guard against empty submissions:
+    input.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      if (!input.value.trim()) {
+        e.preventDefault();
+        input.focus();
+      }
+    });
   }
 }
 
