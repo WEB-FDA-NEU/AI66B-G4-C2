@@ -6,7 +6,9 @@
  *   - Profile header matches user-profile.html (no Follow button);
  *     avatar uses ./img/avatar.png
  *   - 4 tabs: Profile / Questions / Discussions / Answers
- *   - Post cards match questions.html & discussions.html
+ *   - Questions & Discussions cards carry Edit / Delete actions:
+ *       Edit   → ./edit-question.html?id=<id>  (or discussion variant)
+ *       Delete → confirm dialog; removal is permanent in this mock
  *
  * Classic script (loaded with <script src> not type=module).
  */
@@ -17,7 +19,7 @@
   var USERS_JSON    = './mock/users.json';
   var QUEST_JSON    = './mock/question-list.json';
   var DISCUSS_JSON  = './mock/discussion-list.json';
-  var ME_ID         = 101;              // hard-coded "me" for the demo
+  var ME_ID         = 101;
   var AVATAR_SRC    = './img/avatar.png';
   var EXCERPT_LENGTH = 180;
 
@@ -31,10 +33,10 @@
 
   var state = {
     user: null,
-    tab: 'profile',          // 'profile' | 'questions' | 'discussions' | 'answers'
+    tab: 'profile',
     questions: [],
     discussions: [],
-    answers: []              // each entry: { answer, question }
+    answers: []
   };
 
   /* ---------------- Helpers ---------------- */
@@ -109,7 +111,7 @@
     return postName !== '' && postName === userName;
   }
 
-  /* ---------------- Profile header (avatar.png, no Follow button) ---------------- */
+  /* ---------------- Profile header ---------------- */
 
   function renderProfileHeader(user) {
     var rep = formatCount(user.reputation);
@@ -139,7 +141,7 @@
     ].join('');
   }
 
-  /* ---------------- Profile tab panel ---------------- */
+  /* ---------------- Profile tab ---------------- */
 
   function statBox(value, label) {
     return [
@@ -184,7 +186,7 @@
     ].join('');
   }
 
-  /* ---------------- Card renderers ---------------- */
+  /* ---------------- Card pieces ---------------- */
 
   function renderTagsHtml(tags) {
     return (tags || []).map(function (t) {
@@ -215,6 +217,34 @@
       '</div>'
     ].join('');
   }
+
+  /**
+   * Edit / Delete buttons for the current user's own posts.
+   * `kind` is 'question' | 'discussion'.
+   * `id`   is the post id (number or string).
+   */
+  function renderActions(id, kind) {
+    return [
+      '<div class="d-flex g4" data-actions-for="' + escapeHtml(kind) + '-' + escapeHtml(String(id)) + '">',
+        '<button class="s-btn s-btn__xs"',
+        '        type="button"',
+        '        data-action="edit"',
+        '        data-kind="' + escapeHtml(kind) + '"',
+        '        data-id="' + escapeHtml(String(id)) + '">',
+          'Edit',
+        '</button>',
+        '<button class="s-btn s-btn__xs s-btn__danger"',
+        '        type="button"',
+        '        data-action="delete"',
+        '        data-kind="' + escapeHtml(kind) + '"',
+        '        data-id="' + escapeHtml(String(id)) + '">',
+          'Delete',
+        '</button>',
+      '</div>'
+    ].join('');
+  }
+
+  /* ---------------- Card renderers ---------------- */
 
   function renderQuestionCard(q) {
     var stats  = summariseAnswers(q.answers);
@@ -253,6 +283,9 @@
             '<div class="s-post-summary--tags mt0">' + renderTagsHtml(q.tags) + '</div>',
             renderAuthorCard(q.author, q.time, 'asked'),
           '</div>',
+          '<div class="mt8 d-flex ai-center jc-end g8 fw-wrap">',
+            renderActions(q.id, 'question'),
+          '</div>',
         '</div>',
       '</div>'
     ].join('');
@@ -290,6 +323,9 @@
           '<div class="d-flex ai-center jc-space-between g8 fw-wrap mt8">',
             '<div class="s-post-summary--tags mt0">' + renderTagsHtml(d.tags) + '</div>',
             renderAuthorCard(d.author, d.time, 'started'),
+          '</div>',
+          '<div class="mt8 d-flex ai-center jc-end g8 fw-wrap">',
+            renderActions(d.id, 'discussion'),
           '</div>',
         '</div>',
       '</div>'
@@ -347,12 +383,10 @@
   /* ---------------- Render ---------------- */
 
   function renderList() {
-    // Tabs UI
     tabsEl.querySelectorAll('[data-tab]').forEach(function (btn) {
       btn.classList.toggle('is-selected', btn.dataset.tab === state.tab);
     });
 
-    // Profile tab — no count, different layout
     if (state.tab === 'profile') {
       countEl.classList.add('d-none');
       listEl.innerHTML = renderProfileTab(state.user);
@@ -388,6 +422,58 @@
       return;
     }
   }
+
+  /* ---------------- Edit / Delete ---------------- */
+
+  function onEdit(kind, id) {
+    var url;
+    if (kind === 'discussion') {
+      // No discussion editor exists in this mock — fall back to a message.
+      window.alert(
+        'Editing discussions is not supported in this build.\n' +
+        'Would open: ./create-discussion.html?id=' + id
+      );
+      return;
+    }
+    url = './edit-question.html?id=' + encodeURIComponent(id);
+    window.location.href = url;
+  }
+
+  function onDelete(kind, id) {
+    var noun = kind === 'discussion' ? 'discussion' : 'question';
+
+    var msg =
+      'Delete this ' + noun + '?\n\n' +
+      'This will permanently delete it and all its replies. ' +
+      'This action cannot be undone.';
+
+    if (!window.confirm(msg)) return;
+
+    if (kind === 'discussion') {
+      state.discussions = state.discussions.filter(function (d) {
+        return String(d.id) !== String(id);
+      });
+    } else {
+      // Questions: also drop any of my answers attached to it (none in mock)
+      state.questions = state.questions.filter(function (q) {
+        return String(q.id) !== String(id);
+      });
+    }
+
+    renderList();
+  }
+
+  listEl.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-action]');
+    if (!btn) return;
+
+    var action = btn.dataset.action;
+    var kind   = btn.dataset.kind;
+    var id     = btn.dataset.id;
+
+    if (action === 'edit')   onEdit(kind, id);
+    if (action === 'delete') onDelete(kind, id);
+  });
 
   /* ---------------- Wiring ---------------- */
 
@@ -433,7 +519,6 @@
       state.questions   = questions.filter(function (q) { return authorBelongsTo(q.author, user); });
       state.discussions = discussions.filter(function (d) { return authorBelongsTo(d.author, user); });
 
-      // Flatten answers — each answer carries its parent question
       state.answers = [];
       questions.forEach(function (q) {
         (Array.isArray(q.answers) ? q.answers : []).forEach(function (a) {
@@ -443,7 +528,6 @@
         });
       });
 
-      // Swap status → header
       statusEl.classList.add('d-none');
       renderProfileHeader(user);
       headerEl.classList.remove('d-none');

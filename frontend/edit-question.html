@@ -174,7 +174,7 @@
         <!-- ===== Actions ===== -->
         <div class="d-flex ai-center g8 fw-wrap mt8">
           <button type="submit" class="s-btn" id="save-btn" disabled>Save edits</button>
-          <a class="s-btn s-btn__clear" href="./question-detail.html">Cancel</a>
+          <a class="s-btn s-btn__clear" href="./my-content.html">Cancel</a>
           <span class="fl-grow1"></span>
           <button type="button" class="s-btn s-btn__link s-btn__link__danger" id="delete-btn">
             Delete post
@@ -263,12 +263,57 @@
   <script type="module" src="./js/components/site-header.js"></script>
   <script type="module" src="./js/components/site-footer.js"></script>
 
+  <!-- =========================================================
+       Load the right question by ?id= and hand it to the editor
+       ========================================================= -->
   <script type="module">
     import { initEditQuestionPage } from './js/edit-question-page.js';
 
-    const page = await initEditQuestionPage({
-        src: './mock/question.json',
-    });
+    const QUESTIONS_URL = './mock/question-list.json';
+
+    async function loadQuestionForEdit() {
+      const params = new URLSearchParams(location.search);
+      const idParam = params.get('id');
+
+      const res = await fetch(QUESTIONS_URL, { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const list = await res.json();
+      const items = Array.isArray(list) ? list : [];
+
+      if (!items.length) throw new Error('No questions available');
+
+      if (idParam) {
+        const found = items.find(function (q) {
+          return String(q.id) === String(idParam);
+        });
+        if (found) return found;
+        console.warn('[edit-question] id=' + idParam + ' not found — falling back to first');
+      }
+
+      return items[0];
+    }
+
+    try {
+      const data = await loadQuestionForEdit();
+      await initEditQuestionPage({
+        data,
+        onSave: async function (payload) {
+          console.info('[edit-question] save payload', payload);
+        },
+        onDelete: async function () {
+          console.info('[edit-question] delete confirmed');
+        }
+      });
+    } catch (err) {
+      console.error('[edit-question] Failed to load:', err);
+      const ctx = document.getElementById('edit-context-text');
+      if (ctx) {
+        ctx.innerHTML =
+          '<span class="fc-red-400">Could not load the question: ' +
+          String(err.message || err) +
+          '</span>';
+      }
+    }
   </script>
 
 </body>

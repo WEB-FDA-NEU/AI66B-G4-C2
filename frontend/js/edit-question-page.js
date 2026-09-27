@@ -12,7 +12,13 @@
  *
  * Usage:
  *   import { initEditQuestionPage } from './js/edit-question-page.js';
+ *
+ *   // from a JSON file:
  *   const page = await initEditQuestionPage({ src: './mock/question.json' });
+ *
+ *   // or from an object you already loaded (e.g. from question-list.json):
+ *   const page = await initEditQuestionPage({ data: myQuestion });
+ *
  *   // later: page.destroy();
  */
 
@@ -80,7 +86,7 @@ export function renderEditContext(el, data) {
     `You're editing a question asked ` +
     `<time datetime="${escapeHtml(data.time)}" data-iso="${escapeHtml(data.time)}" ` +
     `title="${escapeHtml(askedAt)}">${escapeHtml(timeAgo(data.time))}</time> ` +
-    `by <a href="#" class="s-link">${escapeHtml(data.author.name)}</a>. ` +
+    `by <a href="#" class="s-link">${escapeHtml(data.author && data.author.name || 'anonymous')}</a>. ` +
     `Changes will be visible to everyone.`;
 }
 
@@ -94,7 +100,7 @@ export function renderRevisions(el, data) {
       <span class="revision-dot"></span>
       <div>
         <a href="#">Original post</a> by
-        <a href="#">${escapeHtml(data.author.name)}</a>
+        <a href="#">${escapeHtml(data.author && data.author.name || 'anonymous')}</a>
         <br>
         <span class="fc-black-400">${escapeHtml(formatAbsolute(data.time))}</span>
       </div>
@@ -106,7 +112,7 @@ export function renderRevisions(el, data) {
       <li>
         <span class="revision-dot"></span>
         <div>
-          <a href="#">Edited by ${escapeHtml(data.author.name)}</a>
+          <a href="#">Edited by ${escapeHtml(data.author && data.author.name || 'anonymous')}</a>
           <br>
           <span class="fc-black-400">${escapeHtml(formatAbsolute(data.modifiedAt))}</span>
         </div>
@@ -155,7 +161,6 @@ export function populateEditForm(els, data, {
   }
 
   // Document title + view link
-  // THIS IS FOR FUTURE QUERY (perchance)
   // if (data.title) document.title = `Edit — ${data.title}`;
   // if (els.viewPostLink && data.id != null) {
   //   els.viewPostLink.href = `./question.html#question-${data.id}`;
@@ -168,16 +173,18 @@ export function populateEditForm(els, data, {
 
 /**
  * @param {object}   [opts]
- * @param {string}   [opts.src='./mock/question.json']  URL to fetch JSON from
- * @param {object}   [opts.els]                          override element refs
+ * @param {object}   [opts.data]                         Question object to edit (wins over src)
+ * @param {string}   [opts.src='./mock/question.json']   URL to fetch JSON from (fallback)
+ * @param {object}   [opts.els]                          Override element refs
  * @param {Function} [opts.onSave]                       async (payload) => void
  * @param {Function} [opts.onDelete]                     async () => void
  * @param {boolean}  [opts.autoStartTicker=true]
- * @param {string}   [opts.confirmDelete]                custom confirm text
+ * @param {string}   [opts.confirmDelete]                Custom confirm text
  *
  * @returns {Promise<{destroy: Function, getState: Function}>}
  */
 export async function initEditQuestionPage({
+  data,
   src = './mock/question.json',
   els,
   onSave,
@@ -194,7 +201,6 @@ export async function initEditQuestionPage({
   const updateTitleCount   = bindCounter(E.titleInput,   E.titleCount);
   const updateBodyCount    = bindCounter(E.textarea,     E.bodyCount);
   const updateSummaryCount = bindCounter(E.summaryInput, E.summaryCount);
-  // bindCounter returns a no-op if either side is missing; wrap for safety.
   addTeardown(() => {});
 
   /* ---------- Preview toggle ---------- */
@@ -340,15 +346,15 @@ export async function initEditQuestionPage({
   let stopTicker = null;
 
   try {
-    const data = await loadQuestionData(src);
+    const resolved = data || await loadQuestionData(src);
 
-    populateEditForm(E, data, {
+    populateEditForm(E, resolved, {
       updateTitleCount,
       updateBodyCount,
       updateTagCount
     });
-    renderEditContext(E.contextEl, data);
-    renderRevisions(E.revisionList, data);
+    renderEditContext(E.contextEl, resolved);
+    renderRevisions(E.revisionList, resolved);
 
     // Baseline AFTER populating so an untouched form is "clean"
     original = snapshot();
