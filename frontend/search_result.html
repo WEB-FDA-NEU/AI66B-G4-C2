@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, minimum-scale=1.0">
+  <meta name="description" content="Tech4Rum — Search results">
+  <title>Search Results — Tech4Rum</title>
+
+  <link rel="stylesheet" href="./css/reset.css">
+  <link rel="stylesheet" href="./css/tokens.css">
+  <link rel="stylesheet" href="./css/layout.css">
+  <link rel="stylesheet" href="./css/components.css">
+  <link rel="stylesheet" href="./css/extra.css">
+</head>
+
+<body class="search-page">
+
+  <a href="#main" class="v-visible-sr">Skip to main content</a>
+
+  <!-- SITE HEADER -->
+  <site-header is-logged-in="true"></site-header>
+
+  <!-- MAIN LAYOUT -->
+  <div class="d-flex ai-start g24 wmx12 mx-auto px16 py24">
+
+    <!-- LEFT RAIL -->
+    <aside class="sidebar-left sm:d-none" aria-label="Section navigation">
+      <nav class="s-navigation s-navigation__vertical">
+        <a class="s-navigation--item" href="#">Home</a>
+        <a class="s-navigation--item is-selected" href="#" aria-current="page">Questions</a>
+        <a class="s-navigation--item" href="#">Discussion</a>
+        <a class="s-navigation--item" href="#">Tags</a>
+        <a class="s-navigation--item" href="#">Users</a>
+      </nav>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main id="main" class="fl-grow1" role="main">
+
+      <!-- Header row -->
+      <div class="d-flex mb24 jc-space-between fw-wrap ai-start g16">
+        <h1 class="fl-grow1 fs-headline1 fw-normal mb0">Search Results</h1>
+        <div class="d-flex ai-center g12">
+          <button type="button" class="s-btn s-btn__link" data-advanced-tips-toggle>
+            Advanced Search Tips
+          </button>
+          <a href="./ask.html" class="s-btn s-btn__filled ws-nowrap">Ask Question</a>
+        </div>
+      </div>
+
+      <!-- Advanced search tips (hidden by default) -->
+      <table class="s-table mb24 d-none" data-advanced-tips>
+        <thead>
+          <tr>
+            <th scope="col">Search type</th>
+            <th scope="col">Search syntax</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">Tags</th><td class="ff-mono">[tag]</td></tr>
+          <tr><th scope="row">Exact</th><td class="ff-mono">"words here"</td></tr>
+          <tr><th scope="row">Author</th><td class="ff-mono">user:1234<br>user:me <span class="fc-black-400">(yours)</span></td></tr>
+          <tr><th scope="row">Score</th><td class="ff-mono">score:3 <span class="fc-black-400">(3+)</span><br>score:0 <span class="fc-black-400">(none)</span></td></tr>
+          <tr><th scope="row">Answers</th><td class="ff-mono">answers:3 <span class="fc-black-400">(3+)</span><br>answers:0 <span class="fc-black-400">(none)</span><br>isaccepted:yes<br>hasaccepted:no<br>inquestion:1234</td></tr>
+          <tr><th scope="row">Views</th><td class="ff-mono">views:250</td></tr>
+          <tr><th scope="row">Code</th><td class="ff-mono">code:"if (foo != bar)"</td></tr>
+          <tr><th scope="row">Sections</th><td class="ff-mono">title:apples<br>body:"apples oranges"</td></tr>
+          <tr><th scope="row">URL</th><td class="ff-mono">url:"*.example.com"</td></tr>
+          <tr><th scope="row">Saves</th><td class="ff-mono">in:saves</td></tr>
+          <tr><th scope="row">Status</th><td class="ff-mono">closed:yes<br>duplicate:no<br>migrated:no<br>wiki:no</td></tr>
+          <tr><th scope="row">Types</th><td class="ff-mono">is:question<br>is:answer<br>is:article</td></tr>
+          <tr><th scope="row">Exclude</th><td class="ff-mono">-[tag]<br>-apples<br>collective:-"Name"</td></tr>
+          <tr><th scope="row">Collective</th><td class="ff-mono">collective:"Name"</td></tr>
+          <tr>
+            <td colspan="2">
+              For more details on advanced search
+              <a href="https://stackoverflow.com/help/searching">visit our help page</a>.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- "Results for X" line -->
+      <div class="mb16 fs-caption fc-black-400">
+        Results for <span class="fw-bold" data-query>omega</span>
+      </div>
+
+      <!-- Sort tabs + result count -->
+      <div class="d-flex ai-center jc-space-between mb16 g12 fw-wrap">
+        <div class="fw-bold fs-body1" data-result-count>Loading…</div>
+        <nav class="s-navigation" data-sort-nav aria-label="Sort results">
+          <a href="#" class="s-navigation--item is-selected" data-sort="relevance">Relevance</a>
+          <a href="#" class="s-navigation--item" data-sort="newest">Newest</a>
+        </nav>
+      </div>
+
+      <!-- Results list — populated by ./js/search-results.js -->
+      <ol id="search-results" class="s-card p0 list-reset" aria-busy="true"></ol>
+
+      <!-- Pagination — populated by ./js/search-results.js -->
+      <nav class="s-pagination mt24" data-pagination aria-label="Search pagination"></nav>
+
+    </main>
+  </div>
+
+  <!-- SITE FOOTER -->
+  <site-footer></site-footer>
+
+  <script type="module" src="./js/components/site-header.js"></script>
+  <script type="module" src="./js/components/site-footer.js"></script>
+  <script type="module" src="./js/pages/search-results.js"></script>
+
+</body>
+</html>
