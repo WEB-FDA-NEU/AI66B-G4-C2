@@ -15,8 +15,8 @@ const TEMPLATE = /* html */ `
       <span class="fw-bold fc-black-600 fs-caption">Tech4Rum</span>
       <a href="./questions.html">Questions</a>
       <a href="./discussions.html">Discussion</a>
-      <a href="#">Tags</a>
-      <a href="#">Users</a>
+      <a href="./tags.html">Tags</a>
+      <a href="./users.html">Users</a>
     </div>
     <div class="d-flex fd-column g4 fl-grow1" style="min-width: 220px;">
       <span class="fw-bold fc-black-600 fs-caption">Tech4Rum</span>
