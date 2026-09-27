@@ -25,17 +25,17 @@
     <!-- ---------- LEFT RAIL ---------- -->
     <aside class="sidebar-left sm:d-none" aria-label="Section navigation">
       <nav class="s-navigation s-navigation__vertical">
-        <a class="s-navigation--item" href="./home_beta.html">Home</a>
+        <a class="s-navigation--item" href="./index.html">Home</a>
         <a class="s-navigation--item" href="./questions.html">Questions</a>
         <a class="s-navigation--item" href="./discussions.html">Discussion</a>
         <a class="s-navigation--item" href="./tag-detail.html">Tags</a>
-        <a class="s-navigation--item is-selected" href="#" aria-current="page">Users</a>
+        <a class="s-navigation--item is-selected" href="./users.html">Users</a>
         <a class="s-navigation--item" href="./admin.html">Admin</a>
       </nav>
     </aside>
 
     <!-- ---------- MAIN ---------- -->
-    <main id="main" class="user-profile-page">
+    <main id="main" class="question-feed">
 
       <!-- Loading / Error notice -->
       <div id="profile-status" class="fc-black-500 fs-body1">Loading…</div>
@@ -47,8 +47,8 @@
       <nav class="s-navigation mb16 d-none" id="profile-tabs" aria-label="Profile sections">
         <button class="s-navigation--item is-selected" type="button" data-tab="profile">Profile</button>
         <button class="s-navigation--item" type="button" data-tab="questions">Questions</button>
+        <button class="s-navigation--item" type="button" data-tab="discussions">Discussions</button>
         <button class="s-navigation--item" type="button" data-tab="answers">Answers</button>
-        <button class="s-navigation--item" type="button" data-tab="tags">Tags</button>
       </nav>
 
       <!-- Tab panels (rendered by JS) -->
@@ -62,8 +62,9 @@
   <site-footer></site-footer>
 
   <script src="./js/render-user-profile.js" defer></script>
-  <script type="module" src="./js/components/site-header.js"></script>
-  <script type="module" src="./js/components/site-footer.js"></script>
+  <script type="module" src="./js/tag-url.js" defer></script>
+  <script type="module" src="./js/components/site-header.js" defer></script>
+  <script type="module" src="./js/components/site-footer.js" defer></script>
 
 </body>
 </html>

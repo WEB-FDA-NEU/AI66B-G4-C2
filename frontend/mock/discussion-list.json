@@ -64,5 +64,38 @@
     "tags": ["conferences", "public-speaking"],
     "author": { "name": "priya_dev", "rep": "742", "avatarColor": "bg-pink-300", "avatarLetter": "P" },
     "body": "I'm submitting a talk for the first time. Half the advice I read says 'never live-code', the other half says 'slides are boring'. Which actually works in practice?"
+  },
+  {
+    "id": 9007,
+    "title": "Is it worth learning a second database engine, or should you go deep on one?",
+    "time": "2026-09-25T11:42:00Z",
+    "views": 218,
+    "votes": 22,
+    "replyCount": 19,
+    "tags": ["databases", "career", "learning"],
+    "author": { "name": "dba_raj", "rep": "24.9k", "avatarColor": "bg-blue-300", "avatarLetter": "D" },
+    "body": "I've been Postgres-only for eight years. Every time I think about picking up MongoDB or ClickHouse, I wonder if I'm better off deepening my Postgres game instead. Curious how other DBAs and backend devs think about this trade-off — is breadth actually worth it, or is depth the better long game?"
+  },
+  {
+    "id": 9008,
+    "title": "Do you write tests for personal projects, or only for work code?",
+    "time": "2026-09-25T12:05:00Z",
+    "views": 134,
+    "votes": 18,
+    "replyCount": 26,
+    "tags": ["testing", "side-projects", "habits"],
+    "author": { "id": 102, "name": "nguyen_dev", "rep": "340", "avatarColor": "bg-green-300", "avatarLetter": "N" },
+    "body": "I'm religious about tests at work — coverage gates, mutation testing, the whole thing. But the moment I open a side project on a Saturday, I just ship and pray. I can't tell if that's a healthy boundary or a bad habit I'm rationalising. Do you test your personal projects, or do you treat them as a playground where you can move fast?"
+  },
+  {
+    "id": 9009,
+    "title": "Is 'microservices' just the default answer to every scaling question now?",
+    "time": "2026-09-25T12:28:00Z",
+    "views": 71,
+    "votes": 9,
+    "replyCount": 12,
+    "tags": ["architecture", "microservices", "opinion"],
+    "author": { "id": 102, "name": "nguyen_dev", "rep": "340", "avatarColor": "bg-green-300", "avatarLetter": "N" },
+    "body": "Every time someone asks 'how do I scale X?' on any forum, the top answer is inevitably some flavour of 'split it into microservices'. But most teams I've seen who did that ended up with a distributed monolith and a much harder debugging story. When does the microservices answer actually apply, and when is it just cargo-cult advice? Genuinely curious — I've been on both sides of this and I'm not sure I have a clean heuristic yet."
   }
 ]

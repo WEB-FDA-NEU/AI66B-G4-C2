@@ -54,7 +54,7 @@
     var replyLabel = isDiscuss ? 'reply' : 'answer';
 
     var tagsHtml = (item.tags || []).map(function (t) {
-      return '<a class="s-tag" href="./tag-detail.html?tag=' + encodeURIComponent(t) + '">' + escapeHtml(t) + '</a>';
+      return '<a class="s-tag" href="' + tagUrl(t) + '">' + escapeHtml(t) + '</a>';
     }).join('');
 
     return [

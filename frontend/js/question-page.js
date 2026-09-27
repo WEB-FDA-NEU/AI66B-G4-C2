@@ -20,6 +20,7 @@ import {
   bindPreviewToggle,
   INSERTIONS
 } from './ask-question-editor.js';
+import { tagUrl } from './tag-url.js';
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
@@ -207,7 +208,7 @@ export function renderQuestionPage(data, root = document.getElementById('questio
 
         <div class="post-tags">
           ${(data.tags || []).map(t =>
-            `<a class="s-tag" href="#">${escapeHtml(t)}</a>`
+            `<a class="s-tag" href="${tagUrl(t)}">${escapeHtml(t)}</a>`
           ).join('')}
         </div>
 

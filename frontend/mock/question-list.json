@@ -108,6 +108,25 @@
     "answers": []
   },
   {
+    "id": 7482820,
+    "title": "Postgres VACUUM FULL on a 500GB table — how do I avoid a six-hour exclusive lock?",
+    "time": "2026-09-25T08:14:00Z",
+    "views": 843,
+    "votes": 17,
+    "tags": ["postgresql", "vacuum", "maintenance"],
+    "author": {
+      "name": "dba_raj",
+      "rep": "24.9k",
+      "avatarColor": "bg-blue-300",
+      "avatarLetter": "D"
+    },
+    "body": "We have a heavily-bloated 500GB table and VACUUM FULL is holding the exclusive lock for way too long during our maintenance window. Is there a safer online approach that doesn't take the database offline for hours? I've looked at pg_repack but haven't used it in production yet.",
+    "answers": [
+      { "id": 7482823, "votes": 12, "accepted": true,  "author": { "name": "kenji_rs" }, "body": "pg_repack is the standard answer. It rebuilds the table under a trigger-based shadow copy so writes keep flowing. Schedule it during low traffic and watch your WAL usage.", "comments": [] },
+      { "id": 7482826, "votes": 4,  "accepted": false, "author": { "name": "mira_k" },  "body": "Alternative: partition the table by created_at, then drop and rebuild old partitions. Doesn't help for hot data but works great for archival.", "comments": [] }
+    ]
+  },
+  {
     "id": 7482810,
     "title": "How would you get a small cylinder (5.1 in length, ~4.5 in girth) unstuck from a mini M&Ms tube filled with butter and microwaved mashed banana?",
     "time": "2026-09-25T07:21:00Z",
@@ -121,6 +140,43 @@
       "avatarLetter": "S"
     },
     "body": "It is imperative that the cylinder and the target object remain unharmed.",
+    "answers": []
+  },
+  {
+    "id": 7483001,
+    "title": "How do I profile a Go service with pprof in production without pausing it?",
+    "time": "2026-09-25T11:02:00Z",
+    "views": 187,
+    "votes": 14,
+    "tags": ["go", "pprof", "profiling", "performance"],
+    "author": {
+      "id": 102,
+      "name": "nguyen_dev",
+      "rep": "340",
+      "avatarColor": "bg-green-300",
+      "avatarLetter": "N"
+    },
+    "body": "We run a Go service under continuous load and I need CPU profiles from production to chase a latency regression. Restarting to enable pprof isn't an option — the service is critical. Is `net/http/pprof` safe to leave running behind auth, or should I use something like `runtime/pprof` with a signal handler instead? Looking for the least-invasive approach that doesn't add measurable overhead when idle.",
+    "answers": [
+      { "id": 7483005, "votes": 8, "accepted": true,  "author": { "name": "kenji_rs" }, "body": "`net/http/pprof` is fine in production as long as you bind it to a separate internal port and gate it with your usual auth. The endpoints only consume CPU while a profile is being taken — when idle they cost nothing measurable.", "comments": [] },
+      { "id": 7483008, "votes": 3, "accepted": false, "author": { "name": "dba_raj" }, "body": "Also consider `runtime/trace` for the latency question specifically. pprof tells you where CPU time goes; trace tells you where wall-clock time goes, which is often the real answer for a latency regression.", "comments": [] }
+    ]
+  },
+  {
+    "id": 7483002,
+    "title": "What's the right way to version a REST API that has mobile clients you can't force-update?",
+    "time": "2026-09-25T11:24:00Z",
+    "views": 96,
+    "votes": 7,
+    "tags": ["api-design", "rest", "versioning", "mobile"],
+    "author": {
+      "id": 102,
+      "name": "nguyen_dev",
+      "rep": "340",
+      "avatarColor": "bg-green-300",
+      "avatarLetter": "N"
+    },
+    "body": "We have an iOS and Android app in the wild that we can't force-update — users on old versions will keep hitting our API for months. I'm weighing URL versioning (`/v1/`, `/v2/`) against header versioning (`Accept: application/vnd.api+json;version=2`). The header approach feels cleaner in theory but I keep imagining support tickets where someone forgets to send the right header. What has actually worked for you in production with slow-moving mobile clients?",
     "answers": []
   }
 ]

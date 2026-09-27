@@ -68,6 +68,19 @@
     };
   }
 
+  function tagHref(name) {
+    // Uses the shared helper if available, otherwise falls back to
+    // the same URL shape defined in js/tag-url.js.
+    if (typeof window !== 'undefined' && typeof window.tagUrl === 'function') {
+      return window.tagUrl(name);
+    }
+    return './tag-detail.html?tag=' + encodeURIComponent(String(name || ''));
+  }
+
+  function questionHref(id) {
+    return './question-detail.html?id=' + encodeURIComponent(id);
+  }
+
   /* ---------- renderer ---------- */
 
   function renderQuestion(q) {
@@ -79,7 +92,7 @@
     var answeredCls = stats.accepted ? ' post-stat--answered' : '';
 
     var tagsHtml = (q.tags || []).map(function (t) {
-      return '<a class="s-tag" href="#">' + escapeHtml(t) + '</a>';
+      return '<a class="s-tag" href="' + tagHref(t) + '">' + escapeHtml(t) + '</a>';
     }).join('');
 
     var author    = q.author || {};
@@ -111,7 +124,9 @@
 
         '<div class="s-post-summary--content">',
           '<h3 class="s-post-summary--title mb0">',
-            '<a class="s-post-summary--title-link" href="./post-detail-beta.html">' + escapeHtml(q.title) + '</a>',
+            '<a class="s-post-summary--title-link" href="' + questionHref(q.id) + '">' +
+              escapeHtml(q.title) +
+            '</a>',
           '</h3>',
 
           excerpt
