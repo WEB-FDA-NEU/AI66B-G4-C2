@@ -8,25 +8,19 @@
  *   - paginates client-side
  *   - toggles the "Advanced Search Tips" table
  *
- * Questions get a blue "Question" badge; discussions get a purple "Discussion" badge.
- * Tag links go through makeTagUrl(), which prefers window.tagUrl when
- * ./js/tag-url.js has run and falls back to building the URL locally.
+ * Cards use the same markup as ./js/render-questions.js and
+ * ./js/pages/discussions.js so every listing looks identical.
+ * Type badge sits at the top of the stats column, using the shared
+ * `.question-badge` / `.discussion-badge` classes.
  *
- * Header search box is handled entirely by <site-header> — this file does
- * not touch #site-search.
- *
- * All styling lives in ./css/*.css.
+ * Tag links go through makeTagUrl().
  */
 
 const QUESTIONS_URL   = './mock/question-list.json';
 const DISCUSSIONS_URL = './mock/discussion-list.json';
 const LIST_ID         = 'search-results';
 const PAGE_SIZE       = 15;
-
-const BADGE = {
-  question:   { label: 'Question',   tone: 'info'     },
-  discussion: { label: 'Discussion', tone: 'featured' }
-};
+const EXCERPT_LENGTH  = 180;
 
 /* ------------------------------------------------------------------ */
 /* State                                                               */
@@ -37,7 +31,7 @@ const state = {
   sort: 'relevance',
   page: 1,
   pageSize: PAGE_SIZE,
-  all: []          // merged, normalized posts (questions + discussions)
+  all: []
 };
 
 /* ------------------------------------------------------------------ */
@@ -63,15 +57,15 @@ function formatRelativeTime(iso) {
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return '';
   const sec = Math.floor(Math.max(0, Date.now() - then) / 1000);
-  if (sec < 60)    return 'just now';
+  if (sec < 60) return 'just now';
   const min = Math.floor(sec / 60);
-  if (min < 60)    return min + (min === 1 ? ' minute ago' : ' minutes ago');
+  if (min < 60) return min + (min === 1 ? ' minute ago' : ' minutes ago');
   const hr = Math.floor(min / 60);
-  if (hr < 24)     return hr + (hr === 1 ? ' hour ago' : ' hours ago');
+  if (hr < 24) return hr + (hr === 1 ? ' hour ago' : ' hours ago');
   const day = Math.floor(hr / 24);
-  if (day < 30)    return day + (day === 1 ? ' day ago' : ' days ago');
+  if (day < 30) return day + (day === 1 ? ' day ago' : ' days ago');
   const mo = Math.floor(day / 30);
-  if (mo < 12)     return mo + (mo === 1 ? ' month ago' : ' months ago');
+  if (mo < 12) return mo + (mo === 1 ? ' month ago' : ' months ago');
   const yr = Math.floor(mo / 12);
   return yr + (yr === 1 ? ' year ago' : ' years ago');
 }
@@ -80,10 +74,10 @@ function plural(count, singular, pluralForm) {
   return count === 1 ? singular : (pluralForm || singular + 's');
 }
 
-function truncate(text, max = 200) {
+function truncate(text, len) {
   const s = String(text ?? '').replace(/\s+/g, ' ').trim();
-  if (s.length <= max) return s;
-  return s.slice(0, max).replace(/\s+\S*$/, '') + '…';
+  if (s.length <= len) return s;
+  return s.slice(0, len).replace(/\s+\S*$/, '') + '…';
 }
 
 function makeTagUrl(name) {
@@ -91,154 +85,171 @@ function makeTagUrl(name) {
   return './tag-detail.html?tag=' + encodeURIComponent(String(name || ''));
 }
 
-const ICON_CHECK = `
-  <svg aria-hidden="true" class="svg-icon" width="14" height="14" viewBox="0 0 14 14">
-    <path d="M13 3.41 11.59 2 5 8.59 2.41 6 1 7.41l4 4z"/>
-  </svg>`;
+function summariseAnswers(answers) {
+  const list = Array.isArray(answers) ? answers : [];
+  return {
+    total: list.length,
+    accepted: list.some((a) => a && a.accepted === true)
+  };
+}
 
 /* ------------------------------------------------------------------ */
-/* Normalize — bring both files to one shape                          */
+/* Normalize                                                           */
 /* ------------------------------------------------------------------ */
 
 function normalizeQuestion(q) {
-  const answers = Array.isArray(q.answers) ? q.answers : [];
-  const hasAccepted = answers.some((a) => a && a.accepted === true);
-  const author = q.author || {};
-
   return {
     id: q.id,
     type: 'question',
     title: q.title,
     body: q.body || '',
-    excerpt: truncate(q.body),
     tags: q.tags || [],
     votes: Number(q.votes) || 0,
-    answers: answers.length,
-    accepted: hasAccepted,
+    answers: Array.isArray(q.answers) ? q.answers : [],
     views: Number(q.views) || 0,
-    action: answers.length === 0 ? 'asked' : 'answered',
     time: q.time,
-    author: {
-      name: author.name,
-      reputation: author.rep,
-      avatarColor: author.avatarColor,
-      avatarLetter: author.avatarLetter
-    }
+    author: q.author || {}
   };
 }
 
 function normalizeDiscussion(d) {
-  const author = d.author || {};
-
   return {
     id: d.id,
     type: 'discussion',
     title: d.title,
     body: d.body || '',
-    excerpt: truncate(d.body),
     tags: d.tags || [],
     votes: Number(d.votes) || 0,
-    answers: Number(d.replyCount) || 0,
-    accepted: false,
+    replyCount: Number(d.replyCount) || 0,
     views: Number(d.views) || 0,
-    action: 'started',
     time: d.time,
-    author: {
-      name: author.name,
-      reputation: author.rep,
-      avatarColor: author.avatarColor,
-      avatarLetter: author.avatarLetter
-    }
+    author: d.author || {}
   };
 }
 
 /* ------------------------------------------------------------------ */
-/* Row template                                                        */
+/* Shared fragments                                                    */
 /* ------------------------------------------------------------------ */
 
-function renderRow(post) {
-  const votes   = post.votes;
-  const answers = post.answers;
-  const views   = post.views;
-  const author  = post.author || {};
-  const badge   = BADGE[post.type] || BADGE.question;
-  const isDiscussion = post.type === 'discussion';
-
-  const voteCls   = votes < 0   ? ' fc-red-500'   : '';
-  const answerCls = answers > 0 ? ' fc-green-500' : '';
-
-  const acceptedHtml = post.accepted
-    ? `<span class="fc-green-500" title="one of the answers was accepted as the correct answer">${ICON_CHECK}</span>`
-    : '';
-
-  const tagsHtml = (post.tags || []).map((t) =>
-    `<li><a class="s-tag" href="${makeTagUrl(t)}">${escapeHtml(t)}</a></li>`
+function renderTagsHtml(tags) {
+  return (tags || []).map((t) =>
+    `<a class="s-tag" href="${makeTagUrl(t)}">${escapeHtml(t)}</a>`
   ).join('');
+}
 
-  const avatarHtml = author.avatarLetter
-    ? `<a class="s-avatar s-avatar__16 ${escapeHtml(author.avatarColor || 'bg-blue-300')}"
-          href="#" aria-hidden="true" tabindex="-1">
-         <span class="s-avatar--letter">${escapeHtml(author.avatarLetter)}</span>
-       </a>`
-    : `<a class="s-avatar s-avatar__16" href="#" aria-hidden="true" tabindex="-1"></a>`;
-
-  const reputation = Number(author.reputation);
-  const repHtml = Number.isFinite(reputation)
-    ? reputation.toLocaleString()
-    : escapeHtml(author.reputation ?? '');
-
-  const answerLabel  = isDiscussion ? 'reply'    : 'answer';
-  const answerPlural = isDiscussion ? 'replies'  : 'answers';
+function renderAuthorCard(author, timeIso, action) {
+  author = author || {};
+  const avatarBg  = author.avatarColor  || 'bg-blue-300';
+  const avatarLet = author.avatarLetter || (author.name ? author.name.charAt(0) : '?');
+  const rep = author.rep != null
+    ? author.rep
+    : (author.reputation != null ? author.reputation : '0');
 
   return `
-    <li class="bb bc-black-200">
-      <div class="s-post-summary p16">
-        <div class="d-flex fd-column ai-center g8 fl-shrink0">
-          <div class="ta-center">
-            <div class="fs-body2 fw-bold${voteCls}">${escapeHtml(votes)}</div>
-            <div class="fs-fine fc-black-400">${plural(votes, 'vote')}</div>
-          </div>
-          <div class="ta-center">
-            <div class="fs-body2 fw-bold${answerCls}">
-              ${acceptedHtml}
-              ${escapeHtml(answers)}
-            </div>
-            <div class="fs-fine fc-black-400">${plural(answers, answerLabel, answerPlural)}</div>
-          </div>
-          <div class="ta-center">
-            <div class="fs-caption">${escapeHtml(formatCount(views))}</div>
-            <div class="fs-fine fc-black-400">${plural(views, 'view')}</div>
-          </div>
-        </div>
-
-        <div class="s-post-summary--content">
-          <h3 class="s-post-summary--title">
-            <span class="s-badge ${badge.tone ? 's-badge__' + badge.tone : ''} s-badge__xs mr4">${escapeHtml(badge.label)}</span>
-            <a class="s-post-summary--title-link" href="#">${escapeHtml(post.title)}</a>
-          </h3>
-
-          ${post.excerpt
-            ? `<div class="s-post-summary--excerpt fc-black-500">${escapeHtml(post.excerpt)}</div>`
-            : ''}
-
-          <div class="d-flex jc-space-between ai-center fw-wrap g8 mt8">
-            <ul class="list-reset d-flex g4 fw-wrap m0">${tagsHtml}</ul>
-
-            <div class="s-user-card">
-              ${avatarHtml}
-              <div class="s-user-card--info">
-                <a class="s-user-card--link" href="#">${escapeHtml(author.name || 'anonymous')}</a>
-                <span class="s-user-card--rep">${repHtml}</span>
-              </div>
-              <time class="s-user-card--time" datetime="${escapeHtml(post.time)}">
-                ${escapeHtml(post.action || 'asked')}
-                <a class="s-link s-link__muted" href="#">${escapeHtml(formatRelativeTime(post.time))}</a>
-              </time>
-            </div>
-          </div>
+    <div class="s-user-card">
+      <a href="#" class="s-avatar ${escapeHtml(avatarBg)}" aria-hidden="true" tabindex="-1">
+        <span class="s-avatar--letter">${escapeHtml(avatarLet)}</span>
+      </a>
+      <div class="s-user-card--column">
+        <a class="s-user-card--username" href="#">${escapeHtml(author.name || 'anonymous')}</a>
+        <div class="s-user-card--group">
+          <span class="s-user-card--rep">${escapeHtml(rep)}</span>
+          <span class="s-user-card--time">${escapeHtml(action || 'asked')} ${escapeHtml(formatRelativeTime(timeIso))}</span>
         </div>
       </div>
-    </li>`;
+    </div>`;
+}
+
+/* ------------------------------------------------------------------ */
+/* Card renderers                                                      */
+/* ------------------------------------------------------------------ */
+
+function renderQuestionCard(q) {
+  const stats  = summariseAnswers(q.answers);
+  const votes  = q.votes;
+  const views  = q.views;
+  const hasAns = stats.total > 0;
+
+  const answeredCls = stats.accepted ? ' post-stat--answered' : '';
+
+  const answersCell = hasAns
+    ? `<span class="post-stat--num">${escapeHtml(String(stats.total))}</span>${plural(stats.total, 'answer')}`
+    : `<span class="post-stat--num">0</span>answers`;
+
+  const excerpt = truncate(q.body, EXCERPT_LENGTH);
+
+  return `
+    <div class="s-post-summary" data-question-id="${escapeHtml(q.id)}">
+      <div class="s-post-summary--stats s-post-summary--sm-hide">
+        <span class="question-badge">Question</span>
+        <div class="post-stat">
+          <span class="post-stat--num">${escapeHtml(formatCount(votes))}</span>
+          ${plural(votes, 'vote')}
+        </div>
+        <div class="post-stat${answeredCls}">${answersCell}</div>
+        <div class="post-stat">
+          <span class="post-stat--num">${escapeHtml(formatCount(views))}</span>
+          ${plural(views, 'view')}
+        </div>
+      </div>
+
+      <div class="s-post-summary--content">
+        <h3 class="s-post-summary--title mb0">
+          <a class="s-post-summary--title-link" href="#">${escapeHtml(q.title)}</a>
+        </h3>
+
+        ${excerpt ? `<div class="s-post-summary--excerpt v-truncate2">${escapeHtml(excerpt)}</div>` : ''}
+
+        <div class="d-flex ai-center jc-space-between g8 fw-wrap mt8">
+          <div class="s-post-summary--tags mt0">${renderTagsHtml(q.tags)}</div>
+          ${renderAuthorCard(q.author, q.time, 'asked')}
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderDiscussionCard(d) {
+  const votes   = d.votes;
+  const replies = d.replyCount;
+  const views   = d.views;
+
+  const excerpt = truncate(d.body, EXCERPT_LENGTH);
+
+  return `
+    <div class="s-post-summary" data-discussion-id="${escapeHtml(d.id)}">
+      <div class="s-post-summary--stats s-post-summary--sm-hide">
+        <span class="discussion-badge">Discussion</span>
+        <div class="post-stat">
+          <span class="post-stat--num">${escapeHtml(formatCount(votes))}</span>
+          ${plural(votes, 'vote')}
+        </div>
+        <div class="post-stat">
+          <span class="post-stat--num">${escapeHtml(String(replies))}</span>
+          ${plural(replies, 'reply', 'replies')}
+        </div>
+        <div class="post-stat">
+          <span class="post-stat--num">${escapeHtml(formatCount(views))}</span>
+          ${plural(views, 'view')}
+        </div>
+      </div>
+
+      <div class="s-post-summary--content">
+        <h3 class="s-post-summary--title mb0">
+          <a class="s-post-summary--title-link" href="#">${escapeHtml(d.title)}</a>
+        </h3>
+
+        ${excerpt ? `<div class="s-post-summary--excerpt v-truncate2">${escapeHtml(excerpt)}</div>` : ''}
+
+        <div class="d-flex ai-center jc-space-between g8 fw-wrap mt8">
+          <div class="s-post-summary--tags mt0">${renderTagsHtml(d.tags)}</div>
+          ${renderAuthorCard(d.author, d.time, 'started')}
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderRow(post) {
+  return post.type === 'discussion' ? renderDiscussionCard(post) : renderQuestionCard(post);
 }
 
 /* ------------------------------------------------------------------ */
@@ -248,34 +259,32 @@ function renderRow(post) {
 function renderLoading(listEl) {
   listEl.setAttribute('aria-busy', 'true');
   listEl.innerHTML = Array.from({ length: 3 }, () => `
-    <li class="bb bc-black-200">
-      <div class="p16 d-flex g16">
-        <div class="bg-loading bar-md fl-shrink0" style="width:100px;height:64px;"></div>
-        <div class="fl-grow1 d-flex fd-column g8">
-          <div class="bg-loading bar-md" style="height:20px;width:70%;"></div>
-          <div class="bg-loading bar-md" style="height:14px;width:95%;"></div>
-          <div class="bg-loading bar-md" style="height:14px;width:60%;"></div>
-        </div>
+    <div class="p16 d-flex g16">
+      <div class="bg-loading bar-md fl-shrink0" style="width:100px;height:64px;"></div>
+      <div class="fl-grow1 d-flex fd-column g8">
+        <div class="bg-loading bar-md" style="height:20px;width:70%;"></div>
+        <div class="bg-loading bar-md" style="height:14px;width:95%;"></div>
+        <div class="bg-loading bar-md" style="height:14px;width:60%;"></div>
       </div>
-    </li>`).join('');
+    </div>`).join('');
 }
 
 function renderEmpty(listEl) {
   listEl.removeAttribute('aria-busy');
   listEl.innerHTML = `
-    <li class="p24 ta-center fc-black-400">
+    <div class="p24 ta-center fc-black-400">
       No results match <strong>${escapeHtml(state.query || '(empty)')}</strong>.
-    </li>`;
+    </div>`;
 }
 
 function renderError(listEl, err) {
   listEl.removeAttribute('aria-busy');
   listEl.innerHTML = `
-    <li class="p16">
+    <div class="p16">
       <div class="s-notice s-notice__danger" role="alert">
         Could not load search results. ${escapeHtml(err?.message ?? String(err))}
       </div>
-    </li>`;
+    </div>`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -317,7 +326,6 @@ function filterAndSort() {
       return tb - ta;
     });
   } else if (!q) {
-    // Relevance with empty query — fall back to newest
     list.sort((a, b) => {
       const ta = new Date(a.time).getTime() || 0;
       const tb = new Date(b.time).getTime() || 0;

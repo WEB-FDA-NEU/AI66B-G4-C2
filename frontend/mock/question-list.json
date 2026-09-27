@@ -178,5 +178,48 @@
     },
     "body": "We have an iOS and Android app in the wild that we can't force-update — users on old versions will keep hitting our API for months. I'm weighing URL versioning (`/v1/`, `/v2/`) against header versioning (`Accept: application/vnd.api+json;version=2`). The header approach feels cleaner in theory but I keep imagining support tickets where someone forgets to send the right header. What has actually worked for you in production with slow-moving mobile clients?",
     "answers": []
+  },
+  {
+    "id": 7485001,
+    "title": "Why does Docker Compose ignore my .env file inside a subdirectory?",
+    "time": "2026-09-25T13:14:00Z",
+    "views": 42,
+    "votes": 3,
+    "tags": ["docker", "docker-compose", "environment-variables"],
+    "author": {
+      "id": 101,
+      "name": "BuiDut",
+      "rep": "125",
+      "avatarColor": "bg-orange-300",
+      "avatarLetter": "B"
+    },
+    "body": "I have a Compose file at `services/api/docker-compose.yml` and a `.env` next to it. When I run `docker compose up` from the project root, the variables resolve to empty strings. When I `cd` into the directory first, everything works. Is Compose resolving the `.env` file relative to the CWD rather than the compose file?",
+    "answers": [
+      {
+        "id": 7485002,
+        "votes": 5,
+        "accepted": true,
+        "author": { "name": "kenji_rs" },
+        "body": "Yes — Compose looks for `.env` in the current working directory, not next to the compose file. Either `cd` in first, or pass `--env-file services/api/.env`.",
+        "comments": []
+      }
+    ]
+  },
+  {
+    "id": 7485003,
+    "title": "Is it safe to run `git gc --aggressive` on a shared bare repository?",
+    "time": "2026-09-25T14:22:00Z",
+    "views": 118,
+    "votes": 8,
+    "tags": ["git", "maintenance", "version-control"],
+    "author": {
+      "id": 101,
+      "name": "BuiDut",
+      "rep": "125",
+      "avatarColor": "bg-orange-300",
+      "avatarLetter": "B"
+    },
+    "body": "We have a shared bare repo on an NFS mount that a dozen devs push to daily. It's grown to ~4 GB of loose objects and I'd like to repack. Does `git gc --aggressive` take any locks that would block pushes, or is it safe to run at any time? And is there any downside to running it on NFS specifically?",
+    "answers": []
   }
 ]

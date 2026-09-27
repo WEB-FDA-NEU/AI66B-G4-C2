@@ -26,7 +26,7 @@
   <a href="#main" class="v-visible-sr">Skip to main content</a>
 
   <!-- ================= TOP BAR ================= -->
-  <site-header></site-header>
+  <site-header is-logged-in="true"></site-header>
 
   <!-- ================= HERO ================= -->
   <div class="ask-hero">
@@ -60,7 +60,7 @@
         <a class="s-navigation--item" href="./index.html">Home</a>
         <a class="s-navigation--item is-selected" href="./questions.html" aria-current="page">Questions</a>
         <a class="s-navigation--item" href="./discussions.html">Discussion</a>
-        <a class="s-navigation--item" href="#">Tags</a>
+        <a class="s-navigation--item" href="./tags.html">Tags</a>
         <a class="s-navigation--item" href="./users.html">Users</a>
         <a class="s-navigation--item" href="./admin.html">Admin</a>
       </nav>
@@ -260,8 +260,8 @@
   <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js" defer></script>
 
   <!-- Modular elements -->
-  <script type="module" src="./js/components/site-header.js" defer></script>
-  <script type="module" src="./js/components/site-footer.js" defer></script>
+  <script type="module" src="./js/components/site-header.js"></script>
+  <script type="module" src="./js/components/site-footer.js"></script>
 
   <script type="module">
     import { initEditQuestionPage } from './js/edit-question-page.js';

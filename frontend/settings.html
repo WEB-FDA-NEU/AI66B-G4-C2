@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Settings · Tech4Rum</title>
 
-  <!-- Design system — the only CSS sources allowed -->
   <link rel="stylesheet" href="./css/reset.css" />
   <link rel="stylesheet" href="./css/tokens.css" />
   <link rel="stylesheet" href="./css/layout.css" />
@@ -15,11 +14,13 @@
 
 <body class="d-flex fd-column hmn-screen bg-black-100">
 
-  <!-- ==================== TOP BAR (shared component) ==================== -->
-  <site-header></site-header>
+  <a href="#main" class="v-visible-sr">Skip to main content</a>
 
-  <!-- ==================== SETTINGS ==================== -->
-  <main class="fl-grow1 p24 pb128">
+  <!-- SITE HEADER -->
+  <site-header is-logged-in="true"></site-header>
+
+  <!-- SETTINGS -->
+  <main id="main" class="fl-grow1 p24 pb128">
     <div class="w100 wmx9 mx-auto">
 
       <h1 class="fs-headline1 fw-bold mb8">Settings</h1>
@@ -29,7 +30,7 @@
 
       <div class="d-flex g24 ai-start">
 
-        <!-- ==================== LEFT: STICKY TABS ==================== -->
+        <!-- LEFT: STICKY TABS -->
         <aside class="ps-sticky t64 ws2 flex__fl-shrink0">
           <nav class="s-navigation s-navigation__vertical" aria-label="Settings sections">
             <a href="#profile" class="s-navigation--item is-selected">Profile</a>
@@ -39,10 +40,10 @@
           </nav>
         </aside>
 
-        <!-- ==================== RIGHT: SETTINGS PANELS ==================== -->
+        <!-- RIGHT: SETTINGS PANELS -->
         <form id="settingsForm" class="fl-grow1 d-flex fd-column" action="#" method="get">
 
-          <!-- ==================== PROFILE SETTINGS ==================== -->
+          <!-- PROFILE -->
           <section id="profile" class="bg-white bar-md bs-sm p32 mb24">
             <h2 class="fs-title fw-bold mb4">Profile Settings</h2>
             <p class="fc-black-400 fs-body1 mb24">Update your public profile information.</p>
@@ -51,9 +52,14 @@
 
               <!-- Avatar -->
               <div class="d-flex ai-center g16">
-                <div class="s-avatar s-avatar__64 bg-blue-400">
-                  <span class="s-avatar--letter">A</span>
-                </div>
+                <a href="./profile.html"
+                   class="s-avatar s-avatar__64 flex__fl-shrink0"
+                   aria-label="Your profile">
+                  <img src="./img/avatar.png"
+                       alt=""
+                       class="s-avatar--image"
+                       width="64" height="64">
+                </a>
                 <div class="d-flex fd-column g4">
                   <label class="s-label" for="avatar">Profile picture</label>
                   <input class="s-input" id="avatar" name="avatar" type="file" accept="image/*" />
@@ -95,7 +101,7 @@
             </div>
           </section>
 
-          <!-- ==================== ACCOUNT SETTINGS ==================== -->
+          <!-- ACCOUNT -->
           <section id="account" class="bg-white bar-md bs-sm p32 mb24">
             <h2 class="fs-title fw-bold mb4">Account Settings</h2>
             <p class="fc-black-400 fs-body1 mb24">
@@ -104,14 +110,12 @@
 
             <div class="d-flex fd-column g24">
 
-              <!-- Email -->
               <div class="s-form-group">
                 <label class="s-label" for="email">Email address</label>
                 <input class="s-input" id="email" name="email" type="email" value="ada@example.com" />
                 <p class="s-description">Used for sign-in and notifications.</p>
               </div>
 
-              <!-- Password -->
               <div class="d-flex fd-column g16">
                 <span class="s-label">Change password</span>
 
@@ -131,7 +135,6 @@
                 </div>
               </div>
 
-              <!-- Account status -->
               <div class="d-flex fd-column g8">
                 <span class="s-label">Account status</span>
                 <div class="d-flex ai-center jc-space-between g16 bg-black-100 bar-md p12">
@@ -143,7 +146,6 @@
                 </div>
               </div>
 
-              <!-- Danger zone -->
               <div class="d-flex fd-column g8">
                 <span class="s-label">Danger zone</span>
                 <div class="s-notice s-notice__danger p12 bar-md d-flex ai-center jc-space-between g16">
@@ -158,7 +160,7 @@
             </div>
           </section>
 
-          <!-- ==================== NOTIFICATION SETTINGS ==================== -->
+          <!-- NOTIFICATIONS -->
           <section id="notifications" class="bg-white bar-md bs-sm p32 mb24">
             <h2 class="fs-title fw-bold mb4">Notification Settings</h2>
             <p class="fc-black-400 fs-body1 mb24">
@@ -167,7 +169,6 @@
 
             <div class="d-flex fd-column g24">
 
-              <!-- Email notifications -->
               <div class="d-flex fd-column g8">
                 <span class="s-label">Email notifications</span>
 
@@ -191,7 +192,7 @@
             </div>
           </section>
 
-          <!-- ==================== PERSONALIZATION SETTINGS ==================== -->
+          <!-- PERSONALIZATION -->
           <section id="personalization" class="bg-white bar-md bs-sm p32 mb24">
             <h2 class="fs-title fw-bold mb4">Personalization Settings</h2>
             <p class="fc-black-400 fs-body1 mb24">
@@ -255,7 +256,7 @@
             </div>
           </section>
 
-          <!-- ==================== FLOATING ACTION BAR ==================== -->
+          <!-- FLOATING ACTION BAR -->
           <div class="ps-fixed b0 l0 r0 z-nav d-flex ai-center jc-end g8 bg-white bt bc-black-200 p16 bs-lg">
             <button type="reset" class="s-btn s-btn__clear">Cancel</button>
             <button type="submit" class="s-btn bg-blue-400 bg-image-none h:bg-blue-500">Save changes</button>
@@ -264,14 +265,14 @@
         </form>
       </div>
     </div>
-
-    <site-footer></site-footer>
   </main>
 
-  <!-- Shared header component -->
-  <script type="module" src="./js/components/site-header.js" defer></script>
-  <script type="module" src="./js/components/site-footer.js" defer></script>
-  <!-- Page-specific behaviour -->
-  <script type="module" src="./js/pages/settings.js" defer></script>
+  <!-- SITE FOOTER -->
+  <site-footer></site-footer>
+
+  <script type="module" src="./js/components/site-header.js"></script>
+  <script type="module" src="./js/components/site-footer.js"></script>
+  <script type="module" src="./js/pages/settings.js"></script>
+
 </body>
 </html>

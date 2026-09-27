@@ -24,7 +24,7 @@
   <a href="#main" class="v-visible-sr">Skip to main content</a>
 
   <!-- ================= TOP BAR ================= -->
-  <site-header></site-header>
+  <site-header is-logged-in="true"></site-header>
 
   <!-- ================= HERO ================= -->
   <div class="ask-hero">
@@ -55,7 +55,7 @@
         <a class="s-navigation--item" href="./index.html">Home</a>
         <a class="s-navigation--item" href="./questions.html">Questions</a>
         <a class="s-navigation--item is-selected" href="./discussions.html" aria-current="page">Discussion</a>
-        <a class="s-navigation--item" href="#">Tags</a>
+        <a class="s-navigation--item" href="./tags.html">Tags</a>
         <a class="s-navigation--item" href="./users.html">Users</a>
         <a class="s-navigation--item" href="./admin.html">Admin</a>
       </nav>
@@ -234,12 +234,12 @@
   <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js" defer></script>
 
   <!-- Modular elements -->
-  <script type="module" src="./js/components/site-header.js" defer></script>
-  <script type="module" src="./js/components/site-footer.js" defer></script>
+  <script type="module" src="./js/components/site-header.js"></script>
+  <script type="module" src="./js/components/site-footer.js"></script>
 
   <!-- Reuse the ask-question editor: IDs match, so no new module is needed -->
-  <script defer type="module">
-    import { initAskQuestionEditor } from "./js/ask-question-editor.js";
+  <script type="module">
+    import { initAskQuestionEditor } from './js/ask-question-editor.js';
     initAskQuestionEditor();
   </script>
 

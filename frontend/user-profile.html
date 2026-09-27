@@ -17,7 +17,7 @@
   <a href="#main" class="v-visible-sr">Skip to main content</a>
 
   <!-- ================= TOP BAR ================= -->
-  <site-header></site-header>
+  <site-header is-logged-in="true"></site-header>
 
   <!-- ================= PAGE ================= -->
   <div class="d-flex ai-start g24 wmx12 mx-auto px16 py24">
@@ -28,8 +28,8 @@
         <a class="s-navigation--item" href="./index.html">Home</a>
         <a class="s-navigation--item" href="./questions.html">Questions</a>
         <a class="s-navigation--item" href="./discussions.html">Discussion</a>
-        <a class="s-navigation--item" href="./tag-detail.html">Tags</a>
-        <a class="s-navigation--item is-selected" href="./users.html">Users</a>
+        <a class="s-navigation--item" href="./tags.html">Tags</a>
+        <a class="s-navigation--item is-selected" href="./users.html" aria-current="page">Users</a>
         <a class="s-navigation--item" href="./admin.html">Admin</a>
       </nav>
     </aside>
@@ -62,9 +62,9 @@
   <site-footer></site-footer>
 
   <script src="./js/render-user-profile.js" defer></script>
-  <script type="module" src="./js/tag-url.js" defer></script>
-  <script type="module" src="./js/components/site-header.js" defer></script>
-  <script type="module" src="./js/components/site-footer.js" defer></script>
+  <script type="module" src="./js/tag-url.js"></script>
+  <script type="module" src="./js/components/site-header.js"></script>
+  <script type="module" src="./js/components/site-footer.js"></script>
 
 </body>
 </html>

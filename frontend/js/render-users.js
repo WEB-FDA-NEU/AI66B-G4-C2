@@ -1,8 +1,10 @@
 (function () {
   'use strict';
 
-  var USER_JSON = './mock/users.json';
-  var BIO_CLAMP = 100;
+  var USER_JSON  = './mock/users.json';
+  var BIO_CLAMP  = 100;
+  var ME_ID      = 101;                        // same "me" as my-content.html
+  var AVATAR_SRC = './img/avatar.png';
 
   var listEl  = document.getElementById('user-list');
   var countEl = document.querySelector('[data-user-count]');
@@ -59,6 +61,45 @@
     return n === 1 ? word : word + 's';
   }
 
+  /**
+   * Where to link a user card.
+   *   - Me      → ./my-content.html
+   *   - Others  → ./user-profile.html?id=<id>
+   */
+  function profileUrlFor(user) {
+    if (Number(user.id) === ME_ID) return './my-content.html';
+    return './user-profile.html?id=' + encodeURIComponent(user.id);
+  }
+
+  /**
+   * Avatar markup.
+   *   - Me      → <img src="./img/avatar.png">
+   *   - Others  → colored circle with the first letter
+   */
+  function avatarHtml(user, profileUrl) {
+    if (Number(user.id) === ME_ID) {
+      return [
+        '<a href="' + profileUrl + '" class="s-avatar s-avatar__64"',
+        '   aria-hidden="true" tabindex="-1"',
+        '   style="overflow:hidden;border-radius:50%;width:64px;height:64px;">',
+          '<img src="' + AVATAR_SRC + '" alt=""',
+          '     class="s-avatar--image" width="64" height="64"',
+          '     style="width:100%;height:100%;object-fit:cover;display:block;">',
+        '</a>'
+      ].join('');
+    }
+
+    var color  = colorFromString(user.username || String(user.id));
+    var letter = avatarLetter(user);
+
+    return [
+      '<a href="' + profileUrl + '" class="s-avatar s-avatar__64 ' + color + '"',
+      '   aria-hidden="true" tabindex="-1">',
+        '<span class="s-avatar--letter">' + escapeHtml(letter) + '</span>',
+      '</a>'
+    ].join('');
+  }
+
   /* ---------------- Sorting ---------------- */
 
   function sortUsers(list, mode) {
@@ -80,19 +121,15 @@
   /* ---------------- Render ---------------- */
 
   function renderCard(user) {
-    var letter = avatarLetter(user);
-    var color  = colorFromString(user.username || String(user.id));
-    var rep    = formatCount(user.reputation);
-    var profileUrl = './user-profile.html?id=' + encodeURIComponent(user.id);
+    var rep = formatCount(user.reputation);
+    var profileUrl = profileUrlFor(user);
     var bio = truncate(user.bio, BIO_CLAMP);
 
     return [
       '<div class="widget">',
         '<div class="widget-body d-flex fd-column ai-center g8 ta-center">',
 
-          '<a href="' + profileUrl + '" class="s-avatar s-avatar__64 ' + color + '" aria-hidden="true" tabindex="-1">',
-            '<span class="s-avatar--letter">' + escapeHtml(letter) + '</span>',
-          '</a>',
+          avatarHtml(user, profileUrl),
 
           '<a href="' + profileUrl + '" class="s-link fw-bold fs-body2 fc-black-600">' +
             escapeHtml(user.display_name || user.username) +

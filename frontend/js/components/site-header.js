@@ -1,13 +1,5 @@
 // ============================================================
 //  <site-header>  —  Custom Element (Web Components)
-//
-//  Viết header MỘT LẦN ở đây. Mỗi trang chỉ cần:
-//      <site-header></site-header>
-//      <script type="module" src="./js/components/site-header.js"></script>
-//
-//  Trạng thái đăng nhập (debug):
-//      <site-header is-logged-in="true"></site-header>   → hiện avatar
-//      <site-header></site-header>                        → hiện Log in / Sign up
 // ============================================================
 
 const SEARCH_URL = './search_result.html';
@@ -39,10 +31,19 @@ const AUTH_GUEST = /* html */ `
 `;
 
 const AUTH_USER = /* html */ `
-  <a href="./profile.html"
+  <a href="./settings.html"
+     class="s-btn s-btn__clear s-btn__icon ml4"
+     aria-label="Settings"
+     title="Settings">
+    <svg aria-hidden="true" class="svg-icon" width="18" height="18" viewBox="0 0 18 18">
+      <path d="m14.53 6.3.28.67C17 7.77 17 7.86 17 8.12V9.8c0 .26 0 .35-2.18 1.22l-.27.66c.98 2.11.91 2.18.73 2.37l-1.3 1.29h-.15q-.3 0-2.14-.8l-.66.27C10.23 17 10.13 17 9.88 17H8.2c-.26 0-.35 0-1.21-2.18l-.67-.27c-1.81.84-2.03.84-2.1.84h-.14l-.12-.1-1.19-1.2c-.18-.18-.24-.25.7-2.4l-.28-.65C1 10.24 1 10.14 1 9.88V8.2c0-.27 0-.35 2.18-1.21l.27-.66c-.98-2.12-.91-2.19-.72-2.39l1.28-1.28h.16q.3.01 2.14.8l.66-.27C7.77 1 7.87 1 8.12 1H9.8c.26 0 .34 0 1.2 2.18l.67.28c1.82-.84 2.03-.84 2.1-.84h.14l.12.1 1.2 1.19c.18.18.24.25-.7 2.4m-8.4 3.9a3.1 3.1 0 1 0 5.73-2.4 3.1 3.1 0 0 0-5.72 2.4"/>
+    </svg>
+  </a>
+
+  <a href="./my-content.html"
      class="s-avatar ml4 header-user-avatar"
-     aria-label="Bùi Đụt"
-     title="Bùi Đụt">
+     aria-label="My content"
+     title="My content">
     <img src="./img/avatar.png"
          alt=""
          class="s-avatar--image"
@@ -54,50 +55,37 @@ const LOGO_LIGHT = './img/Tech4Rum_logo.png';
 const LOGO_DARK  = './img/Tech4Rum_dark_logo.png';
 
 class SiteHeader extends HTMLElement {
-  // Tell the browser to call attributeChangedCallback for this attribute.
   static get observedAttributes() {
     return ['is-logged-in'];
   }
 
   get isLoggedIn() {
-    // Strict match — "TRUE", "1", "" etc. all count as logged out.
     return this.getAttribute('is-logged-in') === 'true';
   }
 
   connectedCallback() {
     this.innerHTML = TEMPLATE;
 
-    // Sticky lên chính custom element, không phải <header> bên trong —
-    // nếu không, containing block chỉ cao bằng header và nó sẽ cuộn mất.
     this.classList.add('d-block', 'ps-sticky', 't0', 'z-nav');
 
-    // Đổi logo theo theme: light ↔ dark.
     const logo = this.querySelector('[data-logo]');
     const syncLogo = () => {
       const dark = document.body.classList.contains('theme-dark');
       logo.src = dark ? LOGO_DARK : LOGO_LIGHT;
     };
+    syncLogo();
 
-    syncLogo();  // trạng thái ban đầu
-
-    // Theo dõi class trên <body>. Khi theme switcher bật/tắt 'theme-dark',
-    // observer tự chạy lại syncLogo().
     new MutationObserver(syncLogo).observe(document.body, {
       attributes: true,
       attributeFilter: ['class']
     });
 
-    // Pattern truyền dữ liệu VÀO component bằng thuộc tính HTML:
-    //     <site-header active="settings"></site-header>
     const active = this.getAttribute('active');
     if (active) {
       this.querySelector(`[data-nav="${active}"]`)?.classList.add('is-active');
     }
 
-    // Pre-fill + wire the search box.
     this._initSearch();
-
-    // Initial auth state.
     this._renderAuth();
   }
 
@@ -117,16 +105,12 @@ class SiteHeader extends HTMLElement {
     const input = this.querySelector('#site-search');
     if (!input) return;
 
-    // Pre-fill from ?q=… when we're already on the search page.
     try {
       const params = new URLSearchParams(location.search);
       const q = params.get('q');
       if (q) input.value = q;
     } catch { /* ignore */ }
 
-    // The form uses method=get + action=./search_result.html,
-    // so a native submit already produces ?q=<value>.
-    // Just guard against empty submissions:
     input.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter') return;
       if (!input.value.trim()) {

@@ -17,7 +17,7 @@
   <a href="#main" class="v-visible-sr">Skip to main content</a>
 
   <!-- ================= TOP BAR ================= -->
-  <site-header></site-header>
+  <site-header is-logged-in="true"></site-header>
 
   <!-- ================= PAGE ================= -->
   <div class="d-flex ai-start g24 wmx12 mx-auto px16 py24">
@@ -28,35 +28,33 @@
         <a class="s-navigation--item" href="./index.html">Home</a>
         <a class="s-navigation--item" href="./questions.html">Questions</a>
         <a class="s-navigation--item" href="./discussions.html">Discussion</a>
-        <a class="s-navigation--item" href="./tag-detail.html">Tags</a>
-        <a class="s-navigation--item is-selected" href="#" aria-current="page">Users</a>
+        <a class="s-navigation--item" href="./tags.html">Tags</a>
+        <a class="s-navigation--item is-selected" href="./users.html" aria-current="page">Users</a>
         <a class="s-navigation--item" href="./admin.html">Admin</a>
       </nav>
     </aside>
 
     <!-- ---------- MAIN ---------- -->
-    <main id="main" class="my-content-page">
+    <main id="main" class="question-feed">
 
-      <!-- Header -->
-      <div class="d-flex ai-start jc-space-between g16 mb16 fw-wrap">
-        <div>
-          <h1 class="fs-headline1 fw-normal mb4">My Content</h1>
-          <p class="fc-black-500 fs-body1 mb0" id="me-line">Loading…</p>
-        </div>
-        <a class="s-btn" href="./ask-question.html">Ask Question</a>
-      </div>
+      <!-- Loading / Error notice -->
+      <div id="profile-status" class="fc-black-500 fs-body1">Loading…</div>
 
-      <!-- Tabs -->
-      <nav class="s-navigation mb16" id="content-tabs" aria-label="My content sections">
-        <button class="s-navigation--item is-selected" type="button" data-tab="posts">Posts</button>
+      <!-- Profile header (rendered by JS) -->
+      <section id="profile-header" class="d-none"></section>
+
+      <!-- Type tabs -->
+      <nav class="s-navigation mb16 d-none" id="content-tabs" aria-label="My content sections">
+        <button class="s-navigation--item is-selected" type="button" data-tab="profile">Profile</button>
+        <button class="s-navigation--item" type="button" data-tab="questions">Questions</button>
+        <button class="s-navigation--item" type="button" data-tab="discussions">Discussions</button>
         <button class="s-navigation--item" type="button" data-tab="answers">Answers</button>
-        <button class="s-navigation--item" type="button" data-tab="comments">Comments</button>
       </nav>
 
       <!-- Count -->
-      <div class="fc-black-500 fs-caption mb12" id="content-count">Loading…</div>
+      <div class="fc-black-500 fs-caption mb12 d-none" id="content-count">Loading…</div>
 
-      <!-- List -->
+      <!-- Post list — populated by ./js/render-my-content.js -->
       <div id="content-list" class="question-list"></div>
 
     </main>
@@ -67,9 +65,9 @@
   <site-footer></site-footer>
 
   <script src="./js/render-my-content.js" defer></script>
-  <script type="module" src="./js/tag-url.js" defer></script>
-  <script type="module" src="./js/components/site-header.js" defer></script>
-  <script type="module" src="./js/components/site-footer.js" defer></script>
+  <script type="module" src="./js/tag-url.js"></script>
+  <script type="module" src="./js/components/site-header.js"></script>
+  <script type="module" src="./js/components/site-footer.js"></script>
 
 </body>
 </html>
