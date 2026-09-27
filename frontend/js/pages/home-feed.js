@@ -1,19 +1,24 @@
 /**
  * home-feed.js
  *
- * Renders the "Interesting posts for you" list on home_beta.html from
- * ./mock/recommended-posts.json. No framework, no build step.
+ * Renders the two home-page lists on index.html:
+ *   - #question-mini-list   ← data.recommendedQuestions  (blue "Question" badge)
+ *   - #discussion-mini-list ← data.trendingDiscussions   (purple "Discussion" badge)
  *
- * Markup lives in this file's template strings because the rows are
- * dynamic; all *styling* lives in ./css/*.css. Nothing here writes
- * inline styles.
+ * Data lives in ./mock/recommended-posts.json and is fetched at runtime.
+ * Tags link to ./tag-detail.html?tag=<name>.
+ * All styling lives in ./css/*.css.
  */
 
-const LIST_ID  = 'question-mini-list';
 const JSON_URL = './mock/recommended-posts.json';
 
-const listEl = document.getElementById(LIST_ID);
-if (listEl) load();
+const QUESTION_LIST_ID   = 'question-mini-list';
+const DISCUSSION_LIST_ID = 'discussion-mini-list';
+
+const BADGE = {
+  question:   { label: 'Question',   tone: 'info'     },
+  discussion: { label: 'Discussion', tone: 'featured' }
+};
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
@@ -27,8 +32,9 @@ function escapeHtml(value) {
 
 function formatCount(n) {
   const num = Number(n) || 0;
-  if (num >= 1_000_000) return (num / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'm';
-  if (num >= 1_000)     return (num / 1_000).toFixed(1).replace(/\.0$/, '') + 'k';
+  const abs = Math.abs(num);
+  if (abs >= 1_000_000) return (num / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'm';
+  if (abs >= 1_000)     return (num / 1_000).toFixed(1).replace(/\.0$/, '') + 'k';
   return String(num);
 }
 
@@ -54,28 +60,27 @@ function plural(count, singular, pluralForm) {
   return count === 1 ? singular : (pluralForm || singular + 's');
 }
 
-function badgeClass(variant) {
-  const map = {
-    info: 's-badge__info', warning: 's-badge__warning', danger: 's-badge__danger',
-    success: 's-badge__success', featured: 's-badge__featured',
-    critical: 's-badge__critical', new: 's-badge__new', tonal: 's-badge__tonal',
-    bot: 's-badge__bot'
-  };
-  return map[String(variant || 'info').toLowerCase()] || 's-badge__info';
+function tagUrl(name) {
+  return `./tag-detail.html?tag=${encodeURIComponent(name)}`;
 }
 
 /* ------------------------------------------------------------------ */
 /* Row template                                                        */
 /* ------------------------------------------------------------------ */
 
-function renderRow(post, isLast) {
-  const votes   = Number(post.votes) || 0;
-  const answers = Number(post.answerCount) || 0;
-  const views   = Number(post.views) || 0;
+function renderRow(post) {
+  const votes   = Number(post.votes)   || 0;
+  const answers = Number(post.answers) || 0;
+  const views   = Number(post.views)   || 0;
   const author  = post.author || {};
+  const badge   = BADGE[post.type] || BADGE.question;
 
-  const voteCls   = votes < 0    ? ' fc-red-500'   : '';
-  const answerCls = answers > 0  ? ' fc-green-500' : '';
+  const voteCls   = votes < 0   ? ' fc-red-500'   : '';
+  const answerCls = answers > 0 ? ' fc-green-500' : '';
+
+  const tagsHtml = (post.tags || []).map((t) =>
+    `<li><a class="s-tag" href="${tagUrl(t)}">${escapeHtml(t)}</a></li>`
+  ).join('');
 
   const avatarHtml = author.avatarLetter
     ? `<a class="s-avatar s-avatar__16 ${escapeHtml(author.avatarColor || 'bg-blue-300')}"
@@ -84,16 +89,17 @@ function renderRow(post, isLast) {
        </a>`
     : `<a class="s-avatar s-avatar__16" href="#" aria-hidden="true" tabindex="-1"></a>`;
 
-  const badgeHtml = author.badge && author.badge.label
-    ? `<span class="s-badge s-badge__xs ${badgeClass(author.badge.variant)}">${escapeHtml(author.badge.label)}</span>`
+  const authorBadgeHtml = author.badge && author.badge.label
+    ? `<span class="s-badge s-badge__xs">${escapeHtml(author.badge.label)}</span>`
     : '';
 
-  const tagsHtml = (post.tags || []).map((t) =>
-    `<li><a class="s-tag" href="#">${escapeHtml(t)}</a></li>`
-  ).join('');
+  const reputation = Number(author.reputation);
+  const repHtml = Number.isFinite(reputation)
+    ? reputation.toLocaleString()
+    : escapeHtml(author.reputation ?? '');
 
   return `
-    <li${isLast ? '' : ' class="bb bc-black-200"'}>
+    <li class="bb bc-black-200">
       <div class="s-post-summary p16">
         <div class="d-flex fd-column ai-center g8 fl-shrink0">
           <div class="ta-center">
@@ -112,6 +118,7 @@ function renderRow(post, isLast) {
 
         <div class="s-post-summary--content">
           <h3 class="s-post-summary--title">
+            <span class="s-badge ${badge.tone ? 's-badge__' + badge.tone : ''} s-badge__xs mr4">${escapeHtml(badge.label)}</span>
             <a class="s-post-summary--title-link" href="#">${escapeHtml(post.title)}</a>
           </h3>
 
@@ -126,10 +133,12 @@ function renderRow(post, isLast) {
               ${avatarHtml}
               <div class="s-user-card--info">
                 <a class="s-user-card--link" href="#">${escapeHtml(author.name || 'anonymous')}</a>
-                ${badgeHtml}
+                <span class="s-user-card--rep">${repHtml}</span>
+                ${authorBadgeHtml}
               </div>
               <time class="s-user-card--time" datetime="${escapeHtml(post.time)}">
-                <a class="s-link s-link__muted" href="#">${escapeHtml(post.action || 'asked')} ${escapeHtml(formatRelativeTime(post.time))}</a>
+                ${escapeHtml(post.action || 'asked')}
+                <a class="s-link s-link__muted" href="#">${escapeHtml(formatRelativeTime(post.time))}</a>
               </time>
             </div>
           </div>
@@ -142,47 +151,107 @@ function renderRow(post, isLast) {
 /* States                                                              */
 /* ------------------------------------------------------------------ */
 
-function renderPosts(items) {
+function renderLoading(listEl) {
+  if (!listEl) return;
+  listEl.setAttribute('aria-busy', 'true');
+  listEl.innerHTML = Array.from({ length: 3 }, () => `
+    <li class="bb bc-black-200">
+      <div class="p16 d-flex g16">
+        <div class="bg-loading bar-md fl-shrink0" style="width:100px;height:64px;"></div>
+        <div class="fl-grow1 d-flex fd-column g8">
+          <div class="bg-loading bar-md" style="height:20px;width:70%;"></div>
+          <div class="bg-loading bar-md" style="height:14px;width:95%;"></div>
+          <div class="bg-loading bar-md" style="height:14px;width:60%;"></div>
+        </div>
+      </div>
+    </li>`).join('');
+}
+
+function renderList(listEl, items, { emptyMessage }) {
+  if (!listEl) return;
   listEl.removeAttribute('aria-busy');
 
   if (!items.length) {
-    listEl.innerHTML =
-      `<li class="p24 ta-center fc-black-400">No posts to show yet.</li>`;
+    listEl.innerHTML = `<li class="p24 ta-center fc-black-400">${escapeHtml(emptyMessage)}</li>`;
     return;
   }
 
-  listEl.innerHTML = items
-    .map((post, i) => renderRow(post, i === items.length - 1))
-    .join('');
+  listEl.innerHTML = items.map(renderRow).join('');
 }
 
-function renderError(err) {
+function renderError(listEl, err) {
+  if (!listEl) return;
   listEl.removeAttribute('aria-busy');
   listEl.innerHTML = `
     <li class="p16">
       <div class="s-notice s-notice__danger" role="alert">
-        Could not load recommended posts. ${escapeHtml(err?.message ?? '')}
+        Could not load posts. ${escapeHtml(err?.message ?? String(err))}
       </div>
     </li>`;
 }
 
 /* ------------------------------------------------------------------ */
-/* Loader                                                              */
+/* Bootstrap                                                           */
 /* ------------------------------------------------------------------ */
 
-function load() {
-  listEl.setAttribute('aria-busy', 'true');
+async function init() {
+  const questionsEl   = document.getElementById(QUESTION_LIST_ID);
+  const discussionsEl = document.getElementById(DISCUSSION_LIST_ID);
 
-  fetch(JSON_URL, { cache: 'no-store' })
-    .then((res) => {
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      return res.json();
-    })
-    .then((data) => {
-      const items = Array.isArray(data) ? data
-                  : Array.isArray(data?.posts) ? data.posts
-                  : [];
-      renderPosts(items);
-    })
-    .catch(renderError);
+  if (!questionsEl && !discussionsEl) {
+    console.warn('[home-feed] no target list found — aborting.');
+    return;
+  }
+
+  renderLoading(questionsEl);
+  renderLoading(discussionsEl);
+
+  if (location.protocol === 'file:') {
+    const err = new Error(
+      'Page opened via file:// — fetch is blocked. ' +
+      'Serve the project over HTTP (e.g. `python -m http.server 8000`).'
+    );
+    console.error('[home-feed]', err.message);
+    renderError(questionsEl, err);
+    renderError(discussionsEl, err);
+    return;
+  }
+
+  const absolute = new URL(JSON_URL, location.href).href;
+  console.info('[home-feed] fetching', absolute);
+
+  try {
+    const res = await fetch(JSON_URL, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText} — ${absolute}`);
+
+    const text = await res.text();
+    if (!text.trim()) throw new Error(`Empty response from ${absolute}`);
+
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      throw new Error(`Invalid JSON at ${absolute}: ${e.message}`);
+    }
+
+    const questions   = Array.isArray(data.recommendedQuestions) ? data.recommendedQuestions : [];
+    const discussions = Array.isArray(data.trendingDiscussions)  ? data.trendingDiscussions  : [];
+
+    renderList(questionsEl, questions, {
+      emptyMessage: 'No recommended posts right now.'
+    });
+    renderList(discussionsEl, discussions, {
+      emptyMessage: 'No trending discussions right now.'
+    });
+  } catch (err) {
+    console.error('[home-feed] Failed to load:', err);
+    renderError(questionsEl, err);
+    renderError(discussionsEl, err);
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init, { once: true });
+} else {
+  init();
 }
