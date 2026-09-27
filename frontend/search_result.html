@@ -26,11 +26,12 @@
     <!-- LEFT RAIL -->
     <aside class="sidebar-left sm:d-none" aria-label="Section navigation">
       <nav class="s-navigation s-navigation__vertical">
-        <a class="s-navigation--item" href="#">Home</a>
-        <a class="s-navigation--item is-selected" href="#" aria-current="page">Questions</a>
-        <a class="s-navigation--item" href="#">Discussion</a>
-        <a class="s-navigation--item" href="#">Tags</a>
-        <a class="s-navigation--item" href="#">Users</a>
+        <a class="s-navigation--item" href="./index.html">Home</a>
+        <a class="s-navigation--item" href="./questions.html">Questions</a>
+        <a class="s-navigation--item" href="./discussions.html">Discussion</a>
+        <a class="s-navigation--item" href="./tags.html">Tags</a>
+        <a class="s-navigation--item" href="./users.html">Users</a>
+        <a class="s-navigation--item" href="./admin.html">Admin</a>
       </nav>
     </aside>
 
@@ -44,7 +45,6 @@
           <button type="button" class="s-btn s-btn__link" data-advanced-tips-toggle>
             Advanced Search Tips
           </button>
-          <a href="./ask.html" class="s-btn s-btn__filled ws-nowrap">Ask Question</a>
         </div>
       </div>
 
@@ -82,7 +82,7 @@
 
       <!-- "Results for X" line -->
       <div class="mb16 fs-caption fc-black-400">
-        Results for <span class="fw-bold" data-query>omega</span>
+        Results for <span class="fw-bold" data-query>(empty)</span>
       </div>
 
       <!-- Sort tabs + result count -->
@@ -94,10 +94,11 @@
         </nav>
       </div>
 
-      <!-- Results list — populated by ./js/search-results.js -->
-      <ol id="search-results" class="s-card p0 list-reset" aria-busy="true"></ol>
+      <!-- Results list — populated by ./js/pages/search-results.js
+           from ./mock/question-list.json + ./mock/discussion-list.json -->
+      <div id="search-results" class="question-list" aria-busy="true"></div>
 
-      <!-- Pagination — populated by ./js/search-results.js -->
+      <!-- Pagination — populated by ./js/pages/search-results.js -->
       <nav class="s-pagination mt24" data-pagination aria-label="Search pagination"></nav>
 
     </main>
@@ -106,6 +107,7 @@
   <!-- SITE FOOTER -->
   <site-footer></site-footer>
 
+  <script type="module" src="./js/tag-url.js"></script>
   <script type="module" src="./js/components/site-header.js"></script>
   <script type="module" src="./js/components/site-footer.js"></script>
   <script type="module" src="./js/pages/search-results.js"></script>

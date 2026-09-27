@@ -1,29 +1,40 @@
+/**
+ * tag-detail.js
+ *
+ * Renders a single tag's page (tag-detail.html).
+ *   - reads ?tag=<name> from the URL
+ *   - shows tag name + description from ./mock/tags.json
+ *   - "Questions" tab:   ./mock/question-list.json   filtered by tag
+ *   - "Discussions" tab: ./mock/discussion-list.json filtered by tag
+ *   - sort tabs: Trending / Newest / Most upvotes / Most views / Most replies
+ *
+ * Cards are rendered with the same markup as ./js/render-questions.js and
+ * ./js/pages/discussions.js so every listing looks identical.
+ * Type badge sits at the top of the stats column, using the shared
+ * `.question-badge` / `.discussion-badge` classes.
+ *
+ * Classic script (loaded with <script src> not type=module).
+ */
+
 (function () {
   'use strict';
 
-  var QUEST_JSON   = './mock/question-list.json';
-  var DISCUSS_JSON = './mock/discussion-list.json';
-  var DEFAULT_TAG  = 'javascript';
-  var EXCERPT_LENGTH = 180;
+  var TAGS_URL        = './mock/tags.json';
+  var QUESTIONS_URL   = './mock/question-list.json';
+  var DISCUSSIONS_URL = './mock/discussion-list.json';
+  var EXCERPT_LENGTH  = 180;
 
-  var listEl         = document.getElementById('question-list');
-  var tagNameEl      = document.getElementById('tag-name');
-  var tagDescEl      = document.getElementById('tag-description');
-  var countLabelEl   = document.querySelector('[data-question-count]');
-  var typeTabsEl     = document.getElementById('type-tabs');
-  var questFiltersEl   = document.getElementById('quest-filters');
-  var discussFiltersEl = document.getElementById('discuss-filters');
+  var state = {
+    tag: '',
+    type: 'quest',       // 'quest' | 'discuss'
+    sort: 'trending',
+    questions: [],
+    discussions: []
+  };
 
-  if (!listEl) return;
-
-  var questItems   = [];
-  var discussItems = [];
-  var activeTag  = DEFAULT_TAG;
-  var activeType = 'quest';
-  var activeQuestFilter   = 'trending';
-  var activeDiscussFilter = 'trending';
-
-  /* ---------------- Helpers ---------------- */
+  /* ---------------------------------------------------------------- */
+  /* Primitives                                                       */
+  /* ---------------------------------------------------------------- */
 
   function escapeHtml(value) {
     return String(value == null ? '' : value)
@@ -36,9 +47,32 @@
 
   function formatCount(n) {
     var num = Number(n) || 0;
-    if (num >= 1000000) return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'm';
-    if (num >= 1000)    return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+    var abs = Math.abs(num);
+    if (abs >= 1000000) return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'm';
+    if (abs >= 1000)    return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
     return String(num);
+  }
+
+  function formatRelativeTime(iso) {
+    if (!iso) return '';
+    var then = new Date(iso).getTime();
+    if (isNaN(then)) return '';
+    var sec = Math.floor(Math.max(0, Date.now() - then) / 1000);
+    if (sec < 60) return 'just now';
+    var min = Math.floor(sec / 60);
+    if (min < 60) return min + (min === 1 ? ' minute ago' : ' minutes ago');
+    var hr = Math.floor(min / 60);
+    if (hr < 24) return hr + (hr === 1 ? ' hour ago' : ' hours ago');
+    var day = Math.floor(hr / 24);
+    if (day < 30) return day + (day === 1 ? ' day ago' : ' days ago');
+    var mo = Math.floor(day / 30);
+    if (mo < 12) return mo + (mo === 1 ? ' month ago' : ' months ago');
+    var yr = Math.floor(mo / 12);
+    return yr + (yr === 1 ? ' year ago' : ' years ago');
+  }
+
+  function plural(count, singular, pluralForm) {
+    return count === 1 ? singular : (pluralForm || singular + 's');
   }
 
   function truncate(text, len) {
@@ -47,43 +81,136 @@
     return s.slice(0, len).replace(/\s+\S*$/, '') + '…';
   }
 
-  function plural(count, word) {
-    return count === 1 ? word : word + 's';
+  function makeTagUrl(name) {
+    if (typeof window.tagUrl === 'function') return window.tagUrl(name);
+    return './tag-detail.html?tag=' + encodeURIComponent(String(name || ''));
   }
 
-  /* ---------------- Card renderers ---------------- */
+  function readQuery() {
+    var p = new URLSearchParams(location.search);
+    return (p.get('tag') || '').trim().toLowerCase();
+  }
 
-  function renderCard(item, options) {
-    var isDiscuss   = options.isDiscuss;
-    var detailUrl   = options.detailUrl;
-    var replyLabel  = isDiscuss ? 'reply' : 'answer';
-    var replyCount  = options.replyCount;
-    var hasAccepted = options.hasAccepted;
+  function fetchJson(url) {
+    return fetch(url, { cache: 'no-store' }).then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status + ' ' + res.statusText + ' — ' + url);
+      return res.text().then(function (text) {
+        if (!text.trim()) throw new Error('Empty response from ' + url);
+        try {
+          return JSON.parse(text);
+        } catch (e) {
+          throw new Error('Invalid JSON at ' + url + ': ' + e.message);
+        }
+      });
+    });
+  }
 
-    var votes = Number(item.votes) || 0;
-    var views = Number(item.views) || 0;
+  function summariseAnswers(answers) {
+    var list = Array.isArray(answers) ? answers : [];
+    return {
+      total: list.length,
+      accepted: list.some(function (a) { return a && a.accepted === true; })
+    };
+  }
 
-    var badgeHtml = isDiscuss
-      ? '<span class="discussion-badge">Discussion</span>'
-      : '<span class="question-badge">Question</span>';
+  /* ---------------------------------------------------------------- */
+  /* Shared fragments                                                 */
+  /* ---------------------------------------------------------------- */
 
-    var answeredCls = hasAccepted ? ' post-stat--answered' : '';
-
-    var tagsHtml = (item.tags || []).map(function (t) {
-      return '<a class="s-tag" href="' + tagUrl(t) + '">' + escapeHtml(t) + '</a>';
+  function renderTagsHtml(tags) {
+    return (tags || []).map(function (t) {
+      return '<a class="s-tag" href="' + escapeHtml(makeTagUrl(t)) + '">' + escapeHtml(t) + '</a>';
     }).join('');
+  }
+
+  function renderAuthorCard(author, timeIso, action) {
+    author = author || {};
+    var avatarBg  = author.avatarColor  || 'bg-blue-300';
+    var avatarLet = author.avatarLetter || (author.name ? author.name.charAt(0) : '?');
+    var rep = author.rep != null
+      ? author.rep
+      : (author.reputation != null ? author.reputation : '0');
 
     return [
-      '<div class="s-post-summary">',
+      '<div class="s-user-card">',
+        '<a href="#" class="s-avatar ' + escapeHtml(avatarBg) + '" aria-hidden="true" tabindex="-1">',
+          '<span class="s-avatar--letter">' + escapeHtml(avatarLet) + '</span>',
+        '</a>',
+        '<div class="s-user-card--column">',
+          '<a class="s-user-card--username" href="#">' + escapeHtml(author.name || 'anonymous') + '</a>',
+          '<div class="s-user-card--group">',
+            '<span class="s-user-card--rep">' + escapeHtml(rep) + '</span>',
+            '<span class="s-user-card--time">' + escapeHtml(action || 'asked') + ' ' + escapeHtml(formatRelativeTime(timeIso)) + '</span>',
+          '</div>',
+        '</div>',
+      '</div>'
+    ].join('');
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Card renderers                                                   */
+  /* ---------------------------------------------------------------- */
+
+  function renderQuestionCard(q) {
+    var stats  = summariseAnswers(q.answers);
+    var votes  = Number(q.votes) || 0;
+    var views  = Number(q.views) || 0;
+    var hasAns = stats.total > 0;
+
+    var answeredCls = stats.accepted ? ' post-stat--answered' : '';
+
+    var answersCell = hasAns
+      ? '<span class="post-stat--num">' + escapeHtml(String(stats.total)) + '</span>' + plural(stats.total, 'answer')
+      : '<span class="post-stat--num">0</span>answers';
+
+    var excerpt = truncate(q.body, EXCERPT_LENGTH);
+
+    return [
+      '<div class="s-post-summary" data-question-id="' + escapeHtml(q.id) + '">',
         '<div class="s-post-summary--stats s-post-summary--sm-hide">',
-          badgeHtml,
+          '<span class="question-badge">Question</span>',
           '<div class="post-stat">',
             '<span class="post-stat--num">' + escapeHtml(formatCount(votes)) + '</span>',
             plural(votes, 'vote'),
           '</div>',
-          '<div class="post-stat' + answeredCls + '">',
-            '<span class="post-stat--num">' + escapeHtml(formatCount(replyCount)) + '</span>',
-            plural(replyCount, replyLabel),
+          '<div class="post-stat' + answeredCls + '">' + answersCell + '</div>',
+          '<div class="post-stat">',
+            '<span class="post-stat--num">' + escapeHtml(formatCount(views)) + '</span>',
+            plural(views, 'view'),
+          '</div>',
+        '</div>',
+        '<div class="s-post-summary--content">',
+          '<h3 class="s-post-summary--title mb0">',
+            '<a class="s-post-summary--title-link" href="#">' + escapeHtml(q.title) + '</a>',
+          '</h3>',
+          excerpt ? '<div class="s-post-summary--excerpt v-truncate2">' + escapeHtml(excerpt) + '</div>' : '',
+          '<div class="d-flex ai-center jc-space-between g8 fw-wrap mt8">',
+            '<div class="s-post-summary--tags mt0">' + renderTagsHtml(q.tags) + '</div>',
+            renderAuthorCard(q.author, q.time, 'asked'),
+          '</div>',
+        '</div>',
+      '</div>'
+    ].join('');
+  }
+
+  function renderDiscussionCard(d) {
+    var votes   = Number(d.votes) || 0;
+    var replies = Number(d.replyCount != null ? d.replyCount : d.answers) || 0;
+    var views   = Number(d.views) || 0;
+
+    var excerpt = truncate(d.body, EXCERPT_LENGTH);
+
+    return [
+      '<div class="s-post-summary" data-discussion-id="' + escapeHtml(d.id) + '">',
+        '<div class="s-post-summary--stats s-post-summary--sm-hide">',
+          '<span class="discussion-badge">Discussion</span>',
+          '<div class="post-stat">',
+            '<span class="post-stat--num">' + escapeHtml(formatCount(votes)) + '</span>',
+            plural(votes, 'vote'),
+          '</div>',
+          '<div class="post-stat">',
+            '<span class="post-stat--num">' + escapeHtml(String(replies)) + '</span>',
+            plural(replies, 'reply', 'replies'),
           '</div>',
           '<div class="post-stat">',
             '<span class="post-stat--num">' + escapeHtml(formatCount(views)) + '</span>',
@@ -92,186 +219,234 @@
         '</div>',
         '<div class="s-post-summary--content">',
           '<h3 class="s-post-summary--title mb0">',
-            '<a class="s-post-summary--title-link" href="' + detailUrl + '">' + escapeHtml(item.title) + '</a>',
+            '<a class="s-post-summary--title-link" href="#">' + escapeHtml(d.title) + '</a>',
           '</h3>',
-          '<div class="s-post-summary--excerpt v-truncate2">' + escapeHtml(truncate(item.body, EXCERPT_LENGTH)) + '</div>',
-          '<div class="s-post-summary--tags mt8">' + tagsHtml + '</div>',
+          excerpt ? '<div class="s-post-summary--excerpt v-truncate2">' + escapeHtml(excerpt) + '</div>' : '',
+          '<div class="d-flex ai-center jc-space-between g8 fw-wrap mt8">',
+            '<div class="s-post-summary--tags mt0">' + renderTagsHtml(d.tags) + '</div>',
+            renderAuthorCard(d.author, d.time, 'started'),
+          '</div>',
         '</div>',
       '</div>'
     ].join('');
   }
 
-  function renderQuestCard(q) {
-    var answers = Array.isArray(q.answers) ? q.answers : [];
-    var hasAccepted = answers.some(function (a) { return a && a.accepted === true; });
-    return renderCard(q, {
-      isDiscuss: false,
-      detailUrl: './question-detail.html?id=' + encodeURIComponent(q.id),
-      replyCount: answers.length,
-      hasAccepted: hasAccepted
-    });
+  /* ---------------------------------------------------------------- */
+  /* Data shape                                                       */
+  /* ---------------------------------------------------------------- */
+
+  function questionHasTag(q, tagName) {
+    return Array.isArray(q.tags) &&
+           q.tags.some(function (t) { return String(t).toLowerCase() === tagName; });
   }
 
-  function renderDiscussCard(d) {
-    var replies = Number(d.replyCount) || 0;
-    return renderCard(d, {
-      isDiscuss: true,
-      detailUrl: './discussion-detail.html?id=' + encodeURIComponent(d.id),
-      replyCount: replies,
-      hasAccepted: false
-    });
+  function discussionHasTag(d, tagName) {
+    return Array.isArray(d.tags) &&
+           d.tags.some(function (t) { return String(t).toLowerCase() === tagName; });
   }
 
-  /* ---------------- Filtering / sorting ---------------- */
+  /* ---------------------------------------------------------------- */
+  /* Sorting                                                          */
+  /* ---------------------------------------------------------------- */
 
-  function byTag(items) {
-    return items.filter(function (item) {
-      return (item.tags || []).some(function (t) { return t.toLowerCase() === activeTag; });
-    });
-  }
-
-  function timeValue(item) {
-    return new Date(item.time || item.createdAt || 0).getTime() || 0;
-  }
-
-  // "Trending" is a rough score combining votes and views. There's no
-  // real trending signal in the mock data, so this is a reasonable stand-in.
-  function trendingScore(item) {
-    var votes = Number(item.votes) || 0;
-    var views = Number(item.views) || 0;
-    return votes * 3 + views;
-  }
-
-  function sortBy(mode, items) {
-    var copy = items.slice();
-    switch (mode) {
-      case 'newest':
-        return copy.sort(function (a, b) { return timeValue(b) - timeValue(a); });
-      case 'upvotes':
-        return copy.sort(function (a, b) { return (Number(b.votes) || 0) - (Number(a.votes) || 0); });
-      case 'views':
-        return copy.sort(function (a, b) { return (Number(b.views) || 0) - (Number(a.views) || 0); });
-      case 'replies':
-        return copy.sort(function (a, b) { return (Number(b.replyCount) || 0) - (Number(a.replyCount) || 0); });
-      case 'trending':
-      default:
-        return copy.sort(function (a, b) { return trendingScore(b) - trendingScore(a); });
+  function sortPosts(list, mode) {
+    var copy = list.slice();
+    if (mode === 'newest') {
+      copy.sort(function (a, b) {
+        var ta = new Date(a.time).getTime() || 0;
+        var tb = new Date(b.time).getTime() || 0;
+        return tb - ta;
+      });
+    } else if (mode === 'upvotes') {
+      copy.sort(function (a, b) { return (b.votes || 0) - (a.votes || 0); });
+    } else if (mode === 'views') {
+      copy.sort(function (a, b) { return (b.views || 0) - (a.views || 0); });
+    } else if (mode === 'replies') {
+      copy.sort(function (a, b) {
+        var ra = (a.replyCount != null ? a.replyCount : a.answers) || 0;
+        var rb = (b.replyCount != null ? b.replyCount : b.answers) || 0;
+        return rb - ra;
+      });
+    } else {
+      // trending: votes + 2×answers, tie-break by views
+      copy.sort(function (a, b) {
+        var aa = (a.replyCount != null ? a.replyCount : a.answers) || 0;
+        var ab = (b.replyCount != null ? b.replyCount : b.answers) || 0;
+        var sa = (a.votes || 0) + 2 * aa;
+        var sb = (b.votes || 0) + 2 * ab;
+        if (sb !== sa) return sb - sa;
+        return (b.views || 0) - (a.views || 0);
+      });
     }
+    return copy;
   }
 
-  function filterQuest(items) {
-    return sortBy(activeQuestFilter, items);
+  /* ---------------------------------------------------------------- */
+  /* Rendering                                                        */
+  /* ---------------------------------------------------------------- */
+
+  function currentPosts() {
+    var source = state.type === 'discuss' ? state.discussions : state.questions;
+    return sortPosts(source, state.sort);
   }
 
-  function filterDiscuss(items) {
-    return sortBy(activeDiscussFilter, items);
-  }
+  function renderList() {
+    var listEl = document.getElementById('question-list');
+    if (!listEl) return;
 
-  /* ---------------- Render ---------------- */
+    var posts = currentPosts();
+    listEl.removeAttribute('aria-busy');
 
-  function render() {
-    var isDiscuss = activeType === 'discuss';
-    var raw = byTag(isDiscuss ? discussItems : questItems);
-    var items = isDiscuss ? filterDiscuss(raw) : filterQuest(raw);
-
-    if (tagNameEl) tagNameEl.textContent = activeTag;
-    if (tagDescEl) tagDescEl.textContent = 'Posts tagged [' + activeTag + ']';
-    if (countLabelEl) {
-      countLabelEl.textContent = items.length + ' ' +
-        plural(items.length, isDiscuss ? 'discussion' : 'question');
-    }
-
-    if (!items.length) {
+    if (!posts.length) {
+      var label = state.type === 'discuss' ? 'discussions' : 'questions';
       listEl.innerHTML =
-        '<div class="s-empty-state py48">' +
-          '<div class="s-empty-state--title">Nothing here yet for [' + escapeHtml(activeTag) + ']</div>' +
+        '<div class="s-card p24 ta-center fc-black-400">' +
+          'No ' + escapeHtml(label) + ' tagged <strong>' + escapeHtml(state.tag || '') + '</strong> yet.' +
         '</div>';
+      updateCount(0);
       return;
     }
 
-    listEl.innerHTML = items.map(isDiscuss ? renderDiscussCard : renderQuestCard).join('');
+    var html = posts.map(function (p) {
+      return state.type === 'discuss' ? renderDiscussionCard(p) : renderQuestionCard(p);
+    }).join('');
+
+    listEl.innerHTML = html;
+    updateCount(posts.length);
   }
 
-  function switchType(type) {
-    activeType = type;
-    if (typeTabsEl) {
-      typeTabsEl.querySelectorAll('[data-type]').forEach(function (btn) {
-        btn.classList.toggle('is-selected', btn.dataset.type === type);
-      });
+  function updateCount(n) {
+    var el = document.querySelector('[data-question-count]');
+    if (!el) return;
+    var label = state.type === 'discuss' ? 'discussion' : 'question';
+    el.textContent = n + ' ' + plural(n, label);
+  }
+
+  function renderTagHeader(tag) {
+    var nameEl = document.getElementById('tag-name');
+    var descEl = document.getElementById('tag-description');
+    if (nameEl) nameEl.textContent = tag ? tag.name : (state.tag || 'Tag');
+    if (descEl) {
+      descEl.textContent = tag && tag.description
+        ? tag.description
+        : 'No description available.';
     }
-    if (questFiltersEl)   questFiltersEl.classList.toggle('d-none', type !== 'quest');
-    if (discussFiltersEl) discussFiltersEl.classList.toggle('d-none', type !== 'discuss');
-
-    updateFilterUI(questFiltersEl, activeQuestFilter);
-    updateFilterUI(discussFiltersEl, activeDiscussFilter);
-
-    render();
+    document.title = (tag ? tag.name : state.tag) + ' — Tech4Rum';
   }
 
-  /* ---------------- Filter UI helpers ---------------- */
+  /* ---------------------------------------------------------------- */
+  /* Wiring                                                           */
+  /* ---------------------------------------------------------------- */
 
-  function updateFilterUI(navEl, activeFilter) {
-    if (!navEl) return;
-    navEl.querySelectorAll('[data-filter]').forEach(function (a) {
-      var on = a.dataset.filter === activeFilter;
-      a.classList.toggle('is-selected', on);
-      if (on) a.setAttribute('aria-current', 'true');
-      else    a.removeAttribute('aria-current');
-    });
-  }
-
-  function handleFilterClick(navEl, e, which) {
-    var link = e.target.closest('[data-filter]');
-    if (!link || !navEl.contains(link)) return;
-    e.preventDefault();
-    if (which === 'quest') {
-      activeQuestFilter = link.dataset.filter;
-      updateFilterUI(questFiltersEl, activeQuestFilter);
-    } else {
-      activeDiscussFilter = link.dataset.filter;
-      updateFilterUI(discussFiltersEl, activeDiscussFilter);
-    }
-    render();
-  }
-
-  if (typeTabsEl) {
-    typeTabsEl.addEventListener('click', function (e) {
+  function bindTypeTabs() {
+    var nav = document.getElementById('type-tabs');
+    if (!nav) return;
+    nav.addEventListener('click', function (e) {
       var btn = e.target.closest('[data-type]');
-      if (btn) switchType(btn.dataset.type);
+      if (!btn) return;
+      e.preventDefault();
+      state.type = btn.dataset.type;
+      state.sort = 'trending';
+      nav.querySelectorAll('[data-type]').forEach(function (b) {
+        b.classList.toggle('is-selected', b === btn);
+      });
+      ['#quest-filters', '#discuss-filters'].forEach(function (sel) {
+        var n = document.querySelector(sel);
+        if (!n) return;
+        n.querySelectorAll('[data-filter]').forEach(function (b) {
+          b.classList.toggle('is-selected', b.dataset.filter === 'trending');
+        });
+      });
+      renderList();
     });
   }
 
-  if (questFiltersEl) {
-    questFiltersEl.addEventListener('click', function (e) {
-      handleFilterClick(questFiltersEl, e, 'quest');
-    });
-  }
-  if (discussFiltersEl) {
-    discussFiltersEl.addEventListener('click', function (e) {
-      handleFilterClick(discussFiltersEl, e, 'discuss');
+  function bindSortNav() {
+    document.querySelectorAll('#quest-filters, #discuss-filters').forEach(function (nav) {
+      nav.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-filter]');
+        if (!btn) return;
+        e.preventDefault();
+        state.sort = btn.dataset.filter;
+        nav.querySelectorAll('[data-filter]').forEach(function (b) {
+          b.classList.toggle('is-selected', b === btn);
+        });
+        renderList();
+      });
     });
   }
 
-  /* ---------------- Load ---------------- */
+  /* ---------------------------------------------------------------- */
+  /* Bootstrap                                                        */
+  /* ---------------------------------------------------------------- */
 
-  function load() {
-    var params = new URLSearchParams(window.location.search);
-    activeTag = (params.get('tag') || DEFAULT_TAG).toLowerCase();
+  function init() {
+    var listEl = document.getElementById('question-list');
+
+    state.tag = readQuery();
+
+    if (!state.tag) {
+      renderTagHeader(null);
+      if (listEl) {
+        listEl.innerHTML =
+          '<div class="s-card p24 ta-center fc-black-400">' +
+            'No tag specified. Try <a class="s-link" href="./tags.html">browsing all tags</a>.' +
+          '</div>';
+      }
+      return;
+    }
+
+    if (listEl) listEl.setAttribute('aria-busy', 'true');
+
+    if (location.protocol === 'file:') {
+      if (listEl) {
+        listEl.innerHTML =
+          '<div class="s-card p24 ta-center fc-red-400">' +
+            'Page opened via file:// — fetch is blocked. Serve the project over HTTP.' +
+          '</div>';
+      }
+      return;
+    }
 
     Promise.all([
-      fetch(QUEST_JSON).then(function (r) { return r.json(); }),
-      fetch(DISCUSS_JSON).then(function (r) { return r.json(); })
-    ])
-      .then(function (results) {
-        questItems   = Array.isArray(results[0]) ? results[0] : [];
-        discussItems = Array.isArray(results[1]) ? results[1] : [];
-        render();
-      })
-      .catch(function () {
+      fetchJson(TAGS_URL).catch(function () { return { tags: [] }; }),
+      fetchJson(QUESTIONS_URL),
+      fetchJson(DISCUSSIONS_URL)
+    ]).then(function (results) {
+      var tagsData       = results[0];
+      var questionsRaw   = results[1];
+      var discussionsRaw = results[2];
+
+      var allTags = Array.isArray(tagsData) ? tagsData : (tagsData.tags || []);
+      var tagMeta = allTags.filter(function (t) {
+        return String(t.name || '').toLowerCase() === state.tag;
+      })[0];
+      renderTagHeader(tagMeta);
+
+      state.questions = (Array.isArray(questionsRaw) ? questionsRaw : [])
+        .filter(function (q) { return questionHasTag(q, state.tag); });
+
+      state.discussions = (Array.isArray(discussionsRaw) ? discussionsRaw : [])
+        .filter(function (d) { return discussionHasTag(d, state.tag); });
+
+      bindTypeTabs();
+      bindSortNav();
+      renderList();
+    }).catch(function (err) {
+      console.error('[tag-detail] Failed to load:', err);
+      if (listEl) {
+        listEl.removeAttribute('aria-busy');
         listEl.innerHTML =
-          '<div class="s-notice s-notice__danger mt16">Could not load posts.</div>';
-      });
+          '<div class="s-card p24 ta-center fc-red-400">' +
+            'Could not load tag data. ' + escapeHtml(err.message) +
+          '</div>';
+      }
+    });
   }
 
-  load();
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init, { once: true });
+  } else {
+    init();
+  }
 })();

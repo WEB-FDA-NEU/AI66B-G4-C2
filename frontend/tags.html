@@ -26,11 +26,12 @@
     <!-- LEFT RAIL -->
     <aside class="sidebar-left sm:d-none" aria-label="Section navigation">
       <nav class="s-navigation s-navigation__vertical">
-        <a class="s-navigation--item" href="#">Home</a>
-        <a class="s-navigation--item" href="#">Questions</a>
-        <a class="s-navigation--item" href="#">Discussion</a>
-        <a class="s-navigation--item is-selected" href="#" aria-current="page">Tags</a>
-        <a class="s-navigation--item" href="#">Users</a>
+        <a class="s-navigation--item" href="./index.html">Home</a>
+        <a class="s-navigation--item" href="./questions.html">Questions</a>
+        <a class="s-navigation--item" href="./discussions.html">Discussion</a>
+        <a class="s-navigation--item is-selected" href="./tags.html" aria-current="page">Tags</a>
+        <a class="s-navigation--item" href="./users.html">Users</a>
+        <a class="s-navigation--item" href="./admin.html">Admin</a>
       </nav>
     </aside>
 
@@ -43,13 +44,6 @@
         A tag is a keyword or label that categorizes your question with other, similar questions.
         Using the right tags makes it easier for others to find and answer your question.
       </p>
-
-      <!-- Tag-type legend -->
-      <div class="d-flex fw-wrap g4 mb24 ai-center">
-        <a class="flex--item s-tag s-tag__obc" href="#" title="This is an opinion-based tag.">opinion-based-tag</a>
-        <a class="flex--item s-tag mr8" href="#" title="This is a standard tag. Every question must have at least one tag.">tag</a>
-        <a class="flex--item s-link fs-body1" href="#">Show all tag synonyms</a>
-      </div>
 
       <!-- Filter + sort row -->
       <div class="d-flex fw-wrap ai-center g8 mb16">
@@ -100,6 +94,7 @@
   <!-- SITE FOOTER -->
   <site-footer></site-footer>
 
+  <script type="module" src="./js/tag-url.js"></script>
   <script type="module" src="./js/components/site-header.js"></script>
   <script type="module" src="./js/components/site-footer.js"></script>
   <script type="module" src="./js/pages/tags.js"></script>

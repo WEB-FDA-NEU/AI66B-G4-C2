@@ -2,15 +2,16 @@
  * home-feed.js
  *
  * Renders the two home-page lists on index.html:
- *   - #question-mini-list   ← data.recommendedQuestions  (blue "Question" badge)
- *   - #discussion-mini-list ← data.trendingDiscussions   (purple "Discussion" badge)
+ *   - #question-mini-list   ← ./mock/question-list.json   (blue "Question" badge)
+ *   - #discussion-mini-list ← ./mock/discussion-list.json (purple "Discussion" badge)
  *
- * Data lives in ./mock/recommended-posts.json and is fetched at runtime.
+ * Both files are fetched in parallel, then normalized into a common shape.
  * Tags link to ./tag-detail.html?tag=<name>.
  * All styling lives in ./css/*.css.
  */
 
-const JSON_URL = './mock/recommended-posts.json';
+const QUESTIONS_URL   = './mock/question-list.json';
+const DISCUSSIONS_URL = './mock/discussion-list.json';
 
 const QUESTION_LIST_ID   = 'question-mini-list';
 const DISCUSSION_LIST_ID = 'discussion-mini-list';
@@ -64,6 +65,66 @@ function tagUrl(name) {
   return `./tag-detail.html?tag=${encodeURIComponent(name)}`;
 }
 
+function truncate(text, max = 200) {
+  const s = String(text ?? '').replace(/\s+/g, ' ').trim();
+  if (s.length <= max) return s;
+  return s.slice(0, max).replace(/\s+\S*$/, '') + '…';
+}
+
+/* ------------------------------------------------------------------ */
+/* Normalize — bring both files to one shape                          */
+/* ------------------------------------------------------------------ */
+
+function normalizeQuestion(q) {
+  const answers = Array.isArray(q.answers) ? q.answers : [];
+  const hasAccepted = answers.some((a) => a && a.accepted === true);
+  const author = q.author || {};
+
+  return {
+    id: q.id,
+    type: 'question',
+    title: q.title,
+    excerpt: truncate(q.body),
+    tags: q.tags || [],
+    votes: q.votes,
+    answers: answers.length,
+    accepted: hasAccepted,
+    views: q.views,
+    action: answers.length === 0 ? 'asked' : 'answered',
+    time: q.time,
+    author: {
+      name: author.name,
+      reputation: author.rep,
+      avatarColor: author.avatarColor,
+      avatarLetter: author.avatarLetter
+    }
+  };
+}
+
+function normalizeDiscussion(d) {
+  const author = d.author || {};
+
+  return {
+    id: d.id,
+    type: 'discussion',
+    title: d.title,
+    excerpt: truncate(d.body),
+    tags: d.tags || [],
+    votes: d.votes,
+    answers: d.replyCount || 0,
+    accepted: false,
+    views: d.views,
+    action: 'started',
+    time: d.time,
+    author: {
+      name: author.name,
+      reputation: author.rep,
+      avatarColor: author.avatarColor,
+      avatarLetter: author.avatarLetter
+    }
+  };
+}
+
 /* ------------------------------------------------------------------ */
 /* Row template                                                        */
 /* ------------------------------------------------------------------ */
@@ -88,15 +149,6 @@ function renderRow(post) {
          <span class="s-avatar--letter">${escapeHtml(author.avatarLetter)}</span>
        </a>`
     : `<a class="s-avatar s-avatar__16" href="#" aria-hidden="true" tabindex="-1"></a>`;
-
-  const authorBadgeHtml = author.badge && author.badge.label
-    ? `<span class="s-badge s-badge__xs">${escapeHtml(author.badge.label)}</span>`
-    : '';
-
-  const reputation = Number(author.reputation);
-  const repHtml = Number.isFinite(reputation)
-    ? reputation.toLocaleString()
-    : escapeHtml(author.reputation ?? '');
 
   return `
     <li class="bb bc-black-200">
@@ -133,8 +185,7 @@ function renderRow(post) {
               ${avatarHtml}
               <div class="s-user-card--info">
                 <a class="s-user-card--link" href="#">${escapeHtml(author.name || 'anonymous')}</a>
-                <span class="s-user-card--rep">${repHtml}</span>
-                ${authorBadgeHtml}
+                <span class="s-user-card--rep">${escapeHtml(author.reputation ?? '')}</span>
               </div>
               <time class="s-user-card--time" datetime="${escapeHtml(post.time)}">
                 ${escapeHtml(post.action || 'asked')}
@@ -191,6 +242,22 @@ function renderError(listEl, err) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Fetcher                                                             */
+/* ------------------------------------------------------------------ */
+
+async function fetchJson(url) {
+  const res = await fetch(url, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText} — ${url}`);
+  const text = await res.text();
+  if (!text.trim()) throw new Error(`Empty response from ${url}`);
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    throw new Error(`Invalid JSON at ${url}: ${e.message}`);
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /* Bootstrap                                                           */
 /* ------------------------------------------------------------------ */
 
@@ -217,25 +284,14 @@ async function init() {
     return;
   }
 
-  const absolute = new URL(JSON_URL, location.href).href;
-  console.info('[home-feed] fetching', absolute);
-
   try {
-    const res = await fetch(JSON_URL, { cache: 'no-store' });
-    if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText} — ${absolute}`);
+    const [questionsRaw, discussionsRaw] = await Promise.all([
+      fetchJson(QUESTIONS_URL),
+      fetchJson(DISCUSSIONS_URL)
+    ]);
 
-    const text = await res.text();
-    if (!text.trim()) throw new Error(`Empty response from ${absolute}`);
-
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch (e) {
-      throw new Error(`Invalid JSON at ${absolute}: ${e.message}`);
-    }
-
-    const questions   = Array.isArray(data.recommendedQuestions) ? data.recommendedQuestions : [];
-    const discussions = Array.isArray(data.trendingDiscussions)  ? data.trendingDiscussions  : [];
+    const questions   = (Array.isArray(questionsRaw)   ? questionsRaw   : []).map(normalizeQuestion);
+    const discussions = (Array.isArray(discussionsRaw) ? discussionsRaw : []).map(normalizeDiscussion);
 
     renderList(questionsEl, questions, {
       emptyMessage: 'No recommended posts right now.'

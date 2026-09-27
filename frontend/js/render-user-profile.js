@@ -5,6 +5,7 @@
   var QUEST_JSON   = './mock/question-list.json';
   var DISCUSS_JSON = './mock/discussion-list.json';
   var DEFAULT_ID   = 102;   // nguyen_dev
+  var ME_ID        = 101;   // "me" — same as my-content.html
   var EXCERPT_LENGTH = 180;
 
   var statusEl  = document.getElementById('profile-status');
@@ -37,7 +38,6 @@
     return String(num);
   }
 
-  // Alias for reputation formatting — same shape as formatCount.
   var formatRep = formatCount;
 
   function colorFromString(str) {
@@ -68,13 +68,7 @@
     return count === 1 ? word : word + 's';
   }
 
-  /* ---------------- Ownership test ----------------
-   *
-   * Prefer ID matching when the post carries an author.id.
-   * Fall back to a case-insensitive name match for legacy posts
-   * that only have an author.name. This keeps the two mock files
-   * free of accidental cross-user leakage.
-   */
+  /* ---------------- Ownership test ---------------- */
 
   function isAuthoredBy(post, user) {
     if (!post || !post.author || !user) return false;
@@ -98,7 +92,19 @@
     return allDiscussions.filter(function (d) { return isAuthoredBy(d, user); });
   }
 
-  /* ---------------- Render header ---------------- */
+  function userAnswersFor(user) {
+    if (!user) return [];
+    var out = [];
+    allQuestions.forEach(function (q) {
+      var list = Array.isArray(q.answers) ? q.answers : [];
+      list.forEach(function (a) {
+        if (isAuthoredBy(a, user)) out.push({ answer: a, question: q });
+      });
+    });
+    return out;
+  }
+
+  /* ---------------- Render header (letter avatar) ---------------- */
 
   function renderHeader(user) {
     var letter = avatarLetter(user);
@@ -156,19 +162,18 @@
     var rep = formatRep(user.reputation);
     var qCount = userPostsFor(user).length;
     var dCount = userDiscussionsFor(user).length;
+    var aCount = userAnswersFor(user).length;
 
     return [
       '<div class="d-flex fd-column g16">',
 
-        // Stats grid
         '<div class="d-flex g16 fw-wrap">',
           statBox(rep, 'Reputation'),
           statBox(String(qCount), 'Questions'),
           statBox(String(dCount), 'Discussions'),
-          statBox('0', 'Answers'),
+          statBox(String(aCount), 'Answers'),
         '</div>',
 
-        // About
         '<div class="widget">',
           '<div class="widget-header">About</div>',
           '<div class="widget-body d-flex fd-column g8">',
@@ -188,15 +193,7 @@
     ].join('');
   }
 
-  /* ---------------- Post cards ----------------
-   *
-   * Matches the main feed card layout exactly:
-   *   - type badge pinned to the top of the stats column
-   *   - votes / replies / views with formatted counts (k, m)
-   *   - accepted-answer highlight on questions only
-   *   - tags row, no author card (this is the author's own profile)
-   *   - no Edit / Delete actions (viewing another user)
-   */
+  /* ---------------- Post cards ---------------- */
 
   function renderPostCard(item, type) {
     var isDiscuss = type === 'discuss';
@@ -213,7 +210,6 @@
       : answers.length;
     var replyLabel = isDiscuss ? 'reply' : 'answer';
 
-    // Green ring on the answers stat when a question has an accepted answer.
     var hasAccepted = !isDiscuss && answers.some(function (a) { return a && a.accepted === true; });
     var answeredCls = hasAccepted ? ' post-stat--answered' : '';
 
@@ -324,6 +320,12 @@
 
   function load() {
     var userId = getUserIdFromUrl();
+
+    // If the visitor opened their own profile, send them to my-content.html.
+    if (userId === ME_ID) {
+      window.location.replace('./my-content.html');
+      return;
+    }
 
     Promise.all([
       fetch(USER_JSON).then(function (r) { return r.json(); }),

@@ -5,7 +5,11 @@
  *   - debounced filter input (fires 1s after the user stops typing)
  *   - sort tabs: Popular (default) / Name / New
  *   - client-side pagination
- *   - shows the "X tags matching 'foo'" summary while filtering
+ *   - tag names link to ./tag-detail.html?tag=<name>
+ *
+ * Tag URLs go through makeTagUrl(), which prefers window.tagUrl when
+ * ./js/tag-url.js has run and falls back to building the URL locally
+ * otherwise. That way load order between the two scripts doesn't matter.
  *
  * All styling lives in ./css/*.css.
  */
@@ -24,8 +28,7 @@ const state = {
   query: '',
   sort: 'popular',
   page: 1,
-  pageSize: PAGE_SIZE,
-  totalTags: 0
+  pageSize: PAGE_SIZE
 };
 
 /* ------------------------------------------------------------------ */
@@ -45,8 +48,17 @@ function debounce(fn, wait) {
     timer = setTimeout(() => fn(...args), wait);
   };
   wrapped.cancel = () => { clearTimeout(timer); timer = null; };
-  wrapped.flush  = (...args) => { clearTimeout(timer); timer = null; fn(...args); };
   return wrapped;
+}
+
+/**
+ * Single point for building tag links.
+ * Prefer window.tagUrl (set by ./js/tag-url.js) when available;
+ * fall back to the canonical shape otherwise.
+ */
+function makeTagUrl(name) {
+  if (typeof window.tagUrl === 'function') return window.tagUrl(name);
+  return './tag-detail.html?tag=' + encodeURIComponent(String(name || ''));
 }
 
 /* ------------------------------------------------------------------ */
@@ -56,16 +68,13 @@ function debounce(fn, wait) {
 function renderTag(tag) {
   const name  = String(tag.name || '');
   const count = Number(tag.questionCount) || 0;
-
-  const activityHtml = (tag.activity || []).map((a, i) =>
-    `${i > 0 ? ', ' : ''}<a href="#" title="${escapeHtml(a.title || '')}">${escapeHtml(a.label)}</a>`
-  ).join('');
+  const url   = makeTagUrl(name);
 
   return `
     <div class="grid--item s-card js-tag-cell d-flex fd-column" role="listitem">
       <div class="d-flex jc-space-between ai-center mb12">
         <div class="flex--item">
-          <a href="#" class="s-tag post-tag" rel="tag">${escapeHtml(name)}</a>
+          <a href="${url}" class="s-tag post-tag" rel="tag">${escapeHtml(name)}</a>
         </div>
       </div>
 
@@ -73,9 +82,8 @@ function renderTag(tag) {
         ? `<div class="flex--item fc-black-500 mb12 v-truncate4">${escapeHtml(tag.description)}</div>`
         : ''}
 
-      <div class="mt-auto d-flex jc-space-between fs-caption fc-black-400">
-        <div class="flex--item">${count.toLocaleString()} questions</div>
-        <div class="flex--item s-anchors s-anchors__inherit">${activityHtml}</div>
+      <div class="mt-auto fs-caption fc-black-400">
+        ${count.toLocaleString()} posts
       </div>
     </div>`;
 }
@@ -100,7 +108,6 @@ function getFiltered() {
       return tb - ta;
     });
   } else {
-    // 'popular' — highest question count first (default)
     list.sort((a, b) => (Number(b.questionCount) || 0) - (Number(a.questionCount) || 0));
   }
 
@@ -110,13 +117,6 @@ function getFiltered() {
 /* ------------------------------------------------------------------ */
 /* Rendering                                                           */
 /* ------------------------------------------------------------------ */
-
-function renderEmpty(listEl) {
-  listEl.innerHTML = `
-    <div class="grid--item ta-center fc-black-400 p24" style="grid-column: 1 / -1;">
-      No tags match <strong>${escapeHtml(state.query)}</strong>.
-    </div>`;
-}
 
 function renderList() {
   const listEl = document.getElementById(LIST_ID);
@@ -131,11 +131,16 @@ function renderList() {
   const start = (state.page - 1) * state.pageSize;
   const slice = filtered.slice(start, start + state.pageSize);
 
-  listEl.innerHTML = slice.length
-    ? slice.map(renderTag).join('')
-    : '';
+  listEl.removeAttribute('aria-busy');
 
-  if (!slice.length) renderEmpty(listEl);
+  if (!slice.length) {
+    listEl.innerHTML = `
+      <div class="grid--item ta-center fc-black-400 p24" style="grid-column: 1 / -1;">
+        No tags match <strong>${escapeHtml(state.query)}</strong>.
+      </div>`;
+  } else {
+    listEl.innerHTML = slice.map(renderTag).join('');
+  }
 
   updateSummary(total);
   renderPagination(pages);
@@ -215,13 +220,12 @@ function bindFilter() {
 
   // If the user presses Enter, apply immediately.
   input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      onFilter.cancel();
-      state.query = input.value;
-      state.page = 1;
-      renderList();
-    }
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    onFilter.cancel();
+    state.query = input.value;
+    state.page = 1;
+    renderList();
   });
 }
 
@@ -237,8 +241,11 @@ function bindSortNav() {
     state.sort = btn.dataset.sort;
     state.page = 1;
 
-    nav.querySelectorAll('[data-sort]').forEach((b) =>
-      b.classList.toggle('is-selected', b === btn));
+    nav.querySelectorAll('[data-sort]').forEach((b) => {
+      const on = b === btn;
+      b.classList.toggle('is-selected', on);
+      b.setAttribute('aria-pressed', String(on));
+    });
 
     renderList();
   });
@@ -256,9 +263,17 @@ async function init() {
   }
 
   listEl.setAttribute('aria-busy', 'true');
-
   bindFilter();
   bindSortNav();
+
+  if (location.protocol === 'file:') {
+    listEl.removeAttribute('aria-busy');
+    listEl.innerHTML = `
+      <div class="grid--item ta-center fc-red-400 p24" style="grid-column: 1 / -1;">
+        Page opened via file:// — fetch is blocked. Serve the project over HTTP.
+      </div>`;
+    return;
+  }
 
   try {
     const res = await fetch(JSON_URL, { cache: 'no-store' });
@@ -267,11 +282,9 @@ async function init() {
     if (!text.trim()) throw new Error(`Empty response from ${JSON_URL}`);
     const data = JSON.parse(text);
 
-    state.all       = Array.isArray(data) ? data : (data.tags || []);
-    state.totalTags = Number(data.totalTags) || state.all.length;
-    state.pageSize  = Number(data.pageSize)  || PAGE_SIZE;
+    state.all      = Array.isArray(data) ? data : (data.tags || []);
+    state.pageSize = Number(data.pageSize) || PAGE_SIZE;
 
-    listEl.removeAttribute('aria-busy');
     renderList();
   } catch (err) {
     console.error('[tags] Failed to load:', err);

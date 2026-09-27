@@ -1,145 +1,35 @@
 {
-  "totalTags": 48876,
-  "pageSize": 36,
+  "totalTags": 50,
+  "pageSize": 30,
   "tags": [
     {
       "name": "javascript",
-      "description": "For questions about programming in ECMAScript (JavaScript/JS) and its different dialects/implementations (except for ActionScript). Note that JavaScript is NOT Java. Include all tags that are relevant…",
+      "description": "For questions about programming in ECMAScript (JavaScript/JS) and its different dialects/implementations. Note that JavaScript is NOT Java.",
       "questionCount": 2521557,
       "createdAt": "2008-08-01T00:00:00Z",
       "activity": [
-        { "label": "5 asked today",   "title": "5 questions tagged javascript in the last 24 hours" },
-        { "label": "40 this week",    "title": "40 questions tagged javascript in the last 7 days" }
-      ]
-    },
-    {
-      "name": "python",
-      "description": "Python is a dynamically typed, multi-purpose programming language designed to be quick to learn, understand, and use, with a clean and uniform syntax. Note that Python 2 reached end-of-life on January…",
-      "questionCount": 2204359,
-      "createdAt": "2008-08-02T00:00:00Z",
-      "activity": [
-        { "label": "5 asked today",  "title": "5 questions tagged python in the last 24 hours" },
-        { "label": "49 this week",   "title": "49 questions tagged python in the last 7 days" }
-      ]
-    },
-    {
-      "name": "java",
-      "description": "Java is a high-level object-oriented programming language. Use this tag when you're having problems using or understanding the language itself. This tag is frequently used alongside other tags for lib…",
-      "questionCount": 1914222,
-      "createdAt": "2008-08-03T00:00:00Z",
-      "activity": [
-        { "label": "16 asked this week",  "title": "16 questions tagged java in the last 7 days" },
-        { "label": "72 this month",       "title": "72 questions tagged java in the last 30 days" }
-      ]
-    },
-    {
-      "name": "c#",
-      "description": "C# (pronounced \"see sharp\") is a high-level, statically typed, multi-paradigm programming language developed by Microsoft. C# code usually targets Microsoft's .NET ecosystem, which include .NET, .NET …",
-      "questionCount": 1621631,
-      "createdAt": "2008-08-04T00:00:00Z",
-      "activity": [
-        { "label": "5 asked today",  "title": "5 questions tagged c# in the last 24 hours" },
-        { "label": "20 this week",   "title": "20 questions tagged c# in the last 7 days" }
-      ]
-    },
-    {
-      "name": "php",
-      "description": "PHP is an open-source, multi-paradigm, dynamically-typed, and interpreted scripting language designed initially for server-side web development. Use this tag for questions about programming in the PHP…",
-      "questionCount": 1460741,
-      "createdAt": "2008-08-05T00:00:00Z",
-      "activity": [
-        { "label": "6 asked this week",  "title": "6 questions tagged php in the last 7 days" },
-        { "label": "33 this month",      "title": "33 questions tagged php in the last 30 days" }
-      ]
-    },
-    {
-      "name": "android",
-      "description": "Android is Google's mobile operating system, used for programming or developing digital devices (Smartphones, Tablets, Automobiles, TVs, Wear, Glass, IoT). For topics related to Android, use Android-s…",
-      "questionCount": 1413723,
-      "createdAt": "2008-09-01T00:00:00Z",
-      "activity": [
-        { "label": "21 asked this week",  "title": "21 questions tagged android in the last 7 days" },
-        { "label": "70 this month",       "title": "70 questions tagged android in the last 30 days" }
-      ]
-    },
-    {
-      "name": "html",
-      "description": "HTML (HyperText Markup Language) is the markup language for creating web pages and other information to be displayed in a web browser. Questions regarding HTML should include a minimal reproducible ex…",
-      "questionCount": 1185026,
-      "createdAt": "2008-08-06T00:00:00Z",
-      "activity": [
-        { "label": "17 asked this week",  "title": "17 questions tagged html in the last 7 days" },
-        { "label": "67 this month",       "title": "67 questions tagged html in the last 30 days" }
-      ]
-    },
-    {
-      "name": "jquery",
-      "description": "jQuery is a JavaScript library. jQuery is a popular cross-browser JavaScript library that facilitates Document Object Model (DOM) traversal, event handling, animations, and AJAX interactions by mi…",
-      "questionCount": 1029894,
-      "createdAt": "2008-08-07T00:00:00Z",
-      "activity": [
-        { "label": "5 asked this month",   "title": "5 questions tagged jquery in the last 30 days" },
-        { "label": "130 this year",        "title": "130 questions tagged jquery in the last 365 days" }
-      ]
-    },
-    {
-      "name": "c++",
-      "description": "C++ is a general-purpose programming language. Use this tag for questions about/utilizing C++. Do not also tag questions with [c] unless you have a good reason. C and C++ are different languages. Use …",
-      "questionCount": 813966,
-      "createdAt": "2008-08-08T00:00:00Z",
-      "activity": [
-        { "label": "33 asked this week",  "title": "33 questions tagged c++ in the last 7 days" },
-        { "label": "117 this month",      "title": "117 questions tagged c++ in the last 30 days" }
+        { "label": "5 asked today", "title": "5 questions tagged javascript in the last 24 hours" },
+        { "label": "40 this week",  "title": "40 questions tagged javascript in the last 7 days" }
       ]
     },
     {
       "name": "css",
-      "description": "CSS (Cascading Style Sheets) is a representation style sheet language used for describing the look and formatting of HTML (HyperText Markup Language), XML (Extensible Markup Language) documents and SV…",
+      "description": "CSS (Cascading Style Sheets) is a representation style sheet language used for describing the look and formatting of HTML, XML documents and SVG elements.",
       "questionCount": 805575,
       "createdAt": "2008-08-09T00:00:00Z",
       "activity": [
-        { "label": "9 asked this week",   "title": "9 questions tagged css in the last 7 days" },
-        { "label": "46 this month",       "title": "46 questions tagged css in the last 30 days" }
-      ]
-    },
-    {
-      "name": "ios",
-      "description": "iOS is the mobile operating system running on the Apple iPhone, iPod touch, and iPad. Use this tag [ios] for questions related to programming on the iOS platform. Use the related tags [objective-c] an…",
-      "questionCount": 687723,
-      "createdAt": "2008-08-10T00:00:00Z",
-      "activity": [
-        { "label": "15 asked this week",  "title": "15 questions tagged ios in the last 7 days" },
-        { "label": "35 this month",       "title": "35 questions tagged ios in the last 30 days" }
+        { "label": "9 asked this week", "title": "9 questions tagged css in the last 7 days" },
+        { "label": "46 this month",     "title": "46 questions tagged css in the last 30 days" }
       ]
     },
     {
       "name": "sql",
-      "description": "Structured Query Language (SQL) is a language for querying databases. Questions should include code examples, table structure, sample data, and a tag for the DBMS implementation (e.g. MySQL, PostgreSQ…",
+      "description": "Structured Query Language (SQL) is a language for querying databases. Questions should include code examples, table structure, sample data, and a tag for the DBMS implementation.",
       "questionCount": 673492,
       "createdAt": "2008-08-11T00:00:00Z",
       "activity": [
-        { "label": "7 asked this week",  "title": "7 questions tagged sql in the last 7 days" },
-        { "label": "26 this month",      "title": "26 questions tagged sql in the last 30 days" }
-      ]
-    },
-    {
-      "name": "mysql",
-      "description": "MySQL is a free, open-source Relational Database Management System (RDBMS) that uses Structured Query Language (SQL). DO NOT USE this tag for other DBs such as SQL Server, SQLite etc. Those are diff…",
-      "questionCount": 657007,
-      "createdAt": "2008-08-12T00:00:00Z",
-      "activity": [
-        { "label": "18 asked this month",  "title": "18 questions tagged mysql in the last 30 days" },
-        { "label": "328 this year",        "title": "328 questions tagged mysql in the last 365 days" }
-      ]
-    },
-    {
-      "name": "r",
-      "description": "R is a free, open-source programming language & software environment for statistical computing, bioinformatics, visualization & general computing. Please use minimal reproducible examples others can …",
-      "questionCount": 510326,
-      "createdAt": "2008-08-13T00:00:00Z",
-      "activity": [
-        { "label": "10 asked this week",  "title": "10 questions tagged r in the last 7 days" },
-        { "label": "42 this month",       "title": "42 questions tagged r in the last 30 days" }
+        { "label": "7 asked this week", "title": "7 questions tagged sql in the last 7 days" },
+        { "label": "26 this month",     "title": "26 questions tagged sql in the last 30 days" }
       ]
     },
     {
@@ -148,214 +38,462 @@
       "questionCount": 473763,
       "createdAt": "2013-05-29T00:00:00Z",
       "activity": [
-        { "label": "9 asked this week",  "title": "9 questions tagged reactjs in the last 7 days" },
-        { "label": "23 this month",      "title": "23 questions tagged reactjs in the last 30 days" }
-      ]
-    },
-    {
-      "name": "node.js",
-      "description": "Node.js is an event-based, non-blocking, asynchronous I/O runtime that uses Google's V8 JavaScript engine and libuv library. It is used for developing applications that make heavy use of the ability t…",
-      "questionCount": 469579,
-      "createdAt": "2011-02-11T00:00:00Z",
-      "activity": [
-        { "label": "8 asked this week",  "title": "8 questions tagged node.js in the last 7 days" },
-        { "label": "36 this month",      "title": "36 questions tagged node.js in the last 30 days" }
-      ]
-    },
-    {
-      "name": "arrays",
-      "description": "An array is an ordered linear data structure consisting of a collection of elements (values, variables, or references), each identified by one or more indexes. When asking about specific variants of a…",
-      "questionCount": 417269,
-      "createdAt": "2008-08-14T00:00:00Z",
-      "activity": [
-        { "label": "7 asked this week",  "title": "7 questions tagged arrays in the last 7 days" },
-        { "label": "14 this month",      "title": "14 questions tagged arrays in the last 30 days" }
-      ]
-    },
-    {
-      "name": "c",
-      "description": "C is a general-purpose programming language used for system programming (OS and embedded), libraries, games, and cross-platform development. Use this tag with general questions concerning the C langua…",
-      "questionCount": 407976,
-      "createdAt": "2008-08-15T00:00:00Z",
-      "activity": [
-        { "label": "18 asked this week",  "title": "18 questions tagged c in the last 7 days" },
-        { "label": "71 this month",       "title": "71 questions tagged c in the last 30 days" }
-      ]
-    },
-    {
-      "name": "asp.net",
-      "description": "ASP.NET is a Microsoft web application development framework that allows programmers to build dynamic web sites, web applications and web services. It is useful to use this tag in conjunction with the…",
-      "questionCount": 372808,
-      "createdAt": "2008-08-16T00:00:00Z",
-      "activity": [
-        { "label": "6 asked this week",  "title": "6 questions tagged asp.net in the last 7 days" },
-        { "label": "12 this month",      "title": "12 questions tagged asp.net in the last 30 days" }
-      ]
-    },
-    {
-      "name": "json",
-      "description": "JSON (JavaScript Object Notation) is a serializable data interchange format that is a machine and human readable. Do not use this tag for native JavaScript objects or JavaScript object literals.",
-      "questionCount": 360144,
-      "createdAt": "2008-09-12T00:00:00Z",
-      "activity": [
-        { "label": "14 asked this month",  "title": "14 questions tagged json in the last 30 days" },
-        { "label": "345 this year",        "title": "345 questions tagged json in the last 365 days" }
-      ]
-    },
-    {
-      "name": "python-3.x",
-      "description": "DO NOT USE UNLESS YOUR QUESTION IS FOR PYTHON 3 ONLY. Always use alongside the standard [python] tag.",
-      "questionCount": 340583,
-      "createdAt": "2009-05-15T00:00:00Z",
-      "activity": [
-        { "label": "11 asked this month",  "title": "11 questions tagged python-3.x in the last 30 days" },
-        { "label": "363 this year",        "title": "363 questions tagged python-3.x in the last 365 days" }
-      ]
-    },
-    {
-      "name": ".net",
-      "description": "Do NOT use for questions about .NET Core - use [.net-core] instead. The .NET framework is a software framework designed mainly for the Microsoft Windows operating system. It includes an implementation…",
-      "questionCount": 340211,
-      "createdAt": "2008-09-04T00:00:00Z",
-      "activity": [
-        { "label": "12 asked this month",  "title": "12 questions tagged .net in the last 30 days" },
-        { "label": "601 this year",        "title": "601 questions tagged .net in the last 365 days" }
-      ]
-    },
-    {
-      "name": "ruby-on-rails",
-      "description": "Ruby on Rails is an open source full-stack web application framework written in Ruby. It follows the popular MVC framework model and is known for its \"convention over configuration\" approach to applic…",
-      "questionCount": 337898,
-      "createdAt": "2008-08-20T00:00:00Z",
-      "activity": [
-        { "label": "5 asked this month",  "title": "5 questions tagged ruby-on-rails in the last 30 days" },
-        { "label": "123 this year",       "title": "123 questions tagged ruby-on-rails in the last 365 days" }
-      ]
-    },
-    {
-      "name": "sql-server",
-      "description": "Microsoft SQL Server is a relational database management system (RDBMS). Use this tag for all Microsoft SQL Server editions including Compact, Express, Azure, Fast-track, APS (formerly PDW) and Azure …",
-      "questionCount": 336207,
-      "createdAt": "2008-08-21T00:00:00Z",
-      "activity": [
-        { "label": "6 asked this week",  "title": "6 questions tagged sql-server in the last 7 days" },
-        { "label": "19 this month",      "title": "19 questions tagged sql-server in the last 30 days" }
-      ]
-    },
-    {
-      "name": "swift",
-      "description": "Swift is a general-purpose programming language developed by Apple Inc first released in 2014 for its platforms and Linux. Swift is open-source. Use the tag only for questions about language features …",
-      "questionCount": 336096,
-      "createdAt": "2014-06-03T00:00:00Z",
-      "activity": [
-        { "label": "21 asked this month",  "title": "21 questions tagged swift in the last 30 days" },
-        { "label": "797 this year",        "title": "797 questions tagged swift in the last 365 days" }
-      ]
-    },
-    {
-      "name": "django",
-      "description": "Django is an open-source server-side web application framework written in Python. It is designed to reduce the effort required to create complex data-driven websites and web applications, focusing on …",
-      "questionCount": 311139,
-      "createdAt": "2008-08-22T00:00:00Z",
-      "activity": [
-        { "label": "10 asked this month",  "title": "10 questions tagged django in the last 30 days" },
-        { "label": "310 this year",        "title": "310 questions tagged django in the last 365 days" }
-      ]
-    },
-    {
-      "name": "angular",
-      "description": "Questions about Angular (not to be confused with AngularJS), the web framework from Google. Use this tag for Angular questions which are not specific to an individual version. For the older AngularJS …",
-      "questionCount": 306364,
-      "createdAt": "2016-09-14T00:00:00Z",
-      "activity": [
-        { "label": "11 asked this month",  "title": "11 questions tagged angular in the last 30 days" },
-        { "label": "589 this year",        "title": "589 questions tagged angular in the last 365 days" }
-      ]
-    },
-    {
-      "name": "objective-c",
-      "description": "should be used only on questions that are about Objective-C features or depend on code in the language. The tags [cocoa] and [cocoa-touch] should be used to ask about Apple's frameworks or cl…",
-      "questionCount": 291672,
-      "createdAt": "2008-08-23T00:00:00Z",
-      "activity": [
-        { "label": "46 asked this year", "title": "46 questions tagged objective-c in the last 365 days" }
-      ]
-    },
-    {
-      "name": "pandas",
-      "description": "Pandas is a Python library for data manipulation and analysis, e.g. dataframes, multidimensional time series and cross-sectional datasets commonly found in statistics, experimental science results, ec…",
-      "questionCount": 288819,
-      "createdAt": "2012-10-06T00:00:00Z",
-      "activity": [
-        { "label": "9 asked this month",  "title": "9 questions tagged pandas in the last 30 days" },
-        { "label": "363 this year",       "title": "363 questions tagged pandas in the last 365 days" }
-      ]
-    },
-    {
-      "name": "excel",
-      "description": "Only for questions on programming against Excel objects or files, or formula development. You may combine the Excel tag with VBA, VSTO, C#, VB.NET, PowerShell, OLE automation, and other programming re…",
-      "questionCount": 288614,
-      "createdAt": "2008-08-24T00:00:00Z",
-      "activity": [
-        { "label": "6 asked this week",  "title": "6 questions tagged excel in the last 7 days" },
-        { "label": "17 this month",      "title": "17 questions tagged excel in the last 30 days" }
-      ]
-    },
-    {
-      "name": "angularjs",
-      "description": "Use for questions about AngularJS (1.x), the open-source JavaScript framework. Do NOT use this tag for Angular 2 or later versions; instead, use the [angular] tag.",
-      "questionCount": 261217,
-      "createdAt": "2010-10-20T00:00:00Z",
-      "activity": [
-        { "label": "18 asked this year", "title": "18 questions tagged angularjs in the last 365 days" }
-      ]
-    },
-    {
-      "name": "regex",
-      "description": "Regular expressions provide a declarative language to match patterns within strings. They are commonly used for string validation, parsing, and transformation. Specify the language (PHP, Python, etc) …",
-      "questionCount": 260956,
-      "createdAt": "2008-08-25T00:00:00Z",
-      "activity": [
-        { "label": "7 asked this month",  "title": "7 questions tagged regex in the last 30 days" },
-        { "label": "137 this year",       "title": "137 questions tagged regex in the last 365 days" }
+        { "label": "9 asked this week", "title": "9 questions tagged reactjs in the last 7 days" },
+        { "label": "23 this month",     "title": "23 questions tagged reactjs in the last 30 days" }
       ]
     },
     {
       "name": "typescript",
-      "description": "TypeScript is a typed superset of JavaScript that transpiles to plain JavaScript. It adds optional types to JavaScript. This tag is for questions specific to TypeScript. It is not used for general Jav…",
+      "description": "TypeScript is a typed superset of JavaScript that transpiles to plain JavaScript. It adds optional types to JavaScript.",
       "questionCount": 234089,
       "createdAt": "2012-10-01T00:00:00Z",
       "activity": [
-        { "label": "9 asked this week",  "title": "9 questions tagged typescript in the last 7 days" },
-        { "label": "19 this month",      "title": "19 questions tagged typescript in the last 30 days" }
+        { "label": "9 asked this week", "title": "9 questions tagged typescript in the last 7 days" },
+        { "label": "19 this month",     "title": "19 questions tagged typescript in the last 30 days" }
       ]
     },
     {
-      "name": "ruby",
-      "description": "Ruby is a multi-platform open-source, dynamic object-oriented interpreted language. The [ruby] tag is for questions related to the Ruby language, including its syntax and its libraries. Ruby on Rails …",
-      "questionCount": 229117,
-      "createdAt": "2008-08-26T00:00:00Z",
+      "name": "postgresql",
+      "description": "PostgreSQL is an open-source, object-relational database management system (ORDBMS) available for many platforms including Linux, FreeBSD, Solaris, Microsoft Windows and Mac OS X.",
+      "questionCount": 175421,
+      "createdAt": "2008-08-20T00:00:00Z",
       "activity": [
-        { "label": "79 asked this year", "title": "79 questions tagged ruby in the last 365 days" }
+        { "label": "12 asked this week", "title": "12 questions tagged postgresql in the last 7 days" },
+        { "label": "48 this month",      "title": "48 questions tagged postgresql in the last 30 days" }
       ]
     },
     {
-      "name": "linux",
-      "description": "NOTICE: All Linux questions must be related to programming; those that aren't will be closed. Use this tag only if your question relates to programming using Linux APIs or Linux-specific behavior, …",
-      "questionCount": 226902,
-      "createdAt": "2008-08-27T00:00:00Z",
+      "name": "go",
+      "description": "Go (Golang) is a programming language, initially developed by Google, combining the ease of programming of a dynamic language with the safety and performance of a compiled, statically typed language.",
+      "questionCount": 132508,
+      "createdAt": "2009-11-10T00:00:00Z",
       "activity": [
-        { "label": "26 asked this month",  "title": "26 questions tagged linux in the last 30 days" },
-        { "label": "535 this year",        "title": "535 questions tagged linux in the last 365 days" }
+        { "label": "15 asked this week", "title": "15 questions tagged go in the last 7 days" },
+        { "label": "62 this month",      "title": "62 questions tagged go in the last 30 days" }
       ]
     },
     {
-      "name": "ajax",
-      "description": "Ajax (asynchronous JavaScript and XML) is a technique for creating interactive website user interfaces without the traditional web page refresh or reload. It uses asynchronous data exchange between cl…",
-      "questionCount": 220305,
+      "name": "performance",
+      "description": "For questions pertaining to the measurement or improvement of code and application efficiency. Include quantitative data when possible.",
+      "questionCount": 128364,
+      "createdAt": "2008-08-20T00:00:00Z",
+      "activity": [
+        { "label": "8 asked this week", "title": "8 questions tagged performance in the last 7 days" },
+        { "label": "34 this month",     "title": "34 questions tagged performance in the last 30 days" }
+      ]
+    },
+    {
+      "name": "docker",
+      "description": "Docker is a tool to build, ship, and run distributed applications, whether on laptops, data center VMs, or the cloud.",
+      "questionCount": 95018,
+      "createdAt": "2013-03-27T00:00:00Z",
+      "activity": [
+        { "label": "14 asked this week", "title": "14 questions tagged docker in the last 7 days" },
+        { "label": "52 this month",      "title": "52 questions tagged docker in the last 30 days" }
+      ]
+    },
+    {
+      "name": "rust",
+      "description": "Rust is a systems programming language focused on three goals: safety, speed, and concurrency. It maintains these goals without needing a garbage collector.",
+      "questionCount": 78456,
+      "createdAt": "2010-07-01T00:00:00Z",
+      "activity": [
+        { "label": "18 asked this week", "title": "18 questions tagged rust in the last 7 days" },
+        { "label": "76 this month",      "title": "76 questions tagged rust in the last 30 days" }
+      ]
+    },
+    {
+      "name": "mobile",
+      "description": "For questions about mobile application development across platforms. Prefer a platform-specific tag when the question applies to only one ecosystem.",
+      "questionCount": 52341,
+      "createdAt": "2008-09-15T00:00:00Z",
+      "activity": [
+        { "label": "6 asked this week", "title": "6 questions tagged mobile in the last 7 days" },
+        { "label": "22 this month",     "title": "22 questions tagged mobile in the last 30 days" }
+      ]
+    },
+    {
+      "name": "responsive-design",
+      "description": "Approach to web design in which the layout adapts to the user's screen size, platform and orientation.",
+      "questionCount": 45123,
+      "createdAt": "2011-06-04T00:00:00Z",
+      "activity": [
+        { "label": "5 asked this week", "title": "5 questions tagged responsive-design in the last 7 days" },
+        { "label": "20 this month",     "title": "20 questions tagged responsive-design in the last 30 days" }
+      ]
+    },
+    {
+      "name": "architecture",
+      "description": "Architecture encompasses the high-level decisions about how to structure a software system, covering modules, components, and their interactions.",
+      "questionCount": 42187,
+      "createdAt": "2008-08-25T00:00:00Z",
+      "activity": [
+        { "label": "4 asked this week", "title": "4 questions tagged architecture in the last 7 days" },
+        { "label": "17 this month",     "title": "17 questions tagged architecture in the last 30 days" }
+      ]
+    },
+    {
+      "name": "testing",
+      "description": "Software testing is any activity aimed at evaluating an attribute or capability of a program or system and determining that it meets its required results.",
+      "questionCount": 38456,
+      "createdAt": "2008-09-01T00:00:00Z",
+      "activity": [
+        { "label": "7 asked this week", "title": "7 questions tagged testing in the last 7 days" },
+        { "label": "28 this month",     "title": "28 questions tagged testing in the last 30 days" }
+      ]
+    },
+    {
+      "name": "github-actions",
+      "description": "GitHub Actions is a CI/CD service offering by GitHub that runs a workflow on a container or a VM when triggered by an event in a GitHub repository.",
+      "questionCount": 32147,
+      "createdAt": "2018-10-16T00:00:00Z",
+      "activity": [
+        { "label": "11 asked this week", "title": "11 questions tagged github-actions in the last 7 days" },
+        { "label": "43 this month",      "title": "43 questions tagged github-actions in the last 30 days" }
+      ]
+    },
+    {
+      "name": "react-hooks",
+      "description": "React Hooks are a feature that allows function components to have state and side effects, replacing many use cases for class components.",
+      "questionCount": 31879,
+      "createdAt": "2018-10-25T00:00:00Z",
+      "activity": [
+        { "label": "10 asked this week", "title": "10 questions tagged react-hooks in the last 7 days" },
+        { "label": "37 this month",      "title": "37 questions tagged react-hooks in the last 30 days" }
+      ]
+    },
+    {
+      "name": "rest",
+      "description": "REST (Representational State Transfer) is an architectural style for designing networked applications, using HTTP verbs and stateless communication.",
+      "questionCount": 28413,
+      "createdAt": "2008-09-05T00:00:00Z",
+      "activity": [
+        { "label": "3 asked this week", "title": "3 questions tagged rest in the last 7 days" },
+        { "label": "14 this month",     "title": "14 questions tagged rest in the last 30 days" }
+      ]
+    },
+    {
+      "name": "microservices",
+      "description": "An architectural style that structures an application as a collection of loosely coupled, independently deployable services.",
+      "questionCount": 24156,
+      "createdAt": "2013-04-12T00:00:00Z",
+      "activity": [
+        { "label": "5 asked this week", "title": "5 questions tagged microservices in the last 7 days" },
+        { "label": "19 this month",     "title": "19 questions tagged microservices in the last 30 days" }
+      ]
+    },
+    {
+      "name": "generics",
+      "description": "Generics are a language feature allowing algorithms and data structures to be written independently of the types they operate on.",
+      "questionCount": 22014,
       "createdAt": "2008-08-28T00:00:00Z",
       "activity": [
-        { "label": "37 asked this year", "title": "37 questions tagged ajax in the last 365 days" }
+        { "label": "4 asked this week", "title": "4 questions tagged generics in the last 7 days" },
+        { "label": "15 this month",     "title": "15 questions tagged generics in the last 30 days" }
+      ]
+    },
+    {
+      "name": "devops",
+      "description": "DevOps is a practice that combines software development with IT operations, emphasizing automation, collaboration, and continuous delivery.",
+      "questionCount": 21847,
+      "createdAt": "2009-06-22T00:00:00Z",
+      "activity": [
+        { "label": "6 asked this week", "title": "6 questions tagged devops in the last 7 days" },
+        { "label": "24 this month",     "title": "24 questions tagged devops in the last 30 days" }
+      ]
+    },
+    {
+      "name": "api-design",
+      "description": "API design covers the decisions behind exposing functionality through interfaces — resource modeling, naming, versioning, authentication, and error handling.",
+      "questionCount": 18234,
+      "createdAt": "2010-04-15T00:00:00Z",
+      "activity": [
+        { "label": "4 asked this week", "title": "4 questions tagged api-design in the last 7 days" },
+        { "label": "17 this month",     "title": "17 questions tagged api-design in the last 30 days" }
+      ]
+    },
+    {
+      "name": "continuous-integration",
+      "description": "Continuous integration is the practice of merging developer work into a shared mainline several times a day and verifying each merge with an automated build.",
+      "questionCount": 15118,
+      "createdAt": "2008-09-20T00:00:00Z",
+      "activity": [
+        { "label": "2 asked this week", "title": "2 questions tagged continuous-integration in the last 7 days" },
+        { "label": "8 this month",      "title": "8 questions tagged continuous-integration in the last 30 days" }
+      ]
+    },
+    {
+      "name": "indexing",
+      "description": "Database indexing improves query performance by maintaining auxiliary data structures that allow fast lookups, at the cost of storage and write throughput.",
+      "questionCount": 12014,
+      "createdAt": "2008-09-12T00:00:00Z",
+      "activity": [
+        { "label": "3 asked this week", "title": "3 questions tagged indexing in the last 7 days" },
+        { "label": "11 this month",     "title": "11 questions tagged indexing in the last 30 days" }
+      ]
+    },
+    {
+      "name": "databases",
+      "description": "For general questions about database theory, design, and comparison. Prefer an engine-specific tag when applicable.",
+      "questionCount": 8456,
+      "createdAt": "2008-09-18T00:00:00Z",
+      "activity": [
+        { "label": "2 asked this week", "title": "2 questions tagged databases in the last 7 days" },
+        { "label": "9 this month",      "title": "9 questions tagged databases in the last 30 days" }
+      ]
+    },
+    {
+      "name": "profiling",
+      "description": "Profiling is the measurement of a program's runtime behaviour — CPU usage, memory allocation, wall-clock timing — to identify performance bottlenecks.",
+      "questionCount": 5214,
+      "createdAt": "2009-03-14T00:00:00Z",
+      "activity": [
+        { "label": "2 asked this week", "title": "2 questions tagged profiling in the last 7 days" },
+        { "label": "7 this month",      "title": "7 questions tagged profiling in the last 30 days" }
+      ]
+    },
+    {
+      "name": "versioning",
+      "description": "Versioning refers to the practice of assigning and managing version identifiers for APIs, libraries, and services as they evolve.",
+      "questionCount": 4512,
+      "createdAt": "2009-05-02T00:00:00Z",
+      "activity": [
+        { "label": "1 asked this week", "title": "1 question tagged versioning in the last 7 days" },
+        { "label": "5 this month",      "title": "5 questions tagged versioning in the last 30 days" }
+      ]
+    },
+    {
+      "name": "lifetimes",
+      "description": "Lifetimes are Rust's compile-time mechanism for tracking how long references remain valid, preventing dangling pointers without a garbage collector.",
+      "questionCount": 3418,
+      "createdAt": "2012-10-03T00:00:00Z",
+      "activity": [
+        { "label": "3 asked this week", "title": "3 questions tagged lifetimes in the last 7 days" },
+        { "label": "12 this month",     "title": "12 questions tagged lifetimes in the last 30 days" }
+      ]
+    },
+    {
+      "name": "tooling",
+      "description": "Questions about developer tooling — build systems, linters, formatters, and the toolchain that supports a project.",
+      "questionCount": 3204,
+      "createdAt": "2010-08-11T00:00:00Z",
+      "activity": [
+        { "label": "2 asked this week", "title": "2 questions tagged tooling in the last 7 days" },
+        { "label": "6 this month",      "title": "6 questions tagged tooling in the last 30 days" }
+      ]
+    },
+    {
+      "name": "secrets",
+      "description": "Secrets management covers the storage, rotation, and access control of credentials, API keys, tokens, and other sensitive configuration.",
+      "questionCount": 2417,
+      "createdAt": "2014-02-09T00:00:00Z",
+      "activity": [
+        { "label": "2 asked this week", "title": "2 questions tagged secrets in the last 7 days" },
+        { "label": "8 this month",      "title": "8 questions tagged secrets in the last 30 days" }
+      ]
+    },
+    {
+      "name": "borrow-checker",
+      "description": "Rust's borrow checker enforces ownership and borrowing rules at compile time, ensuring memory safety without runtime overhead.",
+      "questionCount": 2134,
+      "createdAt": "2014-09-30T00:00:00Z",
+      "activity": [
+        { "label": "3 asked this week", "title": "3 questions tagged borrow-checker in the last 7 days" },
+        { "label": "10 this month",     "title": "10 questions tagged borrow-checker in the last 30 days" }
+      ]
+    },
+    {
+      "name": "career",
+      "description": "Questions about career development, job hunting, workplace practices, and professional growth in software engineering.",
+      "questionCount": 2103,
+      "createdAt": "2009-04-08T00:00:00Z",
+      "activity": [
+        { "label": "1 asked this week", "title": "1 question tagged career in the last 7 days" },
+        { "label": "4 this month",      "title": "4 questions tagged career in the last 30 days" }
+      ]
+    },
+    {
+      "name": "productivity",
+      "description": "Questions about tools, habits, and workflows that improve a developer's day-to-day effectiveness.",
+      "questionCount": 1876,
+      "createdAt": "2009-07-21T00:00:00Z",
+      "activity": [
+        { "label": "1 asked this week", "title": "1 question tagged productivity in the last 7 days" },
+        { "label": "3 this month",      "title": "3 questions tagged productivity in the last 30 days" }
+      ]
+    },
+    {
+      "name": "maintenance",
+      "description": "Routine and scheduled tasks for keeping systems healthy — vacuuming tables, rotating logs, applying patches, and pruning stale data.",
+      "questionCount": 1789,
+      "createdAt": "2008-11-14T00:00:00Z",
+      "activity": [
+        { "label": "1 asked this week", "title": "1 question tagged maintenance in the last 7 days" },
+        { "label": "5 this month",      "title": "5 questions tagged maintenance in the last 30 days" }
+      ]
+    },
+    {
+      "name": "code-review",
+      "description": "Code review is the practice of systematically examining source code by peers to find defects, share knowledge, and enforce standards.",
+      "questionCount": 1612,
+      "createdAt": "2009-09-02T00:00:00Z",
+      "activity": [
+        { "label": "1 asked this week", "title": "1 question tagged code-review in the last 7 days" },
+        { "label": "3 this month",      "title": "3 questions tagged code-review in the last 30 days" }
+      ]
+    },
+    {
+      "name": "learning",
+      "description": "Questions about how to learn programming concepts, languages, and tools effectively, and about study strategies.",
+      "questionCount": 1421,
+      "createdAt": "2009-10-28T00:00:00Z",
+      "activity": [
+        { "label": "1 asked this week", "title": "1 question tagged learning in the last 7 days" },
+        { "label": "4 this month",      "title": "4 questions tagged learning in the last 30 days" }
+      ]
+    },
+    {
+      "name": "monorepo",
+      "description": "A monorepo is a single version-controlled repository containing multiple projects, often sharing tooling and dependencies.",
+      "questionCount": 912,
+      "createdAt": "2016-02-11T00:00:00Z",
+      "activity": [
+        { "label": "1 asked this week", "title": "1 question tagged monorepo in the last 7 days" },
+        { "label": "2 this month",      "title": "2 questions tagged monorepo in the last 30 days" }
+      ]
+    },
+    {
+      "name": "type-narrowing",
+      "description": "Type narrowing is the process by which a compiler refines a variable's type based on control-flow analysis — for example, discriminated unions in TypeScript.",
+      "questionCount": 891,
+      "createdAt": "2018-03-19T00:00:00Z",
+      "activity": [
+        { "label": "2 asked this week", "title": "2 questions tagged type-narrowing in the last 7 days" },
+        { "label": "6 this month",      "title": "6 questions tagged type-narrowing in the last 30 days" }
+      ]
+    },
+    {
+      "name": "conferences",
+      "description": "Questions about attending, speaking at, or organizing software conferences and meetups.",
+      "questionCount": 852,
+      "createdAt": "2009-06-15T00:00:00Z",
+      "activity": [
+        { "label": "1 asked this week", "title": "1 question tagged conferences in the last 7 days" },
+        { "label": "2 this month",      "title": "2 questions tagged conferences in the last 30 days" }
+      ]
+    },
+    {
+      "name": "pprof",
+      "description": "pprof is Go's built-in profiling tool, exposing CPU, memory, and goroutine profiles through net/http/pprof or runtime/pprof.",
+      "questionCount": 784,
+      "createdAt": "2013-08-22T00:00:00Z",
+      "activity": [
+        { "label": "1 asked this week", "title": "1 question tagged pprof in the last 7 days" },
+        { "label": "3 this month",      "title": "3 questions tagged pprof in the last 30 days" }
+      ]
+    },
+    {
+      "name": "opinion",
+      "description": "Questions soliciting subjective opinions, preferences, or experiences from the community. Answers are inherently non-authoritative.",
+      "questionCount": 706,
+      "createdAt": "2010-12-04T00:00:00Z",
+      "activity": [
+        { "label": "1 asked this week", "title": "1 question tagged opinion in the last 7 days" },
+        { "label": "3 this month",      "title": "3 questions tagged opinion in the last 30 days" }
+      ]
+    },
+    {
+      "name": "side-projects",
+      "description": "Questions about working on personal projects outside of paid employment — motivation, scope, tooling, and time management.",
+      "questionCount": 623,
+      "createdAt": "2011-04-30T00:00:00Z",
+      "activity": [
+        { "label": "1 asked this week", "title": "1 question tagged side-projects in the last 7 days" },
+        { "label": "2 this month",      "title": "2 questions tagged side-projects in the last 30 days" }
+      ]
+    },
+    {
+      "name": "container-queries",
+      "description": "CSS container queries allow styling elements based on the size of their containing element rather than the viewport, enabling truly reusable components.",
+      "questionCount": 621,
+      "createdAt": "2022-03-15T00:00:00Z",
+      "activity": [
+        { "label": "2 asked this week", "title": "2 questions tagged container-queries in the last 7 days" },
+        { "label": "5 this month",      "title": "5 questions tagged container-queries in the last 30 days" }
+      ]
+    },
+    {
+      "name": "public-speaking",
+      "description": "Questions about preparing for and delivering technical talks, from slide design to managing nerves.",
+      "questionCount": 481,
+      "createdAt": "2010-01-22T00:00:00Z",
+      "activity": [
+        { "label": "1 asked this month", "title": "1 question tagged public-speaking in the last 30 days" }
+      ]
+    },
+    {
+      "name": "vacuum",
+      "description": "In PostgreSQL, VACUUM reclaims storage occupied by dead tuples, while VACUUM FULL rewrites the table under an exclusive lock.",
+      "questionCount": 452,
+      "createdAt": "2009-02-18T00:00:00Z",
+      "activity": [
+        { "label": "1 asked this week", "title": "1 question tagged vacuum in the last 7 days" },
+        { "label": "2 this month",      "title": "2 questions tagged vacuum in the last 30 days" }
+      ]
+    },
+    {
+      "name": "local-dev",
+      "description": "Questions about running, debugging, and configuring applications on a developer's local machine, including environment setup and hot-reload workflows.",
+      "questionCount": 341,
+      "createdAt": "2015-07-08T00:00:00Z",
+      "activity": [
+        { "label": "1 asked this month", "title": "1 question tagged local-dev in the last 30 days" }
+      ]
+    },
+    {
+      "name": "wellbeing",
+      "description": "Questions about mental and physical health, sustainable work habits, and avoiding burnout in software development.",
+      "questionCount": 318,
+      "createdAt": "2012-06-02T00:00:00Z",
+      "activity": [
+        { "label": "1 asked this month", "title": "1 question tagged wellbeing in the last 30 days" }
+      ]
+    },
+    {
+      "name": "habits",
+      "description": "Questions about personal routines and practices that shape how developers work over the long term.",
+      "questionCount": 289,
+      "createdAt": "2013-11-09T00:00:00Z",
+      "activity": [
+        { "label": "1 asked this month", "title": "1 question tagged habits in the last 30 days" }
+      ]
+    },
+    {
+      "name": "parody",
+      "description": "Questions posed in jest or as satire. Usually humorous, occasionally instructive, and never to be taken literally.",
+      "questionCount": 224,
+      "createdAt": "2011-02-14T00:00:00Z",
+      "activity": [
+        { "label": "1 asked this year", "title": "1 question tagged parody in the last 365 days" }
+      ]
+    },
+    {
+      "name": "react-strictmode",
+      "description": "React StrictMode is a development-only wrapper that intentionally double-invokes certain functions to help surface side effects and unsafe patterns.",
+      "questionCount": 187,
+      "createdAt": "2018-12-17T00:00:00Z",
+      "activity": [
+        { "label": "2 asked this week", "title": "2 questions tagged react-strictmode in the last 7 days" },
+        { "label": "6 this month",      "title": "6 questions tagged react-strictmode in the last 30 days" }
+      ]
+    },
+    {
+      "name": "natural-stupidity",
+      "description": "A humorous tag reserved for questions that defy ordinary explanations of how something came to be. Not to be applied to legitimate questions.",
+      "questionCount": 43,
+      "createdAt": "2013-05-30T00:00:00Z",
+      "activity": [
+        { "label": "1 asked this year", "title": "1 question tagged natural-stupidity in the last 365 days" }
       ]
     }
   ]

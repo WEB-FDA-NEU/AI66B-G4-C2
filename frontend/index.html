@@ -26,11 +26,12 @@
     <!-- LEFT RAIL -->
     <aside class="sidebar-left sm:d-none" aria-label="Section navigation">
       <nav class="s-navigation s-navigation__vertical">
-        <a class="s-navigation--item is-selected" href="#" aria-current="page">Home</a>
-        <a class="s-navigation--item" href="#">Questions</a>
-        <a class="s-navigation--item" href="#">Discussion</a>
+        <a class="s-navigation--item is-selected" href="./index.html" aria-current="page">Home</a>
+        <a class="s-navigation--item" href="./questions.html">Questions</a>
+        <a class="s-navigation--item" href="./discussions.html">Discussion</a>
         <a class="s-navigation--item" href="./tags.html">Tags</a>
-        <a class="s-navigation--item" href="#">Users</a>
+        <a class="s-navigation--item" href="./users.html">Users</a>
+        <a class="s-navigation--item" href="./admin.html">Admin</a>
       </nav>
     </aside>
 
@@ -42,11 +43,8 @@
         <div class="d-flex jc-space-between ai-center g16 fw-wrap">
           <div class="fl-grow1">
             <h1 class="fs-title fw-bold mb0">
-              Hey Anh Tuấn, what do you want to learn today?
+              Welcome Bùi Đụt to Tech4Rum!
             </h1>
-          </div>
-          <a href="./ask.html" class="s-btn s-btn__outlined ws-nowrap">Ask Question</a>
-        </div>
       </section>
 
       <!-- Recommended questions -->
@@ -54,12 +52,12 @@
         <header class="d-flex fd-column mb16">
           <div class="fs-title fw-bold">Interesting posts for you</div>
           <div class="fs-body1 fc-black-400">
-            Based on your viewing history and watched tags.
+          Let's solve the troubles you have!!
           </div>
         </header>
 
-        <!-- Populated by ./js/pages/home-feed.js from ./mock/recommended-posts.json -->
-        <ol id="question-mini-list" class="s-card p0 list-reset" aria-busy="true"></ol>
+        <!-- Populated by ./js/render-questions.js from ./mock/question-list.json -->
+        <div id="question-list" class="question-list"></div>
       </section>
 
       <!-- Trending discussions -->
@@ -71,8 +69,8 @@
           </div>
         </header>
 
-        <!-- Populated by ./js/pages/home-feed.js from ./mock/recommended-posts.json -->
-        <ol id="discussion-mini-list" class="s-card p0 list-reset" aria-busy="true"></ol>
+        <!-- Populated by ./js/pages/discussions.js from ./mock/discussion-list.json -->
+        <div id="discussion-list" class="discussion-list"></div>
       </section>
 
     </main>
@@ -81,9 +79,15 @@
   <!-- SITE FOOTER — rendered by ./js/components/site-footer.js -->
   <site-footer></site-footer>
 
-  <script type="module" src="./js/components/site-header.js"></script>
-  <script type="module" src="./js/components/site-footer.js"></script>
-  <script type="module" src="./js/pages/home-feed.js"></script>
+  <!-- Tag URL helper (must run before the feed renderers) -->
+  <script type="module" src="./js/tag-url.js" defer></script>
+
+  <!-- Feed renderers — same scripts used by questions.html and discussions.html -->
+  <script src="./js/render-questions.js" defer></script>
+  <script src="./js/pages/discussions.js" defer></script>
+
+  <script type="module" src="./js/components/site-header.js" defer></script>
+  <script type="module" src="./js/components/site-footer.js" defer></script>
 
 </body>
 </html>

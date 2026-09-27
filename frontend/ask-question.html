@@ -24,7 +24,7 @@
   <a href="#main" class="v-visible-sr">Skip to main content</a>
 
   <!-- ================= TOP BAR ================= -->
-  <site-header></site-header>
+  <site-header is-logged-in="true"></site-header>
 
   <!-- ================= HERO ================= -->
   <div class="ask-hero">
@@ -57,7 +57,7 @@
         <a class="s-navigation--item" href="./index.html">Home</a>
         <a class="s-navigation--item is-selected" href="./questions.html" aria-current="page">Questions</a>
         <a class="s-navigation--item" href="./discussions.html">Discussion</a>
-        <a class="s-navigation--item" href="#">Tags</a>
+        <a class="s-navigation--item" href="./tags.html">Tags</a>
         <a class="s-navigation--item" href="./users.html">Users</a>
         <a class="s-navigation--item" href="./admin.html">Admin</a>
       </nav>
@@ -66,7 +66,7 @@
     <!-- ---------- MAIN ---------- -->
     <main id="main" class="fl-grow1" style="min-width: 0;">
 
-      <form class="s-form-group" action="#" method="post" novalidate>
+      <form class="s-form-group" onsubmit="return false">
 
         <!-- ===== Title ===== -->
         <div class="s-form-group">
@@ -196,7 +196,7 @@
 
         <!-- ===== Actions ===== -->
         <div class="d-flex ai-center g8 fw-wrap mt8">
-          <button type="submit" class="s-btn">Post your question</button>
+          <button type="button" class="s-btn" id="post-question-btn">Post your question</button>
           <button type="button" class="s-btn s-btn__clear">Save as draft</button>
           <span class="fl-grow1"></span>
           <button type="button" class="s-btn s-btn__link s-btn__link__danger">Discard draft</button>
@@ -288,13 +288,21 @@
   <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js" defer></script>
 
   <!-- Modular elements -->
-  <script type="module" src="./js/components/site-header.js" defer></script>
-  <script type="module" src="./js/components/site-footer.js" defer></script>
+  <script type="module" src="./js/components/site-header.js"></script>
+  <script type="module" src="./js/components/site-footer.js"></script>
 
-  <!-- markdown-renderer.js is an ES module -->
-  <script defer type="module">
-    import { initAskQuestionEditor } from "./js/ask-question-editor.js";
+  <!-- Page logic — ask-question-editor.js is an ES module -->
+  <script type="module">
+    import { initAskQuestionEditor } from './js/ask-question-editor.js';
     initAskQuestionEditor();
+
+    /* Static submit — the demo build has no backend. */
+    const postBtn = document.getElementById('post-question-btn');
+    if (postBtn) {
+      postBtn.addEventListener('click', () => {
+        window.alert('Posting is not available in this demo build.');
+      });
+    }
   </script>
 
 </body>
