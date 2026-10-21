@@ -1489,4 +1489,5 @@ body {
   --sun64: calc(var(--su64) * -1);
   --sun96: calc(var(--su96) * -1);
   --sun128: calc(var(--su128) * -1);
+  --tech4rum-header-h: calc(var(--su48) + var(--su8));  /* 56px */
 }
