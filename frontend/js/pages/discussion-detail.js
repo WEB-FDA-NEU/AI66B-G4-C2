@@ -1,305 +1,196 @@
-/* discussion-detail.js — renders a single discussion + threaded comments
- *
- * Behaviour:
- *   - Reply boxes auto-prefill "@username " for the replied author.
- *   - Thread hierarchy capped at 3 levels (further replies show a
- *     "Continue this thread" link).
- *   - Each comment has a single upvote action; clicking toggles the
- *     "is-upvoted" class (green highlight).
- *   - The OP body is markdown-rendered; comments are plain text.
- */
-
+/* discussion-detail.js — fetch /api/posts/:id, render discussion + threaded comments */
 import { renderMarkdown } from '../markdown-renderer.js';
-import {
-  escapeHtml,
-  timeAgo,
-  formatAbsolute,
-  startTimeTicker,
-  loadQuestionData,
-  reportUrl
-} from '../question-page.js';
+import { posts as postsApi } from '../api.js';
 import { tagUrl } from '../tag-url.js';
+import { escapeHtml, timeAgo, formatAbsolute, startTimeTicker } from '../question-page.js';
 
-const MAX_DEPTH = 3;   // 3 visual levels: 0, 1, 2
+const MAX_DEPTH = 3;
 
-/* ------------------------------------------------------------------ */
-/* Comment tree                                                        */
-/* ------------------------------------------------------------------ */
+const fmt = (n) => String(Number(n) || 0);
+const avatarLetter = (n) => String(n || '?').trim().charAt(0).toUpperCase();
+const avatarColor = (seed) => {
+  const p = ['bg-blue-300','bg-orange-300','bg-green-300','bg-purple-300','bg-pink-300','bg-yellow-300','bg-red-300'];
+  let h = 0; const s = String(seed || '');
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h) + s.charCodeAt(i) | 0;
+  return p[Math.abs(h) % p.length];
+};
+const reportUrl = (type, id) => `./report.html?${new URLSearchParams({ type, id: String(id) })}`;
 
-function renderComment(c, depth = 0) {
-  const hasReplies = Array.isArray(c.replies) && c.replies.length > 0;
-  const canRenderChildren = hasReplies && (depth + 1 < MAX_DEPTH);
-  const hiddenCount = hasReplies && !canRenderChildren ? countReplies(c.replies) : 0;
+/* Group flat comments by parent */
+function buildTree(comments) {
+  const byParent = new Map();
+  for (const c of comments) {
+    const pid = c.parent_comment_id || null;
+    if (!byParent.has(pid)) byParent.set(pid, []);
+    byParent.get(pid).push(c);
+  }
+  return { roots: byParent.get(null) || [], byParent };
+}
 
-  const repliesHtml = canRenderChildren
-    ? `<ul class="thread-children">${c.replies.map(r => renderComment(r, depth + 1)).join('')}</ul>`
-    : (hiddenCount > 0
-        ? `<div class="thread-continue">
-             <a href="#" class="s-link s-link__muted" data-continue>
-               Continue this thread (${hiddenCount} ${hiddenCount === 1 ? 'reply' : 'replies'}) →
-             </a>
+function renderNode(c, byParent, depth = 0) {
+  const replies = byParent.get(c.id) || [];
+  const canRender = replies.length && (depth + 1 < MAX_DEPTH);
+  const hidden = replies.length && !canRender ? countReplies(replies, byParent) : 0;
+  const repliesHtml = canRender
+    ? `<ul class="list-reset d-flex fd-column g8 mt8 pl16" style="border-left:2px solid var(--black-150)">${replies.map(r => renderNode(r, byParent, depth + 1)).join('')}</ul>`
+    : (hidden > 0
+        ? `<div class="fs-caption fc-black-400 mt8 pl16">
+             <a class="s-link s-link__muted" href="#">Continue this thread (${hidden} ${hidden === 1 ? 'reply' : 'replies'}) →</a>
            </div>`
         : '');
 
-  const authorName = c.author?.name || 'anonymous';
-  const authorRep  = c.author?.rep  || '0';
-
   return `
-    <li class="thread-node" data-comment-id="${escapeHtml(c.id)}" data-author="${escapeHtml(authorName)}">
-      <div class="thread-node--head">
-        <span class="thread-node--score">${escapeHtml(c.score)}</span>
-        <a class="thread-node--author" href="#">${escapeHtml(authorName)}</a>
-        <span class="thread-node--rep">${escapeHtml(authorRep)}</span>
-        <time class="thread-node--time"
-              datetime="${escapeHtml(c.time)}"
-              data-iso="${escapeHtml(c.time)}"
-              title="${escapeHtml(formatAbsolute(c.time))}">${escapeHtml(timeAgo(c.time))}</time>
+    <li class="d-flex fd-column g4 py8" data-comment-id="${escapeHtml(String(c.id))}">
+      <div class="d-flex g8 ai-center fs-caption">
+        <span class="fc-black-400">${escapeHtml(fmt(c.score))}</span>
+        <a class="s-user-card--username" href="./user-profile.html?id=${escapeHtml(String(c.author.id))}">
+          ${escapeHtml(c.author.display_name)}
+        </a>
+        <span class="fc-black-400">·</span>
+        <time class="fc-black-400" datetime="${escapeHtml(c.created_at)}" data-iso="${escapeHtml(c.created_at)}">
+          ${escapeHtml(timeAgo(c.created_at))}
+        </time>
       </div>
-      <div class="thread-node--body">${escapeHtml(c.body)}</div>
-      <div class="thread-node--actions">
-        <button type="button" class="thread-upvote" data-upvote aria-pressed="false">Upvote</button>
-        <button type="button" data-reply>Reply</button>
-      </div>
-      <div class="thread-reply-box" hidden>
-        <label class="v-visible-sr" for="reply-${escapeHtml(c.id)}">Reply to ${escapeHtml(authorName)}</label>
-        <textarea id="reply-${escapeHtml(c.id)}"
-                  class="s-textarea s-textarea__sm"
-                  rows="3"
-                  placeholder="Reply to ${escapeHtml(authorName)}…"></textarea>
-        <div class="d-flex g8 mt4">
-          <button type="button" class="s-btn s-btn__sm" data-reply-cancel>Cancel</button>
-          <button type="button" class="s-btn s-btn__sm" data-reply-submit>Reply</button>
-        </div>
+      <div class="fs-body1">${escapeHtml(c.body)}</div>
+      <div class="d-flex g16 fs-caption mt2">
+        <button type="button" class="s-btn s-btn__link s-btn__sm" data-reply data-author="${escapeHtml(c.author.display_name)}">Reply</button>
       </div>
       ${repliesHtml}
-    </li>
-  `;
+    </li>`;
 }
 
-/* ------------------------------------------------------------------ */
-/* OP rendering                                                        */
-/* ------------------------------------------------------------------ */
+function countReplies(list, byParent) {
+  let n = 0;
+  for (const c of list) {
+    n += 1;
+    const kids = byParent.get(c.id) || [];
+    if (kids.length) n += countReplies(kids, byParent);
+  }
+  return n;
+}
 
-function voteCell(votes) {
+function voteBlock(targetType, targetId, score) {
   return `
-    <div class="vote-cell">
-      <div class="s-vote">
-        <button class="s-vote--btn" type="button" aria-label="Up vote">
-          <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M1 12h16L9 4 1 12Z"/></svg>
-        </button>
-        <div class="s-vote--votes">${escapeHtml(votes)}</div>
-        <button class="s-vote--btn" type="button" aria-label="Down vote">
-          <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M1 6h16L9 14 1 6Z"/></svg>
-        </button>
-      </div>
-      <button class="post-side-btn" type="button" aria-label="Bookmark">
-        <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
-          <path d="M3 2h12v15l-6-4-6 4V2Zm2 2v9.5l4-2.7 4 2.7V4H5Z"/>
-        </svg>
+    <div class="s-vote" data-vote-target="${escapeHtml(targetType)}" data-vote-id="${escapeHtml(String(targetId))}">
+      <button type="button" class="s-vote--btn" data-vote-up aria-label="Upvote">
+        <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M1 12h16L9 4 1 12Z"/></svg>
       </button>
-    </div>
-  `;
+      <div class="s-vote--votes" data-score>${escapeHtml(fmt(score))}</div>
+      <button type="button" class="s-vote--btn" data-vote-down aria-label="Downvote">
+        <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M1 6h16L9 14 1 6Z"/></svg>
+      </button>
+    </div>`;
 }
 
-function userCard(user, action, iso) {
-  return `
-    <div class="s-user-card">
-      <a href="#" class="s-avatar ${escapeHtml(user.avatarColor)}" aria-hidden="true" tabindex="-1">
-        <span class="s-avatar--letter">${escapeHtml(user.avatarLetter)}</span>
-      </a>
-      <div class="s-user-card--column">
-        <a class="s-user-card--username" href="#">${escapeHtml(user.name)}</a>
-        <div class="s-user-card--group">
-          <span class="s-user-card--rep">${escapeHtml(user.rep)}</span>
-          <span class="s-user-card--time">${escapeHtml(action)}
-            <time datetime="${escapeHtml(iso)}" data-iso="${escapeHtml(iso)}"
-                  title="${escapeHtml(formatAbsolute(iso))}">${escapeHtml(timeAgo(iso))}</time>
-          </span>
-        </div>
-      </div>
-    </div>
-  `;
-}
+function renderPage(p, root) {
+  const { roots, byParent } = buildTree(p.comments || []);
+  const totalReplies = roots.length
+    ? roots.reduce((sum, c) => sum + 1 + countReplies(byParent.get(c.id) || [], byParent), 0)
+    : 0;
 
-function renderDiscussionPage(data, root) {
-  const comments = Array.isArray(data.comments) ? data.comments : [];
-  const totalReplies = countReplies(comments);
+  const tagsHtml = (p.tags || []).map((t) =>
+    `<a class="s-tag" href="${escapeHtml(tagUrl(t.name))}">${escapeHtml(t.name)}</a>`).join('');
 
   root.innerHTML = `
-    <div class="d-flex ai-start jc-space-between g16 mb8">
-      <h1 class="fs-headline1 fw-normal mb0">${escapeHtml(data.title)}</h1>
-      <span class="discussion-badge">Discussion</span>
-    </div>
-
-    <div class="post-meta">
-      <span>Posted <time datetime="${escapeHtml(data.time)}" data-iso="${escapeHtml(data.time)}" title="${escapeHtml(formatAbsolute(data.time))}">${escapeHtml(timeAgo(data.time))}</time></span>
-      <span>Viewed <span>${Number(data.views).toLocaleString()} times</span></span>
+    <h1 class="fs-headline1 fw-normal mb8">${escapeHtml(p.title)}</h1>
+    <div class="d-flex g8 fs-caption fc-black-400 mb16 fw-wrap">
+      <span>Posted <time datetime="${escapeHtml(p.created_at)}" data-iso="${escapeHtml(p.created_at)}"
+          title="${escapeHtml(formatAbsolute(p.created_at))}">${escapeHtml(timeAgo(p.created_at))}</time></span>
+      <span>·</span>
+      <span>Viewed ${escapeHtml(fmt(p.view_count))} times</span>
+      <span>·</span>
       <span>${totalReplies} ${totalReplies === 1 ? 'reply' : 'replies'}</span>
     </div>
 
-    <article class="post-layout" id="discussion-${escapeHtml(data.id)}">
-      ${voteCell(data.votes)}
-
-      <div class="post-content">
-        <div class="s-prose" id="discussion-body"></div>
-
-        <div class="post-tags">
-          ${(data.tags || []).map(t => `<a class="s-tag" href="${tagUrl(t)}">${escapeHtml(t)}</a>`).join('')}
-        </div>
-
-        <div class="post-footer">
-          <div class="post-actions">
-            <a class="s-link" href="#">Share</a>
-            <a class="s-link" href="#">Follow</a>
-            <a class="s-btn s-btn__danger s-btn__xs"
-               href="${reportUrl('discussion', data.id)}"
-               data-report
-               data-report-type="discussion"
-               data-report-id="${escapeHtml(data.id)}"
-               title="Report this discussion">
-              <svg class="svg-icon" aria-hidden="true" width="14" height="14" viewBox="0 0 14 14">
-                <path d="M7 1 1 12h12L7 1Zm0 3.25.75 3.5h-1.5L7 4.25ZM7 10.5a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z"/>
-              </svg>
-              Report
-            </a>
+    <article class="d-flex g16 ai-start pb24 bb bc-black-150">
+      <div class="flex__fl-shrink0">${voteBlock('post', p.id, p.score)}</div>
+      <div class="fl-grow1 min-w-0">
+        <div class="s-prose" data-discussion-body></div>
+        <div class="d-flex fw-wrap g8 mt16">${tagsHtml}</div>
+        <div class="d-flex ai-center jc-space-between g16 mt24 fw-wrap">
+          <div class="d-flex g16 fs-caption">
+            <a class="s-link s-link__muted" href="#">Share</a>
+            <a class="s-link s-link__muted" href="${reportUrl('discussion', p.id)}">Report</a>
           </div>
-          ${userCard(data.author, 'posted', data.time)}
+          <div class="s-user-card">
+            <a href="./user-profile.html?id=${escapeHtml(String(p.author.id))}"
+               class="s-avatar s-avatar__32 ${escapeHtml(avatarColor(p.author.username))}" aria-hidden="true" tabindex="-1">
+              <span class="s-avatar--letter">${escapeHtml(avatarLetter(p.author.display_name))}</span>
+            </a>
+            <div class="s-user-card--column">
+              <a class="s-user-card--username" href="./user-profile.html?id=${escapeHtml(String(p.author.id))}">
+                ${escapeHtml(p.author.display_name)}
+              </a>
+              <div class="s-user-card--group">
+                <span class="s-user-card--rep">${escapeHtml(fmt(p.author.reputation))}</span>
+                <span class="s-user-card--time">posted
+                  <time datetime="${escapeHtml(p.created_at)}" data-iso="${escapeHtml(p.created_at)}">
+                    ${escapeHtml(timeAgo(p.created_at))}
+                  </time>
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </article>
 
     <section class="mt32" aria-labelledby="replies-heading">
-      <div class="answers-header">
-        <h2 id="replies-heading">${totalReplies} ${totalReplies === 1 ? 'Reply' : 'Replies'}</h2>
-        <nav class="s-navigation s-navigation__sm" aria-label="Sort replies">
-          <a class="s-navigation--item is-selected" href="#" aria-current="true">Top</a>
-          <a class="s-navigation--item" href="#">Newest</a>
-          <a class="s-navigation--item" href="#">Oldest</a>
-        </nav>
+      <div class="d-flex ai-center jc-space-between g8 fw-wrap mb16">
+        <h2 id="replies-heading" class="fs-title fw-normal mb0">
+          ${totalReplies} ${totalReplies === 1 ? 'Reply' : 'Replies'}
+        </h2>
       </div>
-
-      <ul class="thread-tree" id="thread-tree">
-        ${comments.map(c => renderComment(c, 0)).join('')}
+      <ul class="list-reset d-flex fd-column g12" data-thread-tree>
+        ${roots.length ? roots.map((c) => renderNode(c, byParent, 0)).join('') : '<li class="fc-black-400">No replies yet.</li>'}
       </ul>
-    </section>
-  `;
+    </section>`;
 
-  try {
-    renderMarkdown(data.body, root.querySelector('#discussion-body'));
-  } catch (e) {
-    console.error('Failed to render discussion body:', e);
-  }
+  try { renderMarkdown(p.body, root.querySelector('[data-discussion-body]')); } catch (e) { console.error(e); }
 }
 
-function countReplies(list) {
-  let n = 0;
-  for (const c of list || []) {
-    n += 1;
-    if (Array.isArray(c.replies)) n += countReplies(c.replies);
-  }
-  return n;
-}
-
-/* ------------------------------------------------------------------ */
-/* Reply box + upvote interactions                                     */
-/* ------------------------------------------------------------------ */
-
-function bindThreadInteractions(tree) {
-  if (!tree) return;
-
-  tree.addEventListener('click', (event) => {
-    /* ---- Upvote toggle ---- */
-    const upvoteBtn = event.target.closest('[data-upvote]');
-    if (upvoteBtn && tree.contains(upvoteBtn)) {
-      const on = upvoteBtn.classList.toggle('is-upvoted');
-      upvoteBtn.setAttribute('aria-pressed', String(on));
-      return;
-    }
-
-    /* ---- Open reply box, prefilling @username ---- */
-    const replyBtn = event.target.closest('[data-reply]');
-    if (replyBtn && tree.contains(replyBtn)) {
-      const node = replyBtn.closest('.thread-node');
-      const box  = node?.querySelector('.thread-reply-box');
-      if (!box) return;
-
-      if (box.hidden) {
-        box.hidden = false;
-        const textarea = box.querySelector('textarea');
-        const author = node.dataset.author || '';
-        if (textarea && author && !textarea.value.trim()) {
-          textarea.value = '@' + author + ' ';
-          // Place caret at the end
-          textarea.setSelectionRange(textarea.value.length, textarea.value.length);
-        }
-        textarea?.focus();
-      } else {
-        box.hidden = true;
-      }
-      return;
-    }
-
-    /* ---- Cancel ---- */
-    const cancelBtn = event.target.closest('[data-reply-cancel]');
-    if (cancelBtn) {
-      const box = cancelBtn.closest('.thread-reply-box');
-      if (box) {
-        box.hidden = true;
-        const ta = box.querySelector('textarea');
-        if (ta) ta.value = '';
-      }
-      return;
-    }
-
-    /* ---- Submit (demo stub) ---- */
-    const submitBtn = event.target.closest('[data-reply-submit]');
-    if (submitBtn) {
-      const box = submitBtn.closest('.thread-reply-box');
-      const ta = box?.querySelector('textarea');
-      if (ta && ta.value.trim()) {
-        console.info('Reply submitted (demo):', ta.value.trim());
-        ta.value = '';
-        box.hidden = true;
-      }
-      return;
-    }
-
-    /* ---- Continue thread (demo stub) ---- */
-    const cont = event.target.closest('[data-continue]');
-    if (cont) {
-      event.preventDefault();
-      console.info('Continue thread clicked (demo)');
-      return;
-    }
-  });
-}
-
-/* ------------------------------------------------------------------ */
-/* Bootstrap                                                           */
-/* ------------------------------------------------------------------ */
-
-(async function initDiscussionDetail() {
+async function init() {
   const root = document.getElementById('discussion-root');
   if (!root) return;
-
   let stopTicker = null;
+  const id = new URLSearchParams(location.search).get('id');
 
   try {
-    const data = await loadQuestionData('./mock/discussion.json');
-    renderDiscussionPage(data, root);
+    if (!id) throw new Error('Missing ?id=');
+    const data = await postsApi.get(id);
+    if (data.post_type !== 'discussion') throw new Error('Not a discussion');
+    renderPage(data, root);
     stopTicker = startTimeTicker(document);
   } catch (err) {
-    console.error('Could not load discussion:', err);
-    root.innerHTML = `
-      <p class="s-notice s-notice__danger" role="alert">
-        Could not load the discussion. See the console for details.
-      </p>
-    `;
+    console.error('[discussion-detail]', err);
+    root.innerHTML = `<p class="s-notice s-notice__danger p16" role="alert">Could not load discussion. ${escapeHtml(err.detail || err.message || '')}</p>`;
   }
 
-  bindThreadInteractions(document.getElementById('thread-tree'));
+  // Reply submission
+  const replyForm = document.querySelector('[data-reply-form]');
+  replyForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const ta = replyForm.querySelector('textarea');
+    const body = ta?.value.trim();
+    if (!body) return;
+    try { await postsApi.comment(id, body); window.location.reload(); }
+    catch (err) { alert(err.detail || 'Could not post reply.'); }
+  });
 
-  window.addEventListener('pagehide', () => {
-    if (stopTicker) stopTicker();
-  }, { once: true });
-})();
+  // Click-to-reply on individual comments
+  document.querySelector('[data-thread-tree]')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-reply]');
+    if (!btn) return;
+    const ta = replyForm?.querySelector('textarea');
+    if (ta) {
+      ta.value = `@${btn.dataset.author} `;
+      ta.focus();
+      ta.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  });
+
+  window.addEventListener('pagehide', () => { if (stopTicker) stopTicker(); }, { once: true });
+}
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
+else init();

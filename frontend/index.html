@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, minimum-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Tech4Rum — Where developers learn, share, and build careers">
   <title>Tech4Rum — Where Developers Learn &amp; Share</title>
 
@@ -12,38 +12,21 @@
   <link rel="stylesheet" href="./css/components.css">
 </head>
 
-<body class="home-page">
+<body class="theme-light">
 
   <a href="#main" class="v-visible-sr">Skip to main content</a>
 
-  <!-- SITE HEADER — rendered by ./js/components/site-header.js -->
   <site-header is-logged-in="true"></site-header>
 
-  <!-- MAIN LAYOUT -->
   <div class="d-flex ai-start g24 wmx12 mx-auto px16 py24">
 
-    <!-- LEFT RAIL -->
-    <aside class="sidebar-left sm:d-none" aria-label="Section navigation">
-      <nav class="s-navigation s-navigation__vertical">
-        <a class="s-navigation--item is-selected" href="./index.html" aria-current="page">Home</a>
-        <a class="s-navigation--item" href="./questions.html">Questions</a>
-        <a class="s-navigation--item" href="./discussions.html">Discussion</a>
-        <a class="s-navigation--item" href="./tags.html">Tags</a>
-        <a class="s-navigation--item" href="./users.html">Users</a>
-        <a class="s-navigation--item" href="./admin.html">Admin</a>
-      </nav>
-    </aside>
+    <site-sidebar class="ws2 flex__fl-shrink0 sm:d-none"></site-sidebar>
 
-    <!-- MAIN CONTENT -->
     <main id="main" class="question-feed fl-grow1" role="main">
 
-      <!-- Greeting card -->
-      <section class="s-card p16 mb24">
-        <div class="d-flex jc-space-between ai-center g16 fw-wrap">
-          <div class="fl-grow1">
-            <h1 class="fs-title fw-bold mb0">
-              Welcome Bùi Đụt to Tech4Rum!
-            </h1>
+      <!-- Greeting card — minimal, static placeholder. A future JS module can update text via #greeting -->
+      <section class="bg-white bc-light ba bar-md p16 mb24">
+        <h1 id="greeting" class="fs-title fw-bold mb0">Welcome to Tech4Rum!</h1>
       </section>
 
       <!-- Recommended questions -->
@@ -51,11 +34,9 @@
         <header class="d-flex fd-column mb16">
           <div class="fs-title fw-bold">Interesting posts for you</div>
           <div class="fs-body1 fc-black-400">
-          Let's solve the troubles you have!!
+            Let's solve the troubles you have!!
           </div>
         </header>
-
-        <!-- Populated by ./js/render-questions.js from ./mock/question-list.json -->
         <div id="question-list" class="question-list"></div>
       </section>
 
@@ -67,26 +48,20 @@
             Hottest conversations happening across the community right now.
           </div>
         </header>
-
-        <!-- Populated by ./js/pages/discussions.js from ./mock/discussion-list.json -->
         <div id="discussion-list" class="discussion-list"></div>
       </section>
 
     </main>
   </div>
 
-  <!-- SITE FOOTER — rendered by ./js/components/site-footer.js -->
   <site-footer></site-footer>
 
-  <!-- Tag URL helper (must run before the feed renderers) -->
-  <script type="module" src="./js/tag-url.js" defer></script>
-
-  <!-- Feed renderers — same scripts used by questions.html and discussions.html -->
+  <script type="module" src="./js/tag-url.js"></script>
   <script src="./js/render-questions.js" defer></script>
   <script src="./js/pages/discussions.js" defer></script>
-
-  <script type="module" src="./js/components/site-header.js" defer></script>
-  <script type="module" src="./js/components/site-footer.js" defer></script>
+  <script type="module" src="./js/components/site-header.js"></script>
+  <script type="module" src="./js/components/site-footer.js"></script>
+  <script type="module" src="./js/components/site-sidebar.js"></script>
 
 </body>
 </html>

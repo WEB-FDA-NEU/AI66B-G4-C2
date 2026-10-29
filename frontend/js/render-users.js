@@ -1,219 +1,72 @@
+/* render-users.js — /api/users */
+import { getMe } from './api.js';
+
 (function () {
   'use strict';
-
-  var USER_JSON  = './mock/users.json';
-  var BIO_CLAMP  = 100;
-  var ME_ID      = 101;                        // same "me" as my-content.html
-  var AVATAR_SRC = './img/avatar.png';
-
-  var listEl  = document.getElementById('user-list');
-  var countEl = document.querySelector('[data-user-count]');
-  var sortEl  = document.getElementById('user-sort');
-
+  const listEl = document.getElementById('user-list');
   if (!listEl) return;
 
-  var allUsers = [];
-  var activeSort = 'reputation';
+  const state = { all: [], sort: 'reputation', meId: null };
 
-  /* ---------------- Helpers ---------------- */
+  const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const fmt = (n) => { const x = Number(n) || 0, a = Math.abs(x);
+    return a >= 1e3 ? (x/1e3).toFixed(1).replace(/\.0$/,'')+'k' : String(x); };
+  const avatarLetter = (n) => String(n || '?').trim().charAt(0).toUpperCase();
+  const avatarColor = (seed) => {
+    const p = ['bg-blue-300','bg-orange-300','bg-green-300','bg-purple-300','bg-pink-300','bg-yellow-300','bg-red-300'];
+    let h = 0; const s = String(seed || '');
+    for (let i = 0; i < s.length; i++) h = ((h << 5) - h) + s.charCodeAt(i) | 0;
+    return p[Math.abs(h) % p.length];
+  };
 
-  function escapeHtml(v) {
-    return String(v == null ? '' : v)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
+  function renderCard(u) {
+    const isMe = u.id === state.meId;
+    const profileHref = isMe
+      ? './my-content.html'
+      : `./user-profile.html?id=${esc(u.id)}`;
+    return `
+      <div class="bg-white bc-light ba bar-md p16 d-flex fd-column ai-center g8 ta-center">
+        <a href="${profileHref}" class="s-avatar s-avatar__64 ${esc(avatarColor(u.username))}" aria-hidden="true" tabindex="-1">
+          <span class="s-avatar--letter">${esc(avatarLetter(u.display_name))}</span>
+        </a>
+        <a href="${profileHref}" class="s-link fw-bold fs-body2">${esc(u.display_name || u.username)}</a>
+        <div class="fc-black-500 fs-caption">@${esc(u.username)}</div>
+        ${u.bio ? `<p class="fc-black-400 fs-caption mb0">${esc(u.bio.slice(0, 100))}</p>` : ''}
+        <span class="s-badge">${esc(fmt(u.reputation))} reputation</span>
+      </div>`;
   }
 
-  function formatCount(n) {
-    var num = Number(n) || 0;
-    if (num >= 1000000) return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'm';
-    if (num >= 1000)    return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
-    return String(num);
-  }
+  async function load() {
+    listEl.innerHTML = '<div class="fc-black-400 p16" style="grid-column: 1 / -1;">Loading…</div>';
+    try {
+      const { users: usersApi } = await import('./api.js');
+      const res = await usersApi.list({ sort: state.sort, page_size: 50 });
+      state.all = res.items;
 
-  function colorFromString(str) {
-    var palette = [
-      'bg-orange-300', 'bg-blue-300', 'bg-purple-300', 'bg-green-300',
-      'bg-pink-300', 'bg-yellow-300', 'bg-red-300', 'bg-blue-300'
-    ];
-    var hash = 0;
-    for (var i = 0; i < str.length; i++) {
-      hash = ((hash << 5) - hash) + str.charCodeAt(i);
-      hash |= 0;
-    }
-    return palette[Math.abs(hash) % palette.length];
-  }
+      // Discover current user (optional)
+      try { const me = await getMe(); state.meId = me.id; } catch { /* guest */ }
 
-  function avatarLetter(user) {
-    var name = user.display_name || user.username || '?';
-    return name.trim().charAt(0).toUpperCase();
-  }
+      listEl.innerHTML = res.items.length
+        ? res.items.map(renderCard).join('')
+        : '<div class="fc-black-400 p16" style="grid-column: 1 / -1;">No users found.</div>';
 
-  function truncate(text, len) {
-    var s = String(text || '').replace(/\s+/g, ' ').trim();
-    if (s.length <= len) return s;
-    return s.slice(0, len).replace(/\s+\S*$/, '') + '…';
-  }
-
-  function plural(n, word) {
-    return n === 1 ? word : word + 's';
-  }
-
-  /**
-   * Where to link a user card.
-   *   - Me      → ./my-content.html
-   *   - Others  → ./user-profile.html?id=<id>
-   */
-  function profileUrlFor(user) {
-    if (Number(user.id) === ME_ID) return './my-content.html';
-    return './user-profile.html?id=' + encodeURIComponent(user.id);
-  }
-
-  /**
-   * Avatar markup.
-   *   - Me      → <img src="./img/avatar.png">
-   *   - Others  → colored circle with the first letter
-   */
-  function avatarHtml(user, profileUrl) {
-    if (Number(user.id) === ME_ID) {
-      return [
-        '<a href="' + profileUrl + '" class="s-avatar s-avatar__64"',
-        '   aria-hidden="true" tabindex="-1"',
-        '   style="overflow:hidden;border-radius:50%;width:64px;height:64px;">',
-          '<img src="' + AVATAR_SRC + '" alt=""',
-          '     class="s-avatar--image" width="64" height="64"',
-          '     style="width:100%;height:100%;object-fit:cover;display:block;">',
-        '</a>'
-      ].join('');
-    }
-
-    var color  = colorFromString(user.username || String(user.id));
-    var letter = avatarLetter(user);
-
-    return [
-      '<a href="' + profileUrl + '" class="s-avatar s-avatar__64 ' + color + '"',
-      '   aria-hidden="true" tabindex="-1">',
-        '<span class="s-avatar--letter">' + escapeHtml(letter) + '</span>',
-      '</a>'
-    ].join('');
-  }
-
-  /* ---------------- Sorting ---------------- */
-
-  function sortUsers(list, mode) {
-    var copy = list.slice();
-    switch (mode) {
-      case 'name':
-        return copy.sort(function (a, b) {
-          return String(a.username || '').toLowerCase()
-            .localeCompare(String(b.username || '').toLowerCase());
-        });
-      case 'reputation':
-      default:
-        return copy.sort(function (a, b) {
-          return (Number(b.reputation) || 0) - (Number(a.reputation) || 0);
-        });
+      const countEl = document.querySelector('[data-user-count]');
+      if (countEl) countEl.textContent = `${res.total} user${res.total === 1 ? '' : 's'}`;
+    } catch (err) {
+      console.error('[users]', err);
+      listEl.innerHTML = `<div class="s-notice s-notice__danger p16" style="grid-column: 1 / -1;">Could not load users. ${esc(err.detail || err.message || '')}</div>`;
     }
   }
 
-  /* ---------------- Render ---------------- */
+  document.getElementById('user-sort')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-sort]');
+    if (!btn) return;
+    e.preventDefault();
+    state.sort = btn.dataset.sort;
+    document.querySelectorAll('#user-sort [data-sort]').forEach((b) => b.classList.toggle('is-selected', b === btn));
+    load();
+  });
 
-  function renderCard(user) {
-    var rep = formatCount(user.reputation);
-    var profileUrl = profileUrlFor(user);
-    var bio = truncate(user.bio, BIO_CLAMP);
-
-    return [
-      '<div class="widget">',
-        '<div class="widget-body d-flex fd-column ai-center g8 ta-center">',
-
-          avatarHtml(user, profileUrl),
-
-          '<a href="' + profileUrl + '" class="s-link fw-bold fs-body2 fc-black-600">' +
-            escapeHtml(user.display_name || user.username) +
-          '</a>',
-
-          '<div class="fc-black-500 fs-caption">@' + escapeHtml(user.username) + '</div>',
-
-          bio
-            ? '<p class="fc-black-400 fs-caption mb0">' + escapeHtml(bio) + '</p>'
-            : '',
-
-          '<span class="s-badge">' + escapeHtml(rep) + ' reputation</span>',
-
-        '</div>',
-      '</div>'
-    ].join('');
-  }
-
-  function renderEmpty() {
-    listEl.className = '';
-    listEl.innerHTML = [
-      '<div class="s-empty-state py48">',
-        '<div class="s-empty-state--title">No users yet</div>',
-        '<p>The community is still warming up.</p>',
-      '</div>'
-    ].join('');
-  }
-
-  function render() {
-    if (!allUsers.length) {
-      renderEmpty();
-      if (countEl) countEl.textContent = '';
-      return;
-    }
-
-    listEl.className = 'd-grid grid__3 gx16 gy0';
-    listEl.innerHTML = sortUsers(allUsers, activeSort).map(renderCard).join('');
-
-    if (countEl) {
-      countEl.textContent = allUsers.length + ' ' + plural(allUsers.length, 'user');
-    }
-
-    sortEl.querySelectorAll('[data-sort]').forEach(function (btn) {
-      var on = btn.dataset.sort === activeSort;
-      btn.classList.toggle('is-selected', on);
-      if (on) btn.setAttribute('aria-current', 'true');
-      else    btn.removeAttribute('aria-current');
-    });
-  }
-
-  /* ---------------- Sort clicks ---------------- */
-
-  if (sortEl) {
-    sortEl.addEventListener('click', function (e) {
-      var btn = e.target.closest('[data-sort]');
-      if (!btn) return;
-      e.preventDefault();
-      activeSort = btn.dataset.sort;
-      render();
-    });
-  }
-
-  /* ---------------- Load ---------------- */
-
-  function load() {
-    fetch(USER_JSON, { cache: 'no-store' })
-      .then(function (r) {
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        return r.json();
-      })
-      .then(function (data) {
-        allUsers = Array.isArray(data) ? data : [];
-        render();
-      })
-      .catch(function (err) {
-        console.error(err);
-        listEl.className = '';
-        listEl.innerHTML =
-          '<div class="s-notice s-notice__danger mt16" role="alert">' +
-            'Could not load users.' +
-          '</div>';
-        if (countEl) countEl.textContent = '';
-      });
-  }
-
-  load();
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', load, { once: true });
+  else load();
 })();

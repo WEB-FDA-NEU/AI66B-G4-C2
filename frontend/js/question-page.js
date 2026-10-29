@@ -1,437 +1,221 @@
 /**
- * question-page.js
- *
- * Renders a Q&A page from a JSON payload and wires up the answer editor
- * (toolbar insertions, tab-to-indent, live markdown preview).
- *
- * Data can be supplied three ways:
- *   1. fetch a JSON file:        init({ src: './data/question.json' })
- *   2. inline <script> JSON:     <script type="application/json" id="question-data">…</script>
- *   3. programmatically:         renderQuestionPage(myData, rootEl)
- *
- * Timestamps in the JSON must be ISO strings. Relative labels ("2 minutes ago")
- * are computed at render time and refreshed automatically by a ticker.
+ * question-page.js — fetch /api/posts/:id, render with frozen CSS.
  */
-
 import { renderMarkdown } from './markdown-renderer.js';
-import {
-  bindToolbar,
-  bindTabInsert,
-  bindPreviewToggle,
-  INSERTIONS
-} from './ask-question-editor.js';
+import { posts as postsApi } from './api.js';
 import { tagUrl } from './tag-url.js';
+import { bindToolbar, bindTabInsert, bindPreviewToggle, INSERTIONS } from './ask-question-editor.js';
 
-/* ------------------------------------------------------------------ */
-/* Helpers                                                             */
-/* ------------------------------------------------------------------ */
-
-export function escapeHtml(str) {
-  return String(str ?? '').replace(/[&<>"']/g, (c) => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;'
-  }[c]));
-}
+export const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 export function timeAgo(iso) {
   const diff = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
-  if (diff < 10)     return 'a few seconds ago';
-  if (diff < 45)     return 'just now';
-  if (diff < 90)     return '1 minute ago';
-  if (diff < 3600)   return `${Math.round(diff / 60)} minutes ago`;
-  if (diff < 7200)   return '1 hour ago';
-  if (diff < 86400)  return `${Math.round(diff / 3600)} hours ago`;
-  if (diff < 172800) return '1 day ago';
+  if (diff < 45) return 'just now';
+  if (diff < 3600) return `${Math.round(diff / 60)} minutes ago`;
+  if (diff < 86400) return `${Math.round(diff / 3600)} hours ago`;
   return `${Math.round(diff / 86400)} days ago`;
 }
+export const formatAbsolute = (iso) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+const fmt = (n) => { const x = Number(n) || 0, a = Math.abs(x);
+  return a >= 1e6 ? (x/1e6).toFixed(1).replace(/\.0$/,'')+'m'
+       : a >= 1e3 ? (x/1e3).toFixed(1).replace(/\.0$/,'')+'k' : String(x); };
+const avatarLetter = (n) => String(n || '?').trim().charAt(0).toUpperCase();
+const avatarColor = (seed) => {
+  const p = ['bg-blue-300','bg-orange-300','bg-green-300','bg-purple-300','bg-pink-300','bg-yellow-300','bg-red-300'];
+  let h = 0; const s = String(seed || '');
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h) + s.charCodeAt(i) | 0;
+  return p[Math.abs(h) % p.length];
+};
+const reportUrl = (type, id) => `./report.html?${new URLSearchParams({ type, id: String(id) })}`;
 
-export function formatAbsolute(iso) {
-  return new Date(iso).toLocaleString(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short'
-  });
-}
-
-/** A <time> element whose text is the relative label and whose tooltip is absolute. */
-export function timeElement(iso, verb = '') {
-  const prefix = verb ? `${escapeHtml(verb)} ` : '';
-  return `${prefix}<time datetime="${escapeHtml(iso)}" data-iso="${escapeHtml(iso)}" title="${escapeHtml(formatAbsolute(iso))}">${escapeHtml(timeAgo(iso))}</time>`;
-}
-
-/**
- * Build a URL to the report page for a question or an answer.
- * @param {'question'|'answer'} type
- * @param {string|number} id
- */
-export function reportUrl(type, id) {
-  const params = new URLSearchParams({ type, id: String(id) });
-  return `./report.html?${params.toString()}`;
-}
-
-/** Update every [data-iso] element under `root` with a fresh label. */
 export function refreshRelativeTimes(root = document) {
   root.querySelectorAll('time[data-iso]').forEach((el) => {
-    const fresh = timeAgo(el.dataset.iso);
-    if (el.textContent !== fresh) el.textContent = fresh;
+    const next = timeAgo(el.dataset.iso);
+    if (el.textContent !== next) el.textContent = next;
   });
 }
 
-/**
- * Refresh relative times on a schedule. Faster while content is fresh,
- * slower once everything is older than an hour. Returns a stop() function.
- */
-export function startTimeTicker(root = document, {
-  fast = 30_000,
-  slow = 300_000,
-  threshold = 3_600_000
-} = {}) {
-  let timer = null;
-  const tick = () => {
-    refreshRelativeTimes(root);
-    const now = Date.now();
-    const hasOld = [...root.querySelectorAll('time[data-iso]')]
-      .some(el => now - new Date(el.dataset.iso).getTime() > threshold);
-    timer = setTimeout(tick, hasOld ? slow : fast);
-  };
-  timer = setTimeout(tick, fast);
-  return () => clearTimeout(timer);
+export function startTimeTicker(root = document) {
+  const id = setInterval(() => refreshRelativeTimes(root), 30_000);
+  return () => clearInterval(id);
 }
 
-/* ------------------------------------------------------------------ */
-/* Small template pieces                                               */
-/* ------------------------------------------------------------------ */
-
-function voteCell(votes, accepted) {
+function voteBlock(targetType, targetId, score) {
   return `
-    <div class="vote-cell">
-      <div class="s-vote">
-        <button class="s-vote--btn" type="button" aria-label="Up vote">
-          <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
-            <path d="M1 12h16L9 4 1 12Z"/>
-          </svg>
-        </button>
-        <div class="s-vote--votes">${escapeHtml(votes)}</div>
-        <button class="s-vote--btn" type="button" aria-label="Down vote">
-          <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
-            <path d="M1 6h16L9 14 1 6Z"/>
-          </svg>
-        </button>
-      </div>
-      ${accepted ? `
-        <div class="accepted-mark" title="Accepted answer" aria-label="Accepted answer">
-          <svg viewBox="0 0 32 32" aria-hidden="true">
-            <circle cx="16" cy="16" r="16" fill="currentColor"/>
-            <path d="M13.5 22.5 7 16l2.1-2.1 4.4 4.4 10.4-10.4L26 10l-12.5 12.5Z" fill="#fff"/>
-          </svg>
-        </div>
-      ` : ''}
-      <button class="post-side-btn" type="button" aria-label="Bookmark">
-        <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
-          <path d="M3 2h12v15l-6-4-6 4V2Zm2 2v9.5l4-2.7 4 2.7V4H5Z"/>
-        </svg>
+    <div class="s-vote" data-vote-target="${escapeHtml(targetType)}" data-vote-id="${escapeHtml(String(targetId))}">
+      <button type="button" class="s-vote--btn" data-vote-up aria-label="Upvote">
+        <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M1 12h16L9 4 1 12Z"/></svg>
       </button>
-    </div>
-  `;
+      <div class="s-vote--votes" data-score>${escapeHtml(fmt(score))}</div>
+      <button type="button" class="s-vote--btn" data-vote-down aria-label="Downvote">
+        <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M1 6h16L9 14 1 6Z"/></svg>
+      </button>
+    </div>`;
 }
 
-function userCard(user, action, iso) {
+function authorCard(author, action, iso) {
+  const color = avatarColor(author.username);
+  const letter = avatarLetter(author.display_name);
   return `
     <div class="s-user-card">
-      <a href="#" class="s-avatar ${escapeHtml(user.avatarColor)}" aria-hidden="true" tabindex="-1">
-        <span class="s-avatar--letter">${escapeHtml(user.avatarLetter)}</span>
+      <a href="./user-profile.html?id=${escapeHtml(String(author.id))}"
+         class="s-avatar s-avatar__32 ${color}" aria-hidden="true" tabindex="-1">
+        <span class="s-avatar--letter">${escapeHtml(letter)}</span>
       </a>
       <div class="s-user-card--column">
-        <a class="s-user-card--username" href="#">${escapeHtml(user.name)}</a>
+        <a class="s-user-card--username" href="./user-profile.html?id=${escapeHtml(String(author.id))}">
+          ${escapeHtml(author.display_name)}
+        </a>
         <div class="s-user-card--group">
-          <span class="s-user-card--rep">${escapeHtml(user.rep)}</span>
-          <span class="s-user-card--time">${timeElement(iso, action)}</span>
+          <span class="s-user-card--rep">${escapeHtml(fmt(author.reputation))}</span>
+          <span class="s-user-card--time">
+            ${escapeHtml(action)}
+            <time datetime="${escapeHtml(iso)}" data-iso="${escapeHtml(iso)}"
+                  title="${escapeHtml(formatAbsolute(iso))}">${escapeHtml(timeAgo(iso))}</time>
+          </span>
         </div>
       </div>
-    </div>
-  `;
+    </div>`;
 }
 
-function commentsBlock(comments) {
+function commentsBlock(comments, parentId) {
   if (!comments || !comments.length) return '';
-  return `
-    <ul class="comment-list" aria-label="Comments">
-      ${comments.map((c) => `
-        <li class="comment">
-          <span class="comment--score">${escapeHtml(c.score)}</span>
-          <div class="comment--body">
-            ${escapeHtml(c.body)}
-            <a class="comment--user" href="#">– ${escapeHtml(c.user)}</a>
-            ${timeElement(c.time)}
-          </div>
-        </li>
-      `).join('')}
-    </ul>
-    <div class="comment-add">
-      <a class="s-link" href="#">Add a comment</a>
-    </div>
-  `;
+  const items = comments.map((c) => `
+    <li class="d-flex g8 py4 fs-caption" data-comment-id="${escapeHtml(String(c.id))}">
+      <span class="fc-black-400">${escapeHtml(String(c.score))}</span>
+      <div class="fl-grow1">
+        ${escapeHtml(c.body)}
+        <span class="fc-black-400">–</span>
+        <a class="s-link s-link__muted" href="./user-profile.html?id=${escapeHtml(String(c.author.id))}">
+          ${escapeHtml(c.author.display_name)}
+        </a>
+        <time class="fc-black-400" datetime="${escapeHtml(c.created_at)}" data-iso="${escapeHtml(c.created_at)}">
+          ${escapeHtml(timeAgo(c.created_at))}
+        </time>
+      </div>
+    </li>`).join('');
+  return `<ul class="list-reset d-flex fd-column g2 mt8">${items}</ul>`;
 }
 
-/* ------------------------------------------------------------------ */
-/* Render the whole page from JSON                                     */
-/* ------------------------------------------------------------------ */
+export function renderQuestionPage(p, root) {
+  if (!root) throw new Error('renderQuestionPage: no root');
 
-export function renderQuestionPage(data, root = document.getElementById('question-root')) {
-  if (!root) throw new Error('renderQuestionPage: #question-root not found');
-  if (!data) throw new Error('renderQuestionPage: no data provided');
+  const answers = p.answers || [];
+  const answersHtml = answers.map((a) => `
+    <article id="answer-${escapeHtml(String(a.id))}"
+             class="d-flex g16 ai-start py24 bb bc-black-150${a.is_accepted ? ' s-post-summary__answered' : ''}">
+      <div class="flex__fl-shrink0 d-flex fd-column ai-center g8">
+        ${voteBlock('answer', a.id, a.score)}
+        ${a.is_accepted ? `<span class="s-badge s-badge__success" title="Accepted answer">✓ Accepted</span>` : ''}
+      </div>
+      <div class="fl-grow1 min-w-0">
+        <div class="s-prose" data-answer-body></div>
+        <div class="d-flex ai-center jc-space-between g16 mt16 fw-wrap">
+          <div class="d-flex g16 fs-caption">
+            <a class="s-link s-link__muted" href="#">Share</a>
+            <a class="s-link s-link__muted" href="${reportUrl('answer', a.id)}">Report</a>
+          </div>
+          ${authorCard(a.author, 'answered', a.created_at)}
+        </div>
+        ${commentsBlock(a.comments || [])}
+      </div>
+    </article>`).join('');
 
-  const answers = data.answers || [];
+  const tagsHtml = (p.tags || []).map((t) =>
+    `<a class="s-tag" href="${escapeHtml(tagUrl(t.name))}">${escapeHtml(t.name)}</a>`).join('');
 
   root.innerHTML = `
-    <!-- Title -->
-    <div class="d-flex ai-start jc-space-between g16 mb8">
-      <h1 class="fs-headline1 fw-normal mb0">${escapeHtml(data.title)}</h1>
-      <a class="s-btn flex-shrink0" href="./ask-question.html">Ask Question</a>
+    <h1 class="fs-headline1 fw-normal mb8">${escapeHtml(p.title)}</h1>
+    <div class="d-flex g8 fs-caption fc-black-400 mb16 fw-wrap">
+      <span>Asked <time datetime="${escapeHtml(p.created_at)}" data-iso="${escapeHtml(p.created_at)}"
+          title="${escapeHtml(formatAbsolute(p.created_at))}">${escapeHtml(timeAgo(p.created_at))}</time></span>
+      <span>·</span>
+      <span>Viewed ${escapeHtml(fmt(p.view_count))} times</span>
     </div>
 
-    <!-- Meta -->
-    <div class="post-meta">
-      <span>Asked ${timeElement(data.time)}</span>
-      <span>Modified ${timeElement(data.modifiedAt)}</span>
-      <span>Viewed <span>${Number(data.views).toLocaleString()} times</span></span>
-    </div>
-
-    <!-- Question -->
-    <article class="post-layout" id="question-${escapeHtml(data.id)}">
-      ${voteCell(data.votes, false)}
-
-      <div class="post-content">
-        <div class="s-prose" id="question-body"></div>
-
-        <div class="post-tags">
-          ${(data.tags || []).map(t =>
-            `<a class="s-tag" href="${tagUrl(t)}">${escapeHtml(t)}</a>`
-          ).join('')}
-        </div>
-
-        <div class="post-footer">
-          <div class="post-actions">
-            <a class="s-link" href="#">Share</a>
-            <a class="s-link" href="./edit-question.html">Edit</a>
-            <a class="s-link" href="#">Follow</a>
-            <a class="s-link" href="#">Close</a>
-            <a class="s-btn s-btn__danger s-btn__xs"
-              href="${reportUrl('question', data.id)}"
-              data-report
-              data-report-type="question"
-              data-report-id="${escapeHtml(data.id)}"
-              title="Report this question">
-              <svg class="svg-icon" aria-hidden="true" width="14" height="14" viewBox="0 0 14 14">
-                <path d="M7 1 1 12h12L7 1Zm0 3.25.75 3.5h-1.5L7 4.25ZM7 10.5a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z"/>
-              </svg>
-              Report
-            </a>
+    <article class="d-flex g16 ai-start pb24 bb bc-black-150">
+      <div class="flex__fl-shrink0">${voteBlock('post', p.id, p.score)}</div>
+      <div class="fl-grow1 min-w-0">
+        <div class="s-prose" data-question-body></div>
+        <div class="d-flex fw-wrap g8 mt16">${tagsHtml}</div>
+        <div class="d-flex ai-center jc-space-between g16 mt24 fw-wrap">
+          <div class="d-flex g16 fs-caption">
+            <a class="s-link s-link__muted" href="#">Share</a>
+            <a class="s-link s-link__muted" href="./edit-question.html?id=${escapeHtml(String(p.id))}">Edit</a>
+            <a class="s-link s-link__muted" href="${reportUrl('question', p.id)}">Report</a>
           </div>
-          ${userCard(data.author, 'asked', data.time)}
+          ${authorCard(p.author, 'asked', p.created_at)}
         </div>
-
-        ${commentsBlock(data.comments)}
+        ${commentsBlock(p.comments || [])}
       </div>
     </article>
 
-    <!-- Answers -->
     <section class="mt32" aria-labelledby="answers-heading">
-      <div class="answers-header">
-        <h2 id="answers-heading">${answers.length} ${answers.length === 1 ? 'Answer' : 'Answers'}</h2>
-        <nav class="s-navigation s-navigation__sm" aria-label="Sort answers">
-          <a class="s-navigation--item is-selected" href="#" aria-current="true">Highest score (default)</a>
-          <a class="s-navigation--item" href="#">Trending</a>
-          <a class="s-navigation--item" href="#">Date modified</a>
-          <a class="s-navigation--item" href="#">Date created</a>
-        </nav>
+      <div class="d-flex ai-center jc-space-between g8 fw-wrap mb16">
+        <h2 id="answers-heading" class="fs-title fw-normal mb0">
+          ${answers.length} ${answers.length === 1 ? 'Answer' : 'Answers'}
+        </h2>
       </div>
+      ${answersHtml || `<p class="fc-black-400">No answers yet. Be the first to answer.</p>`}
+    </section>`;
 
-      ${answers.map((a, i) => `
-        <article class="post-layout answer" id="answer-${escapeHtml(a.id)}">
-          ${voteCell(a.votes, a.accepted)}
-
-          <div class="post-content">
-            <div class="s-prose" id="answer-body-${i}"></div>
-
-            <div class="post-footer">
-              <div class="post-actions">
-                <a class="s-link" href="#">Share</a>
-                <a class="s-link" href="#">Edit</a>
-                <a class="s-link" href="#">Follow</a>
-                <a class="s-link s-link__danger"
-                  href="${reportUrl('answer', a.id)}"
-                  data-report
-                  data-report-type="answer"
-                  data-report-id="${escapeHtml(a.id)}"
-                  title="Report this answer">
-                  <svg class="svg-icon" aria-hidden="true" width="14" height="14" viewBox="0 0 14 14">
-                    <path d="M7 1 1 12h12L7 1Zm0 3.25.75 3.5h-1.5L7 4.25ZM7 10.5a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z"/>
-                  </svg>
-                  Report
-                </a>
-              </div>
-              ${userCard(a.author, 'answered', a.time)}
-            </div>
-
-            ${commentsBlock(a.comments)}
-          </div>
-        </article>
-      `).join('')}
-    </section>
-  `;
-
-  /* ---- Render Markdown into the prose containers ---- */
-  try {
-    renderMarkdown(data.body, root.querySelector('#question-body'));
-  } catch (e) {
-    console.error('Failed to render question body:', e);
-  }
-
+  try { renderMarkdown(p.body, root.querySelector('[data-question-body]')); } catch (e) { console.error(e); }
   answers.forEach((a, i) => {
-    try {
-      renderMarkdown(a.body, root.querySelector(`#answer-body-${i}`));
-    } catch (e) {
-      console.error(`Failed to render answer ${i}:`, e);
-    }
+    const el = root.querySelectorAll('[data-answer-body]')[i];
+    if (el) { try { renderMarkdown(a.body, el); } catch (e) { console.error(e); } }
   });
-
-  return root;
 }
 
-/* ------------------------------------------------------------------ */
-/* Live editor for the "Your Answer" form                              */
-/* ------------------------------------------------------------------ */
-
-/**
- * Wire up the answer editor: toolbar insertions, tab-to-indent, and the
- * markdown preview toggle.
- *
- * Returns a `destroy()` function that unbinds everything, or `null` if the
- * core elements (toggle/textarea/preview) can't be found.
- */
 export function initAnswerEditor({
   toolbar  = document.querySelector('.editor-toolbar'),
   toggle   = document.getElementById('preview-toggle'),
   textarea = document.getElementById('answer-body'),
-  preview  = document.getElementById('answer-preview')
+  preview  = document.getElementById('answer-preview'),
 } = {}) {
-  // Preview is the minimum; without it there's nothing to do.
   if (!toggle || !textarea || !preview) return null;
-
-  const teardown = [];
-
-  // Preview toggle
-  teardown.push(bindPreviewToggle({ toggle, textarea, preview }));
-
-  // Toolbar insertions (bold, italic, code, link, image, quote, ul, ol)
-  if (toolbar) {
-    teardown.push(bindToolbar({ toolbar, textarea, insertions: INSERTIONS }));
-  }
-
-  // Tab inserts two spaces inside the textarea
-  teardown.push(bindTabInsert({ textarea }));
-
-  return function destroy() {
-    while (teardown.length) {
-      try { teardown.pop()(); } catch (e) { console.error(e); }
-    }
-  };
+  const t = [];
+  t.push(bindPreviewToggle({ toggle, textarea, preview }));
+  if (toolbar) t.push(bindToolbar({ toolbar, textarea, insertions: INSERTIONS }));
+  t.push(bindTabInsert({ textarea }));
+  return () => { while (t.length) { try { t.pop()(); } catch (e) { console.error(e); } } };
 }
-
-/**
- * Backwards-compatible alias for the old name.
- * @deprecated Use `initAnswerEditor` instead.
- */
 export const initAnswerPreview = initAnswerEditor;
 
-/* ------------------------------------------------------------------ */
-/* Data loading                                                        */
-/* ------------------------------------------------------------------ */
-
-export async function loadQuestionData(url) {
-  const res = await fetch(url, { headers: { Accept: 'application/json' } });
-  if (!res.ok) throw new Error(`Failed to load ${url}: ${res.status} ${res.statusText}`);
-  return res.json();
-}
-
-/* ------------------------------------------------------------------ */
-/* Bootstrap                                                           */
-/* ------------------------------------------------------------------ */
-
-/**
- * Init the page. Priority for data source:
- *   1. explicit `src` option       → fetch()
- *   2. data-src on #question-root  → fetch()
- *   3. inline #question-data       → JSON.parse()
- *
- * Returns { stop, editor } where:
- *   - stop()   halts the relative-time ticker
- *   - editor   is the answer-editor teardown (or null)
- */
 export async function init({ src, root, autoStartTicker = true } = {}) {
   const rootEl = root || document.getElementById('question-root');
-  const dataEl = document.getElementById('question-data');
+  if (!rootEl) return { stop() {}, editor: null };
 
-  let data = null;
   let stopTicker = null;
+  const id = src || new URLSearchParams(location.search).get('id');
 
   try {
-    if (!rootEl) throw new Error('#question-root not found');
-
-    const url = src || rootEl.dataset.src;
-    if (url) {
-      data = await loadQuestionData(url);
-    } else if (dataEl) {
-      data = JSON.parse(dataEl.textContent);
-    } else {
-      throw new Error('No question data source (no src, data-src, or #question-data)');
-    }
-
+    if (!id) throw new Error('No ?id= in URL');
+    const data = await postsApi.get(id);
     renderQuestionPage(data, rootEl);
+    if (autoStartTicker) stopTicker = startTimeTicker(rootEl);
 
-    if (autoStartTicker) {
-      stopTicker = startTimeTicker(rootEl);
-    }
+    // Answer submit wiring
+    const form = document.getElementById('answer-form');
+    const textarea = document.getElementById('answer-body');
+    form?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const body = textarea?.value.trim();
+      if (!body) return;
+      try {
+        await postsApi.answer(id, body);
+        window.location.reload();
+      } catch (err) {
+        alert(err.detail || 'Could not post answer.');
+      }
+    });
   } catch (err) {
-    console.error('Could not render question page:', err);
-    if (rootEl) {
-      rootEl.innerHTML = `
-        <p class="s-notice s-notice__danger" role="alert">
-          Could not load the question. See the console for details.
-        </p>
-      `;
-    }
+    console.error('[question-page]', err);
+    rootEl.innerHTML = `<p class="s-notice s-notice__danger p16" role="alert">Could not load the question. ${escapeHtml(err.detail || err.message || '')}</p>`;
   }
 
   const destroyEditor = initAnswerEditor();
-
-  return {
-    stop: () => stopTicker && stopTicker(),
-    editor: destroyEditor
-  };
+  return { stop: () => stopTicker && stopTicker(), editor: destroyEditor };
 }
 
-/* Auto-bootstrap when loaded as a module and no explicit call is made. */
-// if (document.readyState === 'loading') {
-//   document.addEventListener('DOMContentLoaded', () => { init(); }, { once: true });
-// } else {
-//   init();
-// }
-
-export default {
-  init,
-  renderQuestionPage,
-  initAnswerEditor,
-  initAnswerPreview,
-  loadQuestionData,
-  refreshRelativeTimes,
-  startTimeTicker,
-  escapeHtml,
-  timeAgo,
-  formatAbsolute,
-  timeElement,
-  reportUrl,
-};
+export default { init, renderQuestionPage, initAnswerEditor, initAnswerPreview, escapeHtml, timeAgo, formatAbsolute, refreshRelativeTimes, startTimeTicker };

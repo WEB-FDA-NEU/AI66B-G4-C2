@@ -44,3 +44,16 @@ The defining characteristic of Tech4Rum is that the same person can be both a qu
 | 11247334 | Member | Pham Le Minh Nhat | [Altimary](https://github.com/Altimary) |
 | 11247349 | Member | Nguyen Dinh Thang | [thangkaka](https://github.com/thangkaka26)
 | 11247261 | Member | Nguyễn Việt Anh | [VizAnh](https://github.com/VizAnh)
+
+## 4. Quick Setup
+```bash
+python -m venv env
+pip install -r requirements.txt
+cd backend
+# edit connection properties in `backend/.env.example`
+copy .env.example .env
+python manage.py init-db
+python manage.py verify
+uvicorn main:app --reload --port 8000
+# Open http://127.0.0.1:8000/
+```

@@ -1,165 +1,89 @@
-/* discussions.js — feed loader for discussions.html
- *
- * Renders each discussion with the type badge at the top of the
- * stats column (votes / replies / views).
- */
-
+/* discussions.js — discussion feed */
 (function () {
   'use strict';
 
-  var LIST_ID = 'discussion-list';
-  var JSON_URL = './mock/discussion-list.json';
-  var EXCERPT_LENGTH = 180;
-
-  var listEl = document.getElementById(LIST_ID);
+  const listEl = document.getElementById('discussion-list');
   if (!listEl) return;
 
-  function escapeHtml(v) {
-    return String(v == null ? '' : v)
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  const fmt = (n) => { const x = Number(n) || 0, a = Math.abs(x);
+    return a >= 1e6 ? (x/1e6).toFixed(1).replace(/\.0$/,'')+'m'
+         : a >= 1e3 ? (x/1e3).toFixed(1).replace(/\.0$/,'')+'k' : String(x); };
+  const rel = (iso) => { if (!iso) return ''; const s = Math.floor(Math.max(0, Date.now()-new Date(iso).getTime())/1000);
+    if (s<60) return 'just now'; const m=Math.floor(s/60); if (m<60) return `${m} min ago`;
+    const h=Math.floor(m/60); if (h<24) return `${h} h ago`; const d=Math.floor(h/24);
+    if (d<30) return `${d} d ago`;
+    return new Date(iso).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}); };
+  const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const tagUrl = (name) => (window.tagUrl ? window.tagUrl(name) : './tag-detail.html?tag=' + encodeURIComponent(name));
+  const avatarLetter = (n) => String(n || '?').trim().charAt(0).toUpperCase();
+  const avatarColor = (seed) => {
+    const p = ['bg-blue-300','bg-orange-300','bg-green-300','bg-purple-300','bg-pink-300','bg-yellow-300','bg-red-300'];
+    let h = 0; const s = String(seed || '');
+    for (let i = 0; i < s.length; i++) h = ((h << 5) - h) + s.charCodeAt(i) | 0;
+    return p[Math.abs(h) % p.length];
+  };
+
+  function renderCard(p) {
+    const tagsHtml = (p.tags || []).map((t) =>
+      `<a class="s-tag" href="${esc(tagUrl(t.name))}">${esc(t.name)}</a>`
+    ).join('');
+    const replyLabel = p.reply_count === 1 ? 'reply' : 'replies';
+    return `
+      <div class="s-post-summary" data-post-id="${esc(p.id)}" data-post-type="discussion">
+        <div class="s-post-summary--stats s-post-summary--sm-hide">
+          <div class="s-post-summary--stats-votes" title="${esc(fmt(p.score))} votes">
+            ${esc(fmt(p.score))}
+          </div>
+          <div class="s-post-summary--stats-answers" title="${esc(p.reply_count)} ${replyLabel}">
+            ${esc(fmt(p.reply_count))} ${replyLabel}
+          </div>
+        </div>
+        <div class="s-post-summary--content">
+          <h3 class="s-post-summary--title">
+            <a class="s-post-summary--title-link" href="./discussion-detail.html?id=${esc(p.id)}">
+              ${esc(p.title)}
+            </a>
+          </h3>
+          <div class="s-post-summary--excerpt v-truncate2">${esc(p.body_excerpt)}</div>
+          <div class="s-post-summary--tags">${tagsHtml}</div>
+          <div class="s-post-summary--content-meta">
+            <a class="s-avatar s-avatar__16 ${esc(avatarColor(p.author.username))}"
+               href="./user-profile.html?id=${esc(p.author.id)}" aria-hidden="true" tabindex="-1">
+              <span class="s-avatar--letter">${esc(avatarLetter(p.author.display_name))}</span>
+            </a>
+            <a class="s-user-card--username" href="./user-profile.html?id=${esc(p.author.id)}">${esc(p.author.display_name)}</a>
+            <span class="s-user-card--rep">${esc(fmt(p.author.reputation))}</span>
+            <time datetime="${esc(p.created_at)}" title="${esc(new Date(p.created_at).toLocaleString())}">posted ${esc(rel(p.created_at))}</time>
+            <span class="fc-black-400">·</span>
+            <span class="fc-black-400">${esc(fmt(p.view_count))} views</span>
+          </div>
+        </div>
+      </div>`;
   }
 
-  function formatCount(n) {
-    var num = Number(n) || 0;
-    if (num >= 1000000) return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'm';
-    if (num >= 1000)    return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
-    return String(num);
-  }
-
-  function formatRelativeTime(iso) {
-    if (!iso) return '';
-    var then = new Date(iso).getTime();
-    if (isNaN(then)) return '';
-    var diff = Math.max(0, Date.now() - then);
-    var sec = Math.floor(diff / 1000);
-    if (sec < 60) return 'just now';
-    var min = Math.floor(sec / 60);
-    if (min < 60) return min + (min === 1 ? ' minute ago' : ' minutes ago');
-    var hr = Math.floor(min / 60);
-    if (hr < 24) return hr + (hr === 1 ? ' hour ago' : ' hours ago');
-    var day = Math.floor(hr / 24);
-    if (day < 30) return day + (day === 1 ? ' day ago' : ' days ago');
-    var mo = Math.floor(day / 30);
-    if (mo < 12) return mo + (mo === 1 ? ' month ago' : ' months ago');
-    var yr = Math.floor(mo / 12);
-    return yr + (yr === 1 ? ' year ago' : ' years ago');
-  }
-
-  function plural(n, s, p) { return n === 1 ? s : (p || s + 's'); }
-
-  function truncate(text, len) {
-    var s = String(text || '').replace(/\s+/g, ' ').trim();
-    if (s.length <= len) return s;
-    return s.slice(0, len).replace(/\s+\S*$/, '') + '…';
-  }
-
-  function renderDiscussion(d) {
-    var votes = Number(d.votes) || 0;
-    var views = Number(d.views) || 0;
-    var replies = Number(d.replyCount) || 0;
-    var author = d.author || {};
-    var excerpt = truncate(d.body, EXCERPT_LENGTH);
-
-    return [
-      '<div class="s-post-summary" data-discussion-id="' + escapeHtml(d.id) + '">',
-
-        /* Stats column — badge goes here, at the top */
-        '<div class="s-post-summary--stats s-post-summary--sm-hide">',
-          '<span class="discussion-badge">Discussion</span>',
-          '<div class="post-stat"><span class="post-stat--num">' + escapeHtml(formatCount(votes)) + '</span>' + plural(votes, 'vote') + '</div>',
-          '<div class="post-stat"><span class="post-stat--num">' + escapeHtml(formatCount(replies)) + '</span>' + plural(replies, 'reply', 'replies') + '</div>',
-          '<div class="post-stat"><span class="post-stat--num">' + escapeHtml(formatCount(views)) + '</span>' + plural(views, 'view') + '</div>',
-        '</div>',
-
-        '<div class="s-post-summary--content">',
-          '<h3 class="s-post-summary--title mb0">',
-            '<a class="s-post-summary--title-link" href="./discussion-detail.html?id=' + escapeHtml(d.id) + '">' + escapeHtml(d.title) + '</a>',
-          '</h3>',
-
-          excerpt
-            ? '<div class="s-post-summary--excerpt v-truncate2">' + escapeHtml(excerpt) + '</div>'
-            : '',
-
-          '<div class="d-flex ai-center jc-space-between g8 fw-wrap mt8">',
-            '<div class="s-post-summary--tags mt0">',
-              (d.tags || []).map(function (t) {
-                return '<a class="s-tag" href="' + tagUrl(t) + '">' + escapeHtml(t) + '</a>';
-              }).join(''),
-            '</div>',
-
-            '<div class="s-user-card">',
-              '<a href="#" class="s-avatar ' + escapeHtml(author.avatarColor || 'bg-blue-300') + '" aria-hidden="true" tabindex="-1">',
-                '<span class="s-avatar--letter">' + escapeHtml(author.avatarLetter || '?') + '</span>',
-              '</a>',
-              '<div class="s-user-card--column">',
-                '<a class="s-user-card--username" href="#">' + escapeHtml(author.name || 'anonymous') + '</a>',
-                '<div class="s-user-card--group">',
-                  '<span class="s-user-card--rep">' + escapeHtml(author.rep || '0') + '</span>',
-                  '<span class="s-user-card--time">posted ' + escapeHtml(formatRelativeTime(d.time)) + '</span>',
-                '</div>',
-              '</div>',
-            '</div>',
-          '</div>',
-        '</div>',
-      '</div>'
-    ].join('');
-  }
-
-  function renderList(items) {
-    if (!items || !items.length) {
-      listEl.innerHTML = [
-        '<div class="s-empty-state py48">',
-          '<div class="s-empty-state--title">No discussions yet</div>',
-          '<p>Be the first to start one.</p>',
-        '</div>'
-      ].join('');
-      return;
+  async function load() {
+    listEl.innerHTML = '<div class="fc-black-400 p16">Loading…</div>';
+    try {
+      const mod = await import('../api.js');
+      const { items } = await mod.posts.list({ type: 'discussion', sort: 'active', page_size: 20 });
+      if (!items.length) {
+        listEl.innerHTML = `
+          <div class="s-empty-state py48">
+            <div class="s-empty-state--title">No discussions yet</div>
+            <p>Be the first to start one.</p>
+            <a class="s-btn" href="./create-discussion.html">Start a discussion</a>
+          </div>`;
+        return;
+      }
+      listEl.innerHTML = items.map(renderCard).join('');
+      const countEl = document.querySelector('[data-discussion-count]');
+      if (countEl) countEl.textContent = `${items.length.toLocaleString()} discussions`;
+    } catch (err) {
+      console.error('[discussions]', err);
+      listEl.innerHTML = `<div class="s-notice s-notice__danger p16" role="alert">Could not load discussions. ${esc(err?.detail || err?.message || '')}</div>`;
     }
-    listEl.innerHTML = items.map(renderDiscussion).join('');
   }
 
-  function renderLoading() {
-    var skeleton = '';
-    for (var i = 0; i < 3; i++) {
-      skeleton += [
-        '<div class="d-flex g16">',
-          '<div class="bg-loading bar-md" style="flex:0 0 108px;height:64px;"></div>',
-          '<div class="fl-grow1 d-flex fd-column g8">',
-            '<div class="bg-loading bar-md" style="height:20px;width:70%;"></div>',
-            '<div class="bg-loading bar-md" style="height:14px;width:95%;"></div>',
-            '<div class="bg-loading bar-md" style="height:14px;width:60%;"></div>',
-          '</div>',
-        '</div>'
-      ].join('');
-    }
-    listEl.innerHTML = '<div class="d-flex fd-column g16 py16" aria-busy="true">' + skeleton + '</div>';
-  }
-
-  function renderError(err) {
-    listEl.innerHTML =
-      '<div class="s-notice s-notice__danger mt16" role="alert">' +
-        '<div class="fl-grow1">Could not load discussions. ' +
-          escapeHtml(err && err.message || '') +
-        '</div>' +
-      '</div>';
-  }
-
-  function load() {
-    renderLoading();
-    fetch(JSON_URL, { cache: 'no-store' })
-      .then(function (r) {
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        return r.json();
-      })
-      .then(function (data) {
-        var items = Array.isArray(data) ? data : (data && data.discussions) || [];
-        renderList(items);
-        var countEl = document.querySelector('[data-discussion-count]');
-        if (countEl) countEl.textContent = items.length.toLocaleString() + ' discussions';
-      })
-      .catch(renderError);
-  }
-
-  load();
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', load, { once: true });
+  else load();
 })();

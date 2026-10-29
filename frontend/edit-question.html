@@ -54,16 +54,7 @@
   <div class="d-flex ai-start g24 wmx12 mx-auto px16 py24">
 
     <!-- ---------- LEFT RAIL ---------- -->
-    <aside class="sidebar-left sm:d-none" aria-label="Section navigation">
-      <nav class="s-navigation s-navigation__vertical">
-        <a class="s-navigation--item" href="./index.html">Home</a>
-        <a class="s-navigation--item is-selected" href="./questions.html" aria-current="page">Questions</a>
-        <a class="s-navigation--item" href="./discussions.html">Discussion</a>
-        <a class="s-navigation--item" href="./tags.html">Tags</a>
-        <a class="s-navigation--item" href="./users.html">Users</a>
-        <a class="s-navigation--item" href="./admin.html">Admin</a>
-      </nav>
-    </aside>
+    <site-sidebar class="ws2 flex__fl-shrink0 sm:d-none"></site-sidebar>
 
     <!-- ---------- MAIN ---------- -->
     <main id="main" class="fl-grow1" style="min-width: 0;">
@@ -261,56 +252,29 @@
   <!-- Modular elements -->
   <script type="module" src="./js/components/site-header.js"></script>
   <script type="module" src="./js/components/site-footer.js"></script>
+  <script type="module" src="./js/components/site-sidebar.js"></script>
 
   <!-- =========================================================
        Load the right question by ?id= and hand it to the editor
        ========================================================= -->
   <script type="module">
     import { initEditQuestionPage } from './js/edit-question-page.js';
+    import { posts as postsApi } from './js/api.js';
 
-    const QUESTIONS_URL = './mock/question-list.json';
-
-    async function loadQuestionForEdit() {
-      const params = new URLSearchParams(location.search);
-      const idParam = params.get('id');
-
-      const res = await fetch(QUESTIONS_URL, { cache: 'no-store' });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const list = await res.json();
-      const items = Array.isArray(list) ? list : [];
-
-      if (!items.length) throw new Error('No questions available');
-
-      if (idParam) {
-        const found = items.find(function (q) {
-          return String(q.id) === String(idParam);
+    const id = new URLSearchParams(location.search).get('id');
+    if (!id) {
+      document.getElementById('edit-context-text').textContent = 'No post id.';
+    } else {
+      try {
+        const data = await postsApi.get(id);
+        await initEditQuestionPage({
+          data,
+          onSave:   async (payload) => { await postsApi.update(id, payload); },
+          onDelete: async () => { await postsApi.remove(id); window.location.href = './my-content.html'; },
         });
-        if (found) return found;
-        console.warn('[edit-question] id=' + idParam + ' not found — falling back to first');
-      }
-
-      return items[0];
-    }
-
-    try {
-      const data = await loadQuestionForEdit();
-      await initEditQuestionPage({
-        data,
-        onSave: async function (payload) {
-          console.info('[edit-question] save payload', payload);
-        },
-        onDelete: async function () {
-          console.info('[edit-question] delete confirmed');
-        }
-      });
-    } catch (err) {
-      console.error('[edit-question] Failed to load:', err);
-      const ctx = document.getElementById('edit-context-text');
-      if (ctx) {
-        ctx.innerHTML =
-          '<span class="fc-red-400">Could not load the question: ' +
-          String(err.message || err) +
-          '</span>';
+      } catch (err) {
+        document.getElementById('edit-context-text').innerHTML =
+          `<span class="fc-red-400">Could not load: ${err.detail || err.message}</span>`;
       }
     }
   </script>
