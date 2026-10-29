@@ -24,7 +24,6 @@
 
 import { renderMarkdown } from './markdown-renderer.js';
 import {
-  loadQuestionData,
   escapeHtml,
   timeAgo,
   formatAbsolute,
@@ -81,12 +80,13 @@ function defaultEls() {
 
 export function renderEditContext(el, data) {
   if (!el || !data) return;
-  const askedAt = formatAbsolute(data.time);
+  const iso = data.created_at || data.time;
+  const askedAt = formatAbsolute(iso);
   el.innerHTML =
     `You're editing a question asked ` +
-    `<time datetime="${escapeHtml(data.time)}" data-iso="${escapeHtml(data.time)}" ` +
-    `title="${escapeHtml(askedAt)}">${escapeHtml(timeAgo(data.time))}</time> ` +
-    `by <a href="#" class="s-link">${escapeHtml(data.author && data.author.name || 'anonymous')}</a>. ` +
+    `<time datetime="${escapeHtml(iso)}" data-iso="${escapeHtml(iso)}" ` +
+    `title="${escapeHtml(askedAt)}">${escapeHtml(timeAgo(iso))}</time> ` +
+    `by <a href="#" class="s-link">${escapeHtml(data.author?.display_name || data.author?.name || 'anonymous')}</a>. ` +
     `Changes will be visible to everyone.`;
 }
 
@@ -100,19 +100,19 @@ export function renderRevisions(el, data) {
       <span class="revision-dot"></span>
       <div>
         <a href="#">Original post</a> by
-        <a href="#">${escapeHtml(data.author && data.author.name || 'anonymous')}</a>
+        <a href="#">${escapeHtml(data.author && (data.author.display_name ?? data.author.name) || 'anonymous')}</a>
         <br>
-        <span class="fc-black-400">${escapeHtml(formatAbsolute(data.time))}</span>
+        <span class="fc-black-400">${escapeHtml(formatAbsolute(data.created_at ?? data.time))}</span>
       </div>
     </li>
   `);
 
-  if (data.modifiedAt && data.modifiedAt !== data.time) {
+  if (data.modifiedAt && data.modifiedAt !== (data.created_at ?? data.time)) {
     rows.push(`
       <li>
         <span class="revision-dot"></span>
         <div>
-          <a href="#">Edited by ${escapeHtml(data.author && data.author.name || 'anonymous')}</a>
+          <a href="#">Edited by ${escapeHtml(data.author && (data.author.display_name ?? data.author.name) || 'anonymous')}</a>
           <br>
           <span class="fc-black-400">${escapeHtml(formatAbsolute(data.modifiedAt))}</span>
         </div>
@@ -154,9 +154,8 @@ export function populateEditForm(els, data, {
   // Tags — keep the input, replace the chips
   if (els.tagEditor && els.tagInput) {
     els.tagEditor.querySelectorAll('.s-tag').forEach((el) => el.remove());
-    (data.tags || []).slice(0, MAX_TAGS).forEach((tag) => {
-      els.tagEditor.insertBefore(makeTagElement(tag), els.tagInput);
-    });
+    const tagNames = (data.tags || []).map((t) => (typeof t === 'string' ? t : t.name)).slice(0, MAX_TAGS);
+    tagNames.forEach((tag) => { els.tagEditor.insertBefore(makeTagElement(tag), els.tagInput); });
     updateTagCount?.();
   }
 
@@ -185,7 +184,6 @@ export function populateEditForm(els, data, {
  */
 export async function initEditQuestionPage({
   data,
-  src = './mock/question.json',
   els,
   onSave,
   onDelete,

@@ -399,6 +399,42 @@ export function initAskQuestionEditor({
 //   initAskQuestionEditor();
 // }
 
+/* ── Submit wiring: POST /api/posts ── */
+export function bindPostSubmit({
+  submitBtn = document.getElementById('post-question-btn') || document.getElementById('post-discussion-btn'),
+  titleInput = document.getElementById('question-title'),
+  textarea   = document.getElementById('answer-body'),
+  tagEditor  = document.getElementById('tag-editor'),
+  getTags    = () => currentTags(tagEditor),
+  postType   = location.pathname.includes('discussion') ? 'discussion' : 'question',
+} = {}) {
+  if (!submitBtn || !titleInput || !textarea) return () => {};
+  const onClick = async () => {
+    const title = titleInput.value.trim();
+    const body  = textarea.value.trim();
+    const tags  = getTags();
+    if (title.length < 5) { alert('Title must be at least 5 characters.'); return; }
+    if (body.length < 10) { alert('Body must be at least 10 characters.'); return; }
+
+    submitBtn.disabled = true;
+    const label = submitBtn.textContent;
+    submitBtn.textContent = 'Posting…';
+    try {
+      const { posts: postsApi } = await import('./api.js');
+      const created = await postsApi.create({ post_type: postType, title, body, tags });
+      window.location.href = postType === 'discussion'
+        ? `./discussion-detail.html?id=${created.id}`
+        : `./question-detail.html?id=${created.id}`;
+    } catch (err) {
+      alert(err.detail || 'Could not post.');
+      submitBtn.disabled = false;
+      submitBtn.textContent = label;
+    }
+  };
+  submitBtn.addEventListener('click', onClick);
+  return () => submitBtn.removeEventListener('click', onClick);
+}
+
 export default {
   initAskQuestionEditor,
   bindCounter,

@@ -12,6 +12,6 @@ async function loadJson(path) {
   return res.json();
 }
 
-export function loadReports()      { return loadJson('./mock/reports.json'); }
-export function loadMarkedPosts()  { return loadJson('./mock/marked-posts.json'); }
-export function loadAdminUsers()   { return loadJson('./mock/admin-users.json'); }
+export function loadReports()      { return Promise.resolve([]); }
+export function loadMarkedPosts()  { return Promise.resolve([]); }
+export function loadAdminUsers()   { return Promise.resolve([]); }

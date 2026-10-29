@@ -3,15 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Why does React re-render my component twice inside StrictMode? — Tech4Rum</title>
+  <title>Question — Tech4Rum</title>
 
-  <!-- Design system -->
   <link rel="stylesheet" href="./css/reset.css">
   <link rel="stylesheet" href="./css/tokens.css">
   <link rel="stylesheet" href="./css/layout.css">
   <link rel="stylesheet" href="./css/components.css">
 
-  <!-- KaTeX + highlight.js themes -->
   <link rel="stylesheet"
         href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
   <link id="highlight-theme"
@@ -23,135 +21,99 @@
 
   <a href="#main" class="v-visible-sr">Skip to main content</a>
 
-  <!-- ================= TOP BAR ================= -->
   <site-header is-logged-in="true"></site-header>
 
-  <!-- ================= PAGE ================= -->
   <div class="d-flex ai-start g24 wmx12 mx-auto px16 py24">
 
-    <!-- ---------- LEFT RAIL ---------- -->
-    <aside class="sidebar-left sm:d-none" aria-label="Section navigation">
-      <nav class="s-navigation s-navigation__vertical">
-        <a class="s-navigation--item" href="./index.html">Home</a>
-        <a class="s-navigation--item is-selected" href="./questions.html" aria-current="page">Questions</a>
-        <a class="s-navigation--item" href="./discussions.html">Discussion</a>
-        <a class="s-navigation--item" href="./tags.html">Tags</a>
-        <a class="s-navigation--item" href="./users.html">Users</a>
-        <a class="s-navigation--item" href="./admin.html">Admin</a>
-      </nav>
-    </aside>
+    <site-sidebar class="ws2 flex__fl-shrink0 sm:d-none"></site-sidebar>
 
-    <!-- ---------- MAIN ---------- -->
     <main id="main" class="question-feed">
 
-      <!-- Filled by JS from JSON -->
       <div id="question-root" aria-live="polite"></div>
 
-      <!-- ============ YOUR ANSWER ============ -->
       <section class="mt32" aria-labelledby="your-answer-heading">
         <h2 id="your-answer-heading" class="fs-title fw-normal mb16">Your Answer</h2>
 
-        <div class="editor">
-          <div class="editor-toolbar" role="toolbar" aria-label="Formatting">
-            <button class="tool-btn" type="button" data-md="bold"   aria-label="Bold"><strong>B</strong></button>
-            <button class="tool-btn" type="button" data-md="italic" aria-label="Italic"><em>I</em></button>
-            <span class="tool-sep" aria-hidden="true"></span>
-            <button class="tool-btn" type="button" data-md="code"   aria-label="Code">&lt;/&gt;</button>
-            <button class="tool-btn" type="button" data-md="link"   aria-label="Link">🔗</button>
-            <button class="tool-btn" type="button" data-md="image"  aria-label="Image">🖼</button>
-            <span class="tool-sep" aria-hidden="true"></span>
-            <button class="tool-btn" type="button" data-md="quote"  aria-label="Blockquote">❝</button>
-            <button class="tool-btn" type="button" data-md="ul"     aria-label="Bulleted list">•</button>
-            <button class="tool-btn" type="button" data-md="ol"     aria-label="Numbered list">1.</button>
-            <span class="tool-sep" aria-hidden="true"></span>
-            <button class="tool-btn" type="button" id="preview-toggle">Preview</button>
+        <form id="answer-form">
+          <div class="editor">
+            <div class="editor-toolbar" role="toolbar" aria-label="Formatting">
+              <button class="tool-btn" type="button" data-md="bold"   aria-label="Bold"><strong>B</strong></button>
+              <button class="tool-btn" type="button" data-md="italic" aria-label="Italic"><em>I</em></button>
+              <span class="tool-sep" aria-hidden="true"></span>
+              <button class="tool-btn" type="button" data-md="code"   aria-label="Code">&lt;/&gt;</button>
+              <button class="tool-btn" type="button" data-md="link"   aria-label="Link">🔗</button>
+              <button class="tool-btn" type="button" data-md="image"  aria-label="Image">🖼</button>
+              <span class="tool-sep" aria-hidden="true"></span>
+              <button class="tool-btn" type="button" data-md="quote"  aria-label="Blockquote">❝</button>
+              <button class="tool-btn" type="button" data-md="ul"     aria-label="Bulleted list">•</button>
+              <button class="tool-btn" type="button" data-md="ol"     aria-label="Numbered list">1.</button>
+              <span class="tool-sep" aria-hidden="true"></span>
+              <button class="tool-btn" type="button" id="preview-toggle">Preview</button>
+            </div>
+
+            <label class="v-visible-sr" for="answer-body">Your answer</label>
+            <textarea id="answer-body" class="s-textarea" rows="8"
+                      placeholder="Thanks for contributing an answer to Tech4Rum!&#10;&#10;Markdown and $LaTeX$ are supported."></textarea>
+
+            <div id="answer-preview" class="s-prose editor-preview" style="display:none;"></div>
           </div>
 
-          <label class="v-visible-sr" for="answer-body">Your answer</label>
-          <textarea id="answer-body" class="s-textarea" rows="8"
-                    placeholder="Thanks for contributing an answer to Tech4Rum!&#10;&#10;Markdown and $LaTeX$ are supported."></textarea>
-
-          <div id="answer-preview" class="s-prose editor-preview" style="display:none;"></div>
-        </div>
-
-        <div class="d-flex g8 ai-center mt16 fw-wrap">
-          <button class="s-btn" type="button">Post Your Answer</button>
-          <span class="fs-caption fc-black-400">
-            By posting your answer, you agree to the nonexistent
-            <a class="s-link" href="https://www.youtube.com/watch?v=dQw4w9WgXcQ">privacy policy</a> and
-            <a class="s-link" href="https://www.youtube.com/watch?v=dQw4w9WgXcQ">terms of service</a>.
-          </span>
-        </div>
+          <div class="d-flex g8 ai-center mt16 fw-wrap">
+            <button class="s-btn" type="submit">Post Your Answer</button>
+            <span class="fs-caption fc-black-400">
+              By posting your answer, you agree to the nonexistent
+              <a class="s-link" href="#">privacy policy</a> and
+              <a class="s-link" href="#">terms of service</a>.
+            </span>
+          </div>
+        </form>
       </section>
 
     </main>
 
-    <!-- ---------- RIGHT RAIL ---------- -->
     <aside class="sidebar-right md:d-none" aria-label="Sidebar">
-
-      <div class="widget">
-        <div class="widget-header">Related Questions</div>
-        <div class="widget-body">
-          <ul class="widget-list">
-            <li><span class="widget-count">42</span><a href="#">Why does useEffect run twice in React 18 StrictMode?</a></li>
-            <li><span class="widget-count">18</span><a href="#">How do I cancel an in-flight fetch request in React?</a></li>
-            <li><span class="widget-count">11</span><a href="#">React StrictMode double render — is it a bug or a feature?</a></li>
-            <li><span class="widget-count">7</span><a href="#">useLayoutEffect vs useEffect under StrictMode remounting</a></li>
-            <li><span class="widget-count">4</span><a href="#">Cleaning up async effects without leaking memory</a></li>
-          </ul>
-        </div>
+      <div class="bg-white bc-light ba bar-md p16 mb16">
+        <h2 class="fs-body2 fw-bold mb8">Related Questions</h2>
+        <ul class="list-reset d-flex fd-column g8 fs-body1">
+          <li><a class="s-link" href="#">Why does useEffect run twice in React 18 StrictMode?</a></li>
+          <li><a class="s-link" href="#">How do I cancel an in-flight fetch request in React?</a></li>
+          <li><a class="s-link" href="#">React StrictMode double render — is it a bug or a feature?</a></li>
+        </ul>
       </div>
-
-      <div class="widget">
-        <div class="widget-header">Hot Network Questions</div>
-        <div class="widget-body">
-          <ul class="widget-list">
-            <li><a href="#">Is it legal to refuse a package delivery you didn't order?</a></li>
-            <li><a href="#">Why do aircraft wings have winglets?</a></li>
-            <li><a href="#">Can a compiler legally optimise away a busy-wait loop?</a></li>
-            <li><a href="#">What's the oldest still-maintained software in production?</a></li>
-            <li><a href="#">How do chess engines evaluate positions so quickly?</a></li>
-          </ul>
-        </div>
-      </div>
-
     </aside>
 
   </div>
 
-  <!-- ================= FOOTER ================= -->
   <site-footer></site-footer>
 
-  <!-- ============================================================
-       Third-party libraries (globals for markdown-renderer.js)
-       ============================================================ -->
   <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" defer></script>
 
-  <!-- ============================================================
-       Question page bootstrap
-       ============================================================ -->
   <script type="module">
     import { init } from './js/question-page.js';
-    init({ src: './mock/question.json' });
+    init();
   </script>
 
   <script type="module" src="./js/components/site-header.js"></script>
   <script type="module" src="./js/components/site-footer.js"></script>
+  <script type="module" src="./js/components/site-sidebar.js"></script>
 
-  <script>
-    const highlightTheme = document.getElementById('highlight-theme');
-
-    function updateHighlightTheme() {
-      const isDark = document.body.classList.contains('theme-dark');
-
-      highlightTheme.href = isDark
-        ? 'https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/stackoverflow-dark.min.css'
-        : 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css';
+  <script type="module">
+    const link = document.getElementById('highlight-theme');
+    if (link) {
+      const swap = () => {
+        const dark = document.body.classList.contains('theme-dark');
+        link.href = dark
+          ? 'https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/stackoverflow-dark.min.css'
+          : 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css';
+      };
+      swap();
+      new MutationObserver(swap).observe(document.body, {
+        attributes: true, attributeFilter: ['class']
+      });
     }
-
-    updateHighlightTheme();
   </script>
+
 </body>
 </html>
