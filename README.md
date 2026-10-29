@@ -54,6 +54,6 @@ cd backend
 copy .env.example .env
 python manage.py init-db
 python manage.py verify
-uvicorn main:app --reload --port 8000
-# Open http://127.0.0.1:8000/
+python main.py
+# Open http://localhost:8000
 ```
