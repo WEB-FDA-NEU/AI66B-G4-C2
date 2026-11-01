@@ -24,16 +24,7 @@
   <div class="d-flex ai-start g24 wmx12 mx-auto px16 py24">
 
     <!-- ---------- LEFT RAIL ---------- -->
-    <aside class="sidebar-left sm:d-none" aria-label="Section navigation">
-      <nav class="s-navigation s-navigation__vertical">
-        <a class="s-navigation--item" href="./index.html">Home</a>
-        <a class="s-navigation--item" href="./posts.html">Questions</a>
-        <a class="s-navigation--item" href="#">Discussion</a>
-        <a class="s-navigation--item" href="#">Tags</a>
-        <a class="s-navigation--item" href="#">Users</a>
-        <a class="s-navigation--item is-selected" href="./admin.html" aria-current="page">Admin</a>
-      </nav>
-    </aside>
+    <site-sidebar active="admin"></site-sidebar>
 
     <!-- ---------- MAIN ---------- -->
     <main id="main" class="question-feed">
@@ -215,6 +206,7 @@
   <!-- Modular components + page behaviour -->
   <script type="module" src="./js/components/site-header.js"></script>
   <script type="module" src="./js/components/site-footer.js"></script>
+  <script type="module" src="./js/components/site-sidebar.js"></script>
   <script type="module" src="./js/pages/admin.js"></script>
 
 </body>
