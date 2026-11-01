@@ -16,6 +16,8 @@ EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "60"))
 
 BCRYPT_MAX_BYTES = 72
 
+COOKIE_NAME = "t4r_auth"
+
 
 def _to_bytes(password: str) -> bytes:
     return password.encode("utf-8")[:BCRYPT_MAX_BYTES]

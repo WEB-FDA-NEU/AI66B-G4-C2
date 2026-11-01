@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Top Questions — Tech4Rum</title>
+  <title>Questions — Tech4Rum</title>
 
   <link rel="stylesheet" href="./css/reset.css">
   <link rel="stylesheet" href="./css/tokens.css">
@@ -17,7 +17,7 @@
   <a href="#main" class="v-visible-sr">Skip to main content</a>
 
   <!-- ================= TOP BAR ================= -->
-  <site-header></site-header>
+  <site-header is-logged-in="true"></site-header>
 
   <!-- ================= PAGE ================= -->
   <div class="d-flex ai-start g24 wmx12 mx-auto px16 py24">
@@ -29,7 +29,7 @@
     <main id="main" class="question-feed">
 
       <div class="d-flex ai-center jc-space-between g8 mb16">
-        <h1 class="fs-headline1 fw-normal mb0">Top Questions</h1>
+        <h1 class="fs-headline1 fw-normal mb0">Questions</h1>
         <a class="s-btn" href="./ask-question.html">Ask Question</a>
       </div>
 
@@ -37,11 +37,10 @@
         <div class="fc-black-500 fs-caption" data-question-count>Loading…</div>
 
         <nav class="s-navigation s-navigation__sm" aria-label="Question filters">
-          <a class="s-navigation--item is-selected" href="#" aria-current="true">Interesting</a>
-          <a class="s-navigation--item" href="#">Bountied</a>
-          <a class="s-navigation--item" href="#">Hot</a>
-          <a class="s-navigation--item" href="#">Week</a>
-          <a class="s-navigation--item" href="#">Month</a>
+          <a class="s-navigation--item is-selected" href="#" aria-current="true">Trending</a>
+          <a class="s-navigation--item" href="#">Newest</a>
+          <a class="s-navigation--item" href="#">Most upvotes</a>
+          <a class="s-navigation--item" href="#">Most views</a>
         </nav>
       </div>
 
@@ -76,19 +75,46 @@
 
       <div class="widget">
         <div class="widget-header">Custom Filters</div>
-        <div class="widget-body d-flex fd-column g8">
-          <label class="s-checkbox">
-            <input type="checkbox" checked>
-            <span class="s-label">No answers</span>
-          </label>
+        <div class="widget-body d-flex fd-column g16">
+
+          <!-- Unanswered -->
           <label class="s-checkbox">
             <input type="checkbox">
-            <span class="s-label">Has bounty</span>
+            <span class="s-label">Unanswered</span>
           </label>
-          <label class="s-checkbox">
-            <input type="checkbox">
-            <span class="s-label">Unanswered by me</span>
-          </label>
+
+          <!-- Include tags -->
+          <div class="d-flex fd-column g6">
+            <span class="s-label s-label__sm">Include tags</span>
+            <div class="d-flex fw-wrap g4">
+              <span class="s-tag">
+                javascript
+                <button type="button" class="s-tag--dismiss" aria-label="Remove tag javascript">×</button>
+              </span>
+              <span class="s-tag">
+                reactjs
+                <button type="button" class="s-tag--dismiss" aria-label="Remove tag reactjs">×</button>
+              </span>
+            </div>
+            <input class="s-input s-input__sm" type="text"
+                   placeholder="Add a tag…" autocomplete="off"
+                   aria-label="Add an included tag">
+          </div>
+
+          <!-- Ignore tags -->
+          <div class="d-flex fd-column g6">
+            <span class="s-label s-label__sm">Ignore tags</span>
+            <div class="d-flex fw-wrap g4">
+              <span class="s-tag s-tag__ignored">
+                php
+                <button type="button" class="s-tag--dismiss" aria-label="Remove tag php">×</button>
+              </span>
+            </div>
+            <input class="s-input s-input__sm" type="text"
+                   placeholder="Add a tag…" autocomplete="off"
+                   aria-label="Add an ignored tag">
+          </div>
+
         </div>
       </div>
 
@@ -98,6 +124,9 @@
 
   <!-- ================= FOOTER ================= -->
   <site-footer></site-footer>
+
+  <!-- Tag URL helper (must run before the feed renderer) -->
+  <script type="module" src="./js/tag-url.js"></script>
 
   <!-- Question feed renderer -->
   <script src="./js/render-questions.js" defer></script>

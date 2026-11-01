@@ -13,10 +13,10 @@ const TEMPLATE = /* html */ `
   <div class="d-flex fw-wrap g16 wmx12 mx-auto px16 py24">
     <div class="d-flex fd-column g4" style="min-width: 160px;">
       <span class="fw-bold fc-black-600 fs-caption">Tech4Rum</span>
-      <a href="#">Questions</a>
-      <a href="#">Discussion</a>
-      <a href="#">Tags</a>
-      <a href="#">Users</a>
+      <a href="./questions.html">Questions</a>
+      <a href="./discussions.html">Discussion</a>
+      <a href="./tags.html">Tags</a>
+      <a href="./users.html">Users</a>
     </div>
     <div class="d-flex fd-column g4 fl-grow1" style="min-width: 220px;">
       <span class="fw-bold fc-black-600 fs-caption">Tech4Rum</span>

@@ -25,7 +25,7 @@
   <a href="#main" class="v-visible-sr">Skip to main content</a>
 
   <!-- ================= TOP BAR ================= -->
-  <site-header></site-header>
+  <site-header is-logged-in="true"></site-header>
 
   <!-- ================= PAGE ================= -->
   <div class="d-flex ai-start g24 wmx12 mx-auto px16 py24">
@@ -117,18 +117,18 @@
   <!-- ============================================================
        Third-party libraries (globals for markdown-renderer.js)
        ============================================================ -->
-  <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" defer></script>
 
   <!-- ============================================================
        Question page bootstrap
        ============================================================ -->
-  <script defer type="module">
-    import { init } from "./js/question-page.js";
-    init({ src: "./mock/question.json" });
+  <script type="module">
+    import { init } from './js/question-page.js';
+    init({ src: './mock/question.json' });
   </script>
-  
+
   <script type="module" src="./js/components/site-header.js"></script>
   <script type="module" src="./js/components/site-footer.js"></script>
   <script type="module" src="./js/components/site-sidebar.js"></script>

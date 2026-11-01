@@ -26,12 +26,15 @@
   <a href="#main" class="v-visible-sr">Skip to main content</a>
 
   <!-- ================= TOP BAR ================= -->
-  <site-header></site-header>
+  <site-header is-logged-in="true"></site-header>
 
   <!-- ================= HERO ================= -->
   <div class="ask-hero">
     <div class="ask-hero__inner d-flex ai-center g16">
-      <h1 class="fs-headline1 fw-normal mb0 fl-grow1">Edit question</h1>
+      <div class="fl-grow1">
+        <span class="question-badge mb8">Question</span>
+        <h1 class="fs-headline1 fw-normal mb0">Edit question</h1>
+      </div>
       <svg class="ask-hero__illustration d-none md:d-block" width="120" height="78"
            viewBox="0 0 120 78" aria-hidden="true">
         <rect x="4" y="10" width="76" height="52" rx="4" fill="none"
@@ -162,7 +165,7 @@
         <!-- ===== Actions ===== -->
         <div class="d-flex ai-center g8 fw-wrap mt8">
           <button type="submit" class="s-btn" id="save-btn" disabled>Save edits</button>
-          <a class="s-btn s-btn__clear" href="./post-detail-beta.html">Cancel</a>
+          <a class="s-btn s-btn__clear" href="./my-content.html">Cancel</a>
           <span class="fl-grow1"></span>
           <button type="button" class="s-btn s-btn__link s-btn__link__danger" id="delete-btn">
             Delete post
@@ -212,7 +215,7 @@
         <div class="widget-header">Post preview</div>
         <div class="widget-body">
           <p class="mb8">
-            <a class="s-link" href="./post-detail-beta.html" id="view-post-link">
+            <a class="s-link" href="./question-detail.html" id="view-post-link">
               View the current post →
             </a>
           </p>
@@ -243,21 +246,66 @@
   <!-- =========================================================
        Third-party libraries (globals required by markdown-renderer.js)
        ========================================================= -->
-  <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js" defer></script>
 
   <!-- Modular elements -->
   <script type="module" src="./js/components/site-header.js"></script>
   <script type="module" src="./js/components/site-footer.js"></script>
   <script type="module" src="./js/components/site-sidebar.js"></script>
 
+  <!-- =========================================================
+       Load the right question by ?id= and hand it to the editor
+       ========================================================= -->
   <script type="module">
     import { initEditQuestionPage } from './js/edit-question-page.js';
 
-    const page = await initEditQuestionPage({
-        src: './mock/question.json',
-    });
+    const QUESTIONS_URL = './mock/question-list.json';
+
+    async function loadQuestionForEdit() {
+      const params = new URLSearchParams(location.search);
+      const idParam = params.get('id');
+
+      const res = await fetch(QUESTIONS_URL, { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const list = await res.json();
+      const items = Array.isArray(list) ? list : [];
+
+      if (!items.length) throw new Error('No questions available');
+
+      if (idParam) {
+        const found = items.find(function (q) {
+          return String(q.id) === String(idParam);
+        });
+        if (found) return found;
+        console.warn('[edit-question] id=' + idParam + ' not found — falling back to first');
+      }
+
+      return items[0];
+    }
+
+    try {
+      const data = await loadQuestionForEdit();
+      await initEditQuestionPage({
+        data,
+        onSave: async function (payload) {
+          console.info('[edit-question] save payload', payload);
+        },
+        onDelete: async function () {
+          console.info('[edit-question] delete confirmed');
+        }
+      });
+    } catch (err) {
+      console.error('[edit-question] Failed to load:', err);
+      const ctx = document.getElementById('edit-context-text');
+      if (ctx) {
+        ctx.innerHTML =
+          '<span class="fc-red-400">Could not load the question: ' +
+          String(err.message || err) +
+          '</span>';
+      }
+    }
   </script>
 
 </body>

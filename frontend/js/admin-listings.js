@@ -17,9 +17,9 @@ function escapeHtml(str) {
 
 function timeAgo(iso) {
   const diff = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
-  if (diff < 60)       return 'just now';
-  if (diff < 3600)     return `${Math.round(diff / 60)} min ago`;
-  if (diff < 86400)    return `${Math.round(diff / 3600)} h ago`;
+  if (diff < 60)        return 'just now';
+  if (diff < 3600)      return `${Math.round(diff / 60)} min ago`;
+  if (diff < 86400)     return `${Math.round(diff / 3600)} h ago`;
   if (diff < 86400 * 7) return `${Math.round(diff / 86400)} d ago`;
   return new Date(iso).toLocaleDateString(undefined, {
     month: 'short', day: 'numeric', year: 'numeric'
@@ -69,10 +69,16 @@ export function renderReports(data, tbody, filter = 'pending') {
   const predicate = REPORT_PREDICATES[filter] || REPORT_PREDICATES.all;
   const rows = (data || []).filter(predicate);
 
+  const typeBadge = (type) =>
+    type === 'discussion'
+      ? '<span class="discussion-badge">Discussion</span>'
+      : '<span class="question-badge">Question</span>';
+
   tbody.innerHTML = rows.length
     ? rows.map((r) => `
         <tr>
           <td><code>${escapeHtml(r.id)}</code></td>
+          <td>${typeBadge(r.type)}</td>
           <td><a href="${escapeHtml(r.url || '#')}">${escapeHtml(r.title)}</a></td>
           <td>${badge(r.reason, r.reasonTone)}</td>
           <td>${escapeHtml(r.reporter)}</td>
@@ -81,7 +87,7 @@ export function renderReports(data, tbody, filter = 'pending') {
           <td>${actionsCell(r.actions)}</td>
         </tr>
       `).join('')
-    : emptyRow(7);
+    : emptyRow(8);
 }
 
 /* ---------- Marked Posts ---------- */
@@ -90,7 +96,8 @@ const MARKED_PREDICATES = {
   all:         () => true,
   duplicated:  (p) => p.mark === 'Duplicated',
   violated:    (p) => p.mark === 'Violated',
-  'off-topic': (p) => p.mark === 'Off-topic'
+  'off-topic': (p) => p.mark === 'Off-topic',
+  spam:        (p) => p.mark === 'Spam'
 };
 
 export function renderMarkedPosts(data, tbody, filter = 'all') {

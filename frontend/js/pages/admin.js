@@ -63,7 +63,7 @@ import { renderReports, renderMarkedPosts, renderAdminUsers } from '../admin-lis
         console.error(`Admin: failed to load "${name}"`, err);
         if (bodies[name]) {
           bodies[name].innerHTML =
-            `<tr><td colspan="7" class="ta-center fc-red-400 p24">Failed to load listings.</td></tr>`;
+            `<tr><td colspan="8" class="ta-center fc-red-400 p24">Failed to load listings.</td></tr>`;
         }
       });
   }
