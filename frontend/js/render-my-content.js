@@ -128,8 +128,11 @@
           '<div class="fc-black-500 fs-body1">@' + escapeHtml(user.username) + '</div>',
           '<div class="d-flex ai-center g16 fw-wrap fs-body1">',
             '<span><strong>' + escapeHtml(rep) + '</strong> reputation</span>',
-            '<span class="fc-black-400">•</span>',
-            '<span>Member</span>',
+            user.created_at
+              ? '<span class="fc-black-400">•</span><span>Member since ' +
+                escapeHtml(new Date(user.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long' })) +
+                '</span>'
+              : '',
           '</div>',
           '<p class="fc-black-600 fs-body1 mb0">' + escapeHtml(user.bio || 'No bio yet.') + '</p>',
         '</div>',
@@ -216,24 +219,29 @@
   }
 
   function renderActions(id, kind) {
-    return [
-      '<div class="d-flex g4" data-actions-for="' + escapeHtml(kind) + '-' + escapeHtml(String(id)) + '">',
-        '<button class="s-btn s-btn__xs"',
-        '        type="button"',
-        '        data-action="edit"',
-        '        data-kind="' + escapeHtml(kind) + '"',
-        '        data-id="' + escapeHtml(String(id)) + '">',
-          'Edit',
-        '</button>',
-        '<button class="s-btn s-btn__xs s-btn__danger"',
-        '        type="button"',
-        '        data-action="delete"',
-        '        data-kind="' + escapeHtml(kind) + '"',
-        '        data-id="' + escapeHtml(String(id)) + '">',
-          'Delete',
-        '</button>',
-      '</div>'
+    var editBtn = kind === 'question'
+      ? [
+          '<button class="s-btn s-btn__xs"',
+          '        type="button"',
+          '        data-action="edit"',
+          '        data-kind="' + escapeHtml(kind) + '"',
+          '        data-id="' + escapeHtml(String(id)) + '">',
+            'Edit',
+          '</button>'
+        ].join('')
+      : '';
+
+    var deleteBtn = [
+      '<button class="s-btn s-btn__xs s-btn__danger"',
+      '        type="button"',
+      '        data-action="delete"',
+      '        data-kind="' + escapeHtml(kind) + '"',
+      '        data-id="' + escapeHtml(String(id)) + '">',
+        'Delete',
+      '</button>'
     ].join('');
+
+    return '<div class="d-flex g4">' + editBtn + deleteBtn + '</div>';
   }
 
   /* ---------------- Card renderers (backend PostCard shape) ---------------- */
@@ -319,6 +327,43 @@
     ].join('');
   }
 
+
+  function renderAnswerCard(a) {
+    var votes = Number(a.score) || 0;
+    var accepted = a.is_accepted === true;
+    var detailUrl = a.post_type === 'discussion'
+      ? './discussion-detail.html?id=' + encodeURIComponent(a.post_id)
+      : './question-detail.html?id=' + encodeURIComponent(a.post_id);
+
+    var acceptedBadge = accepted
+      ? '<span class="s-badge s-badge__success s-badge__xs">Accepted</span>'
+      : '';
+
+    return [
+      '<div class="s-post-summary" data-answer-id="' + escapeHtml(a.id) + '">',
+        '<div class="s-post-summary--stats s-post-summary--sm-hide">',
+          acceptedBadge,
+          '<div class="post-stat"><span class="post-stat--num">' + escapeHtml(formatCount(votes)) + '</span>' + plural(votes, 'vote') + '</div>',
+        '</div>',
+        '<div class="s-post-summary--content">',
+          '<h3 class="s-post-summary--title mb0">',
+            '<a class="s-post-summary--title-link" href="' + detailUrl + '">' +
+              'Answer to: ' + escapeHtml(a.post_title || 'Untitled') +
+            '</a>',
+          '</h3>',
+          a.body_excerpt
+            ? '<div class="s-post-summary--excerpt v-truncate2">' + escapeHtml(a.body_excerpt) + '</div>'
+            : '',
+          '<div class="d-flex ai-center jc-space-between g8 fw-wrap mt8">',
+            '<span class="fs-caption fc-black-400">answered ' + escapeHtml(formatRelativeTime(a.created_at)) + '</span>',
+            '<a class="s-link s-link__muted fs-caption" href="' + detailUrl + '">View question →</a>',
+          '</div>',
+        '</div>',
+      '</div>'
+    ].join('');
+  }
+
+
   function emptyState(title, hint) {
     return [
       '<div class="s-empty-state py48">',
@@ -362,11 +407,11 @@
     }
 
     if (state.tab === 'answers') {
+      var ans = state.answers;
       countEl.textContent = state.totals.answers + ' ' + plural(state.totals.answers, 'answer');
-      listEl.innerHTML = emptyState(
-        'Answers list coming soon',
-        'Listing your answers is not yet available in this build.'
-      );
+      listEl.innerHTML = ans.length
+        ? ans.map(renderAnswerCard).join('')
+        : emptyState('No answers yet', "You haven't posted any answers.");
       return;
     }
   }
@@ -388,25 +433,40 @@
     var noun = kind === 'discussion' ? 'discussion' : 'question';
     var msg =
       'Delete this ' + noun + '?\n\n' +
-      'This will permanently delete it and all its replies. ' +
-      'This action cannot be undone.';
+      'It will be soft-deleted and removed from your content list.';
 
     if (!window.confirm(msg)) return;
 
-    // TODO: wire to DELETE /api/posts/{id} once write operations are in scope.
-    if (kind === 'discussion') {
-      state.discussions = state.discussions.filter(function (d) {
-        return String(d.id) !== String(id);
-      });
-      state.totals.discussions = Math.max(0, state.totals.discussions - 1);
-    } else {
-      state.questions = state.questions.filter(function (q) {
-        return String(q.id) !== String(id);
-      });
-      state.totals.questions = Math.max(0, state.totals.questions - 1);
-    }
+    fetch(API_BASE + '/api/posts/' + encodeURIComponent(id), {
+      method: 'DELETE',
+      credentials: 'include'
+    }).then(function (res) {
+      if (res.status === 401) {
+        window.location.href = './login.html?next=' +
+          encodeURIComponent(location.pathname + location.search);
+        return;
+      }
+      if (!res.ok && res.status !== 204) {
+        throw new Error('HTTP ' + res.status);
+      }
 
-    renderList();
+      if (kind === 'discussion') {
+        state.discussions = state.discussions.filter(function (d) {
+          return String(d.id) !== String(id);
+        });
+        state.totals.discussions = Math.max(0, state.totals.discussions - 1);
+      } else {
+        state.questions = state.questions.filter(function (q) {
+          return String(q.id) !== String(id);
+        });
+        state.totals.questions = Math.max(0, state.totals.questions - 1);
+      }
+
+      renderList();
+    }).catch(function (err) {
+      console.error('[my-content] delete failed:', err);
+      alert('Could not delete: ' + (err.message || ''));
+    });
   }
 
   listEl.addEventListener('click', function (e) {
@@ -477,22 +537,24 @@
         return Promise.all([
           fetchJson(API_BASE + '/api/users/' + encodeURIComponent(user.username)),
           fetchJson(API_BASE + '/api/posts?mine=true&type=question&page=1&page_size=' + PAGE_SIZE),
-          fetchJson(API_BASE + '/api/posts?mine=true&type=discussion&page=1&page_size=' + PAGE_SIZE)
+          fetchJson(API_BASE + '/api/posts?mine=true&type=discussion&page=1&page_size=' + PAGE_SIZE),
+          fetchJson(API_BASE + '/api/users/' + encodeURIComponent(user.username) + '/answers?page_size=' + PAGE_SIZE)
         ]);
       })
       .then(function (results) {
         var profile = results[0] || {};
         var qData   = results[1] || {};
         var dData   = results[2] || {};
+        var aData   = results[3] || {};
 
         state.profile     = profile;
         state.questions   = Array.isArray(qData.items) ? qData.items : [];
         state.discussions = Array.isArray(dData.items) ? dData.items : [];
+        state.answers     = Array.isArray(aData.items) ? aData.items : [];
         state.totals.questions   = Number(qData.total) || state.questions.length;
         state.totals.discussions = Number(dData.total) || state.discussions.length;
-        state.totals.answers     = Number(profile.answer_count) || 0;
+        state.totals.answers     = Number(aData.total) || state.answers.length;
 
-        // 2. Render
         statusEl.classList.add('d-none');
         renderProfileHeader(state.user);
         headerEl.classList.remove('d-none');

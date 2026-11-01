@@ -62,7 +62,7 @@ def _tag_out(t: Tag, count: int = 0) -> dict:
             "description": t.description, "post_count": count}
 
 
-def _card(p: Post, a: User, tags: list[Tag]) -> dict:
+def _card(p: Post, a: User, tags: list[Tag], my_vote: int | None = None) -> dict:
     return {
         "id":           p.id,
         "post_type":    p.post_type,
@@ -75,9 +75,39 @@ def _card(p: Post, a: User, tags: list[Tag]) -> dict:
         "reply_count":  p.reply_count,
         "view_count":   p.view_count,
         "is_answered":  p.accepted_answer_id is not None,
+        "my_vote":      my_vote,                # ← NEW
         "created_at":   p.created_at,
         "updated_at":   p.updated_at,
     }
+
+
+def _my_vote_map(
+    db: Session,
+    user_id: int | None,
+    pairs: list[tuple[str, int]],
+) -> dict[tuple[str, int], int]:
+    """Return {(target_type, target_id): value} for the given user.
+
+    Empty map when anonymous or when there are no pairs to look up — so
+    the route doesn't issue extra queries for guest requests.
+    """
+    if not user_id or not pairs:
+        return {}
+    by_type: dict[str, list[int]] = defaultdict(list)
+    for t, i in pairs:
+        by_type[t].append(i)
+    out: dict[tuple[str, int], int] = {}
+    for t, ids in by_type.items():
+        rows = db.execute(
+            select(Vote.target_id, Vote.value).where(
+                Vote.user_id == user_id,
+                Vote.target_type == t,
+                Vote.target_id.in_(ids),
+            )
+        ).all()
+        for tid, val in rows:
+            out[(t, tid)] = val
+    return out
 
 
 def _upsert_tags(db: Session, names: list[str]) -> list[Tag]:
@@ -93,9 +123,6 @@ def _upsert_tags(db: Session, names: list[str]) -> list[Tag]:
         tag = db.scalar(select(Tag).where(func.lower(Tag.name) == name))
         if tag is None:
             try:
-                # begin_nested() creates a SAVEPOINT — if the insert
-                # collides with a concurrent insert, only the savepoint
-                # rolls back, not the caller's pending changes.
                 with db.begin_nested():
                     tag = Tag(name=name, description="")
                     db.add(tag)
@@ -115,6 +142,7 @@ def list_posts(
     type: Literal["question", "discussion"] | None = Query(None),
     q:    str = "",
     tag:  str = "",
+    author: str = "",                                # ← NEW
     sort: Literal["newest", "active", "votes", "views", "unanswered"] = "newest",
     mine: bool = False,
     page:      int = Query(1, ge=1),
@@ -137,6 +165,14 @@ def list_posts(
                 .join(PostTag, PostTag.post_id == Post.id)
                 .join(Tag, Tag.id == PostTag.tag_id)
                 .where(func.lower(Tag.name) == tag.lower()))
+    if author:
+        # Resolve once so we don't JOIN per row.
+        author_user = db.scalar(
+            select(User).where(func.lower(User.username) == author.lower())
+        )
+        if author_user is None:
+            return {"items": [], "total": 0, "page": page, "page_size": page_size}
+        stmt = stmt.where(Post.author_id == author_user.id)
     if mine:
         if user is None:
             raise HTTPException(401, "Login required for `mine=true`.")
@@ -159,8 +195,18 @@ def list_posts(
     authors = _load_authors(db, {p.author_id for p in posts})
     tags_by_post = _load_tags_for(db, [p.id for p in posts])
 
+    my_votes = _my_vote_map(
+        db,
+        user.id if user else None,
+        [("post", p.id) for p in posts],
+    )
+
     return {
-        "items": [_card(p, authors[p.author_id], tags_by_post[p.id]) for p in posts],
+        "items": [
+            _card(p, authors[p.author_id], tags_by_post[p.id],
+                  my_votes.get(("post", p.id)))
+            for p in posts
+        ],
         "total": total, "page": page, "page_size": page_size,
     }
 
@@ -172,13 +218,12 @@ def get_post(
     post_id: int,
     increment_views: bool = Query(True, include_in_schema=False),
     db: Session = Depends(get_db),
+    user: User | None = Depends(get_current_user_optional),   # ← NEW
 ):
     p = db.get(Post, post_id)
     if p is None or p.deleted_at is not None:
         raise HTTPException(404, "Post not found.")
 
-    # Optionally bump view counter — skipped on internal calls
-    # from create_post / update_post so users don't see phantom views.
     if increment_views:
         try:
             db.execute(
@@ -267,6 +312,28 @@ def get_post(
         }
         for c in comments
     ]
+
+    # ── NEW: inject my_vote on the post, every answer, every comment ──
+    target_pairs: list[tuple[str, int]] = [("post", p.id)]
+    for a in answers:
+        target_pairs.append(("answer", a["id"]))
+        for c in a.get("comments") or []:
+            target_pairs.append(("comment", c["id"]))
+    for c in card["comments"]:
+        target_pairs.append(("comment", c["id"]))
+
+    my_votes = _my_vote_map(
+        db, user.id if user else None, target_pairs,
+    )
+
+    card["my_vote"] = my_votes.get(("post", p.id))
+    for a in answers:
+        a["my_vote"] = my_votes.get(("answer", a["id"]))
+        for c in a.get("comments") or []:
+            c["my_vote"] = my_votes.get(("comment", c["id"]))
+    for c in card["comments"]:
+        c["my_vote"] = my_votes.get(("comment", c["id"]))
+
     return card
 
 
@@ -293,7 +360,7 @@ def create_post(
 
     db.commit()
     db.refresh(post)
-    return get_post(post.id, increment_views=False, db=db)
+    return get_post(post.id, increment_views=False, db=db, user=user)
 
 
 # ── Update / Delete ─────────────────────────────────────────────────────
@@ -323,7 +390,7 @@ def update_post(
     p.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(p)
-    return get_post(p.id, increment_views=False, db=db)
+    return get_post(p.id, increment_views=False, db=db, user=user)
 
 
 @router.delete("/posts/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -367,6 +434,7 @@ def create_answer(
     return {
         "id": a.id, "post_id": a.post_id, "author": _author(user),
         "body": a.body, "score": a.score, "is_accepted": a.is_accepted,
+        "my_vote": None,
         "created_at": a.created_at, "updated_at": a.updated_at,
         "comments": [],
     }
@@ -393,6 +461,7 @@ def comment_post(
         "id": c.id, "post_id": c.post_id, "answer_id": c.answer_id,
         "parent_comment_id": c.parent_comment_id,
         "author": _author(user), "body": c.body, "score": c.score,
+        "my_vote": None,
         "created_at": c.created_at,
     }
 
@@ -417,6 +486,7 @@ def comment_answer(
         "id": c.id, "post_id": c.post_id, "answer_id": c.answer_id,
         "parent_comment_id": c.parent_comment_id,
         "author": _author(user), "body": c.body, "score": c.score,
+        "my_vote": None,
         "created_at": c.created_at,
     }
 
@@ -432,7 +502,6 @@ def vote(
     if payload.value not in (-1, 1):
         raise HTTPException(400, "value must be 1 or -1.")
 
-    # Verify target exists (and isn't soft-deleted) before recording the vote.
     if payload.target_type == "post":
         row = db.get(Post, payload.target_id)
     elif payload.target_type == "answer":
@@ -447,7 +516,6 @@ def vote(
             404, f"{payload.target_type.capitalize()} not found."
         )
 
-    # Block self-voting.
     if getattr(row, "author_id", None) == user.id:
         raise HTTPException(400, "You cannot vote on your own content.")
 

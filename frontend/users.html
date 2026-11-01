@@ -16,13 +16,10 @@
 
   <a href="#main" class="v-visible-sr">Skip to main content</a>
 
-  <!-- ================= TOP BAR ================= -->
   <site-header is-logged-in="true"></site-header>
 
-  <!-- ================= PAGE ================= -->
   <div class="d-flex ai-start g24 wmx12 mx-auto px16 py24">
 
-    <!-- ---------- LEFT RAIL ---------- -->
     <aside class="sidebar-left sm:d-none" aria-label="Section navigation">
       <nav class="s-navigation s-navigation__vertical">
         <a class="s-navigation--item" href="./index.html">Home</a>
@@ -34,49 +31,48 @@
       </nav>
     </aside>
 
-    <!-- ---------- MAIN ---------- -->
     <main id="main" class="question-feed">
 
       <div class="d-flex ai-center jc-space-between g8 mb16">
         <h1 class="fs-headline1 fw-normal mb0">Users</h1>
       </div>
 
-      <div class="d-flex ai-center jc-space-between g8 fw-wrap mb16">
-        <div class="fc-black-500 fs-caption" data-user-count>Loading…</div>
+      <!-- Search + sort row (mirrors the tag listing) -->
+      <div class="d-flex fw-wrap ai-center g8 mb16">
+        <div class="ps-relative">
+          <label class="v-visible-sr" for="user-filter">Filter by name</label>
+          <input id="user-filter"
+                 class="s-input s-input__search"
+                 autocomplete="off"
+                 name="userfilter"
+                 type="text"
+                 maxlength="30"
+                 placeholder="Filter by name">
+          <svg aria-hidden="true" class="s-input-icon s-input-icon__search svg-icon"
+               width="18" height="18" viewBox="0 0 18 18">
+            <path d="m18 16.5-5.14-5.18h-.35a7 7 0 1 0-1.19 1.19v.35L16.5 18zM12 7A5 5 0 1 1 2 7a5 5 0 0 1 10 0"/>
+          </svg>
+        </div>
 
-        <nav class="s-navigation s-navigation__sm" id="user-sort" aria-label="Sort users">
+        <nav class="s-navigation s-navigation__sm ml-auto" id="user-sort" aria-label="Sort users">
           <a class="s-navigation--item is-selected" data-sort="reputation" aria-current="true">Top reputation</a>
           <a class="s-navigation--item" data-sort="name">Name</a>
         </nav>
       </div>
 
-      <!-- USER LIST — populated by render-users.js -->
-      <div id="user-list" class="d-grid grid__3 gx16 gy0"></div>
+      <!-- Filter / total summary (populated by JS) -->
+      <div class="fs-body1 fc-black-400 mb16" data-user-summary></div>
 
-      <!-- Pagination -->
-      <nav class="s-pagination jc-end mt24" aria-label="Pagination">
-        <a class="s-pagination--item s-pagination--item__nav" href="#" aria-label="Previous page">
-          <svg class="svg-icon" aria-hidden="true" width="12" height="12" viewBox="0 0 12 12">
-            <path d="M7.35.65 6.29 1.71 9.59 5H.65v1.5h8.94L6.29 9.79l1.06 1.06L12 6 7.35.65Z" transform="rotate(180 6 6)"/>
-          </svg>
-        </a>
-        <a class="s-pagination--item is-selected" href="#" aria-current="page">1</a>
-        <a class="s-pagination--item" href="#">2</a>
-        <a class="s-pagination--item" href="#">3</a>
-        <span class="s-pagination--item fc-black-400">…</span>
-        <a class="s-pagination--item" href="#">42</a>
-        <a class="s-pagination--item s-pagination--item__nav" href="#" aria-label="Next page">
-          <svg class="svg-icon" aria-hidden="true" width="12" height="12" viewBox="0 0 12 12">
-            <path d="M7.35.65 6.29 1.71 9.59 5H.65v1.5h8.94L6.29 9.79l1.06 1.06L12 6 7.35.65Z"/>
-          </svg>
-        </a>
-      </nav>
+      <!-- User grid — populated by ./js/render-users.js -->
+      <div id="user-list" class="d-grid grid__3 gx16 gy0" role="list" aria-busy="true"></div>
+
+      <!-- Pagination — populated by ./js/render-users.js -->
+      <nav class="s-pagination mt24" data-pagination aria-label="Users pagination"></nav>
 
     </main>
 
   </div>
 
-  <!-- ================= FOOTER ================= -->
   <site-footer></site-footer>
 
   <script src="./js/render-users.js" defer></script>

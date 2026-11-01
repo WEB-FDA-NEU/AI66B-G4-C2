@@ -206,6 +206,9 @@ function userCard(user, action, iso) {
 
 function renderComment(c) {
   const authorName = (c.author && (c.author.display_name || c.author.username)) || 'anonymous';
+  const myVote = c.my_vote == null ? null : Number(c.my_vote);
+  const upvoted = myVote === 1;
+
   return `
     <li class="comment">
       <span class="comment--score">${escapeHtml(String(c.score ?? 0))}</span>
@@ -213,6 +216,14 @@ function renderComment(c) {
         ${escapeHtml(c.body)}
         <a class="comment--user" href="#">– ${escapeHtml(authorName)}</a>
         ${timeElement(c.created_at)}
+        <div class="thread-node--actions mt4">
+          <button type="button"
+                  class="thread-upvote${upvoted ? ' is-upvoted' : ''}"
+                  data-vote-target-type="comment"
+                  data-vote-target-id="${escapeHtml(String(c.id))}"
+                  data-vote-value="1"
+                  aria-pressed="${upvoted}">Upvote</button>
+        </div>
       </div>
     </li>
   `;

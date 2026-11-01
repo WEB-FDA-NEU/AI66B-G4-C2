@@ -71,6 +71,8 @@ function renderComment(c, depth = 0) {
   const hasReplies = Array.isArray(c.replies) && c.replies.length > 0;
   const canRenderChildren = hasReplies && (depth + 1 < MAX_DEPTH);
   const hiddenCount = hasReplies && !canRenderChildren ? countReplies(c.replies) : 0;
+  const myVote = c.my_vote == null ? null : Number(c.my_vote);
+  const upvoted = myVote === 1;
 
   const repliesHtml = canRenderChildren
     ? `<ul class="thread-children">${c.replies.map(r => renderComment(r, depth + 1)).join('')}</ul>`
@@ -99,11 +101,11 @@ function renderComment(c, depth = 0) {
       <div class="thread-node--body">${escapeHtml(c.body)}</div>
       <div class="thread-node--actions">
         <button type="button"
-                class="thread-upvote"
+                class="thread-upvote${upvoted ? ' is-upvoted' : ''}"
                 data-vote-target-type="comment"
                 data-vote-target-id="${escapeHtml(String(c.id))}"
                 data-vote-value="1"
-                aria-pressed="false">Upvote</button>
+                aria-pressed="${upvoted}">Upvote</button>
         <button type="button" data-reply>Reply</button>
       </div>
       <div class="thread-reply-box" hidden>
@@ -127,8 +129,12 @@ function renderComment(c, depth = 0) {
 /* OP rendering                                                        */
 /* ------------------------------------------------------------------ */
 
-function voteCell(score, targetType, targetId) {
+function voteCell(score, targetType, targetId, myVote) {
   const s = Number(score) || 0;
+  myVote = myVote == null ? null : Number(myVote);
+  const countClass = myVote === 1 ? ' fc-green-500'
+                   : myVote === -1 ? ' fc-red-500'
+                   : '';
   return `
     <div class="vote-cell">
       <div class="s-vote">
@@ -136,15 +142,17 @@ function voteCell(score, targetType, targetId) {
                 data-vote-target-type="${escapeHtml(targetType)}"
                 data-vote-target-id="${escapeHtml(String(targetId))}"
                 data-vote-value="1"
-                aria-label="Up vote">
+                aria-label="Up vote"
+                aria-pressed="${myVote === 1}">
           <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M1 12h16L9 4 1 12Z"/></svg>
         </button>
-        <div class="s-vote--votes">${escapeHtml(String(s))}</div>
+        <div class="s-vote--votes${countClass}">${escapeHtml(String(s))}</div>
         <button class="s-vote--btn" type="button"
                 data-vote-target-type="${escapeHtml(targetType)}"
                 data-vote-target-id="${escapeHtml(String(targetId))}"
                 data-vote-value="-1"
-                aria-label="Down vote">
+                aria-label="Down vote"
+                aria-pressed="${myVote === -1}">
           <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M1 6h16L9 14 1 6Z"/></svg>
         </button>
       </div>
@@ -200,7 +208,7 @@ function renderDiscussionPage(data, root) {
     </div>
 
     <article class="post-layout" id="discussion-${escapeHtml(String(data.id))}">
-      ${voteCell(data.score, 'post', data.id)}
+      ${voteCell(data.score, 'post', data.id, data.my_vote)}
 
       <div class="post-content">
         <div class="s-prose" id="discussion-body"></div>

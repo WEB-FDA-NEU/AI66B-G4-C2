@@ -75,6 +75,7 @@ class PostCard(BaseModel):
     reply_count:  int
     view_count:   int
     is_answered:  bool
+    my_vote:      int | None = None          # ← NEW
     created_at:   datetime
     updated_at:   datetime
 
@@ -94,6 +95,7 @@ class CommentOut(BaseModel):
     author:            AuthorOut
     body:              str
     score:             int
+    my_vote:           int | None = None      # ← NEW
     created_at:        datetime
 
 
@@ -104,6 +106,7 @@ class AnswerOut(BaseModel):
     body:        str
     score:       int
     is_accepted: bool
+    my_vote:     int | None = None            # ← NEW
     created_at:  datetime
     updated_at:  datetime
     comments:    list[CommentOut] = []
@@ -190,6 +193,24 @@ class UserProfile(UserCard):
 
 class UserPage(BaseModel):
     items:     list[UserCard]
+    total:     int
+    page:      int
+    page_size: int
+
+
+class UserAnswerCard(BaseModel):
+    id:           int
+    body_excerpt: str
+    score:        int
+    is_accepted:  bool
+    post_id:      int
+    post_title:   str
+    post_type:    str
+    created_at:   datetime
+
+
+class UserAnswerPage(BaseModel):
+    items:     list[UserAnswerCard]
     total:     int
     page:      int
     page_size: int
