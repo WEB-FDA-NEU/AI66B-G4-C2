@@ -22,9 +22,9 @@
 
     <site-sidebar class="ws2 flex__fl-shrink0 sm:d-none"></site-sidebar>
 
-    <main id="main" class="question-feed fl-grow1" role="main">
+    <main id="main" class="fl-grow1" role="main">
 
-      <!-- Greeting card — minimal, static placeholder. A future JS module can update text via #greeting -->
+      <!-- Greeting (a future JS module can update text via #greeting) -->
       <section class="bg-white bc-light ba bar-md p16 mb24">
         <h1 id="greeting" class="fs-title fw-bold mb0">Welcome to Tech4Rum!</h1>
       </section>
@@ -32,23 +32,19 @@
       <!-- Recommended questions -->
       <section class="mb24">
         <header class="d-flex fd-column mb16">
-          <div class="fs-title fw-bold">Interesting posts for you</div>
-          <div class="fs-body1 fc-black-400">
-            Let's solve the troubles you have!!
-          </div>
+          <h2 class="fs-title fw-bold mb4">Interesting posts for you</h2>
+          <p class="fs-body1 fc-black-400 mb0">Let's solve the troubles you have!</p>
         </header>
-        <div id="question-list" class="question-list"></div>
+        <div id="question-list"></div>
       </section>
 
       <!-- Trending discussions -->
       <section class="mb24">
         <header class="d-flex fd-column mb16">
-          <div class="fs-title fw-bold">Trending discussions</div>
-          <div class="fs-body1 fc-black-400">
-            Hottest conversations happening across the community right now.
-          </div>
+          <h2 class="fs-title fw-bold mb4">Trending discussions</h2>
+          <p class="fs-body1 fc-black-400 mb0">Hottest conversations across the community right now.</p>
         </header>
-        <div id="discussion-list" class="discussion-list"></div>
+        <div id="discussion-list"></div>
       </section>
 
     </main>

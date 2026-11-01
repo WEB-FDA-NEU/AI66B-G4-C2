@@ -4,36 +4,23 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>User Profile — Tech4Rum</title>
-
   <link rel="stylesheet" href="./css/reset.css">
   <link rel="stylesheet" href="./css/tokens.css">
   <link rel="stylesheet" href="./css/layout.css">
   <link rel="stylesheet" href="./css/components.css">
 </head>
-
 <body class="theme-light">
 
   <a href="#main" class="v-visible-sr">Skip to main content</a>
-
-  <!-- ================= TOP BAR ================= -->
   <site-header is-logged-in="true"></site-header>
 
-  <!-- ================= PAGE ================= -->
   <div class="d-flex ai-start g24 wmx12 mx-auto px16 py24">
-
-    <!-- ---------- LEFT RAIL ---------- -->
     <site-sidebar class="ws2 flex__fl-shrink0 sm:d-none"></site-sidebar>
 
-    <!-- ---------- MAIN ---------- -->
-    <main id="main" class="question-feed">
-
-      <!-- Loading / Error notice -->
+    <main id="main" class="fl-grow1">
       <div id="profile-status" class="fc-black-500 fs-body1">Loading…</div>
-
-      <!-- Profile header (rendered by JS) -->
       <section id="profile-header" class="d-none"></section>
 
-      <!-- Tabs -->
       <nav class="s-navigation mb16 d-none" id="profile-tabs" aria-label="Profile sections">
         <button class="s-navigation--item is-selected" type="button" data-tab="profile">Profile</button>
         <button class="s-navigation--item" type="button" data-tab="questions">Questions</button>
@@ -41,14 +28,10 @@
         <button class="s-navigation--item" type="button" data-tab="answers">Answers</button>
       </nav>
 
-      <!-- Tab panels (rendered by JS) -->
       <div id="profile-content" class="d-none"></div>
-
     </main>
-
   </div>
 
-  <!-- ================= FOOTER ================= -->
   <site-footer></site-footer>
 
   <script src="./js/render-user-profile.js" defer></script>
@@ -56,6 +39,5 @@
   <script type="module" src="./js/components/site-header.js"></script>
   <script type="module" src="./js/components/site-footer.js"></script>
   <script type="module" src="./js/components/site-sidebar.js"></script>
-
 </body>
 </html>

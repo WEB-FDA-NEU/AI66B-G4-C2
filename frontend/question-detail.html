@@ -9,11 +9,8 @@
   <link rel="stylesheet" href="./css/tokens.css">
   <link rel="stylesheet" href="./css/layout.css">
   <link rel="stylesheet" href="./css/components.css">
-
-  <link rel="stylesheet"
-        href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
-  <link id="highlight-theme"
-        rel="stylesheet"
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <link id="highlight-theme" rel="stylesheet"
         href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
 </head>
 
@@ -27,7 +24,7 @@
 
     <site-sidebar class="ws2 flex__fl-shrink0 sm:d-none"></site-sidebar>
 
-    <main id="main" class="question-feed">
+    <main id="main" class="fl-grow1">
 
       <div id="question-root" aria-live="polite"></div>
 
@@ -61,7 +58,7 @@
           <div class="d-flex g8 ai-center mt16 fw-wrap">
             <button class="s-btn" type="submit">Post Your Answer</button>
             <span class="fs-caption fc-black-400">
-              By posting your answer, you agree to the nonexistent
+              By posting your answer, you agree to our
               <a class="s-link" href="#">privacy policy</a> and
               <a class="s-link" href="#">terms of service</a>.
             </span>
@@ -71,14 +68,17 @@
 
     </main>
 
-    <aside class="sidebar-right md:d-none" aria-label="Sidebar">
-      <div class="bg-white bc-light ba bar-md p16 mb16">
-        <h2 class="fs-body2 fw-bold mb8">Related Questions</h2>
-        <ul class="list-reset d-flex fd-column g8 fs-body1">
-          <li><a class="s-link" href="#">Why does useEffect run twice in React 18 StrictMode?</a></li>
-          <li><a class="s-link" href="#">How do I cancel an in-flight fetch request in React?</a></li>
-          <li><a class="s-link" href="#">React StrictMode double render — is it a bug or a feature?</a></li>
-        </ul>
+    <aside class="ws2 flex__fl-shrink0 md:d-none" aria-label="Sidebar">
+      <div class="bg-white bc-light ba bar-md">
+        <div class="bb bc-black-150 p12 fw-bold fc-black-600">Related Questions</div>
+        <div class="p16">
+          <ul class="list-reset d-flex fd-column g8 fs-body1">
+            <li><a class="s-link" href="#">Why does useEffect run twice in React 18 StrictMode?</a></li>
+            <li><a class="s-link" href="#">How do I cancel an in-flight fetch request in React?</a></li>
+            <li><a class="s-link" href="#">React StrictMode double render — is it a bug or a feature?</a></li>
+            <li><a class="s-link" href="#">useLayoutEffect vs useEffect under StrictMode</a></li>
+          </ul>
+        </div>
       </div>
     </aside>
 
@@ -109,9 +109,7 @@
           : 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css';
       };
       swap();
-      new MutationObserver(swap).observe(document.body, {
-        attributes: true, attributeFilter: ['class']
-      });
+      new MutationObserver(swap).observe(document.body, { attributes: true, attributeFilter: ['class'] });
     }
   </script>
 
