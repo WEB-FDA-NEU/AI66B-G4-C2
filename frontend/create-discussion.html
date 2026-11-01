@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="./css/tokens.css">
   <link rel="stylesheet" href="./css/layout.css">
   <link rel="stylesheet" href="./css/components.css">
+  <link rel="stylesheet" href="./css/extra.css">
 
   <!-- KaTeX + highlight.js themes -->
   <link rel="stylesheet"
@@ -49,7 +50,16 @@
   <div class="d-flex ai-start g24 wmx12 mx-auto px16 py24">
 
     <!-- ---------- LEFT RAIL ---------- -->
-    <site-sidebar class="ws2 flex__fl-shrink0 sm:d-none"></site-sidebar>
+    <aside class="sidebar-left sm:d-none" aria-label="Section navigation">
+      <nav class="s-navigation s-navigation__vertical">
+        <a class="s-navigation--item" href="./index.html">Home</a>
+        <a class="s-navigation--item" href="./questions.html">Questions</a>
+        <a class="s-navigation--item is-selected" href="./discussions.html" aria-current="page">Discussion</a>
+        <a class="s-navigation--item" href="./tags.html">Tags</a>
+        <a class="s-navigation--item" href="./users.html">Users</a>
+        <a class="s-navigation--item" href="./admin.html">Admin</a>
+      </nav>
+    </aside>
 
     <!-- ---------- MAIN ---------- -->
     <main id="main" class="fl-grow1" style="min-width: 0;">
@@ -226,13 +236,19 @@
   <!-- Modular elements -->
   <script type="module" src="./js/components/site-header.js"></script>
   <script type="module" src="./js/components/site-footer.js"></script>
-  <script type="module" src="./js/components/site-sidebar.js"></script>
 
   <!-- Reuse the ask-question editor: IDs match, so no new module is needed -->
   <script type="module">
-    import { initAskQuestionEditor, bindPostSubmit } from './js/ask-question-editor.js';
-    const editor = initAskQuestionEditor();
-    bindPostSubmit({ getTags: editor.getTags });
+    import { initAskQuestionEditor } from './js/ask-question-editor.js';
+    initAskQuestionEditor();
+
+    /* Static submit — the demo build has no backend. */
+    const postBtn = document.getElementById('post-discussion-btn');
+    if (postBtn) {
+      postBtn.addEventListener('click', () => {
+        window.alert('Posting is not available in this demo build.');
+      });
+    }
   </script>
 
 </body>

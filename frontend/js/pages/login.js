@@ -1,52 +1,98 @@
-// ============================================================
-//  login.html  —  Cookie-based JWT login.
-// ============================================================
-import { auth, clearMeCache } from '../api.js';
-
+// Page-specific behaviour for login.html
 (function () {
   'use strict';
 
-  const form = document.getElementById('loginForm');
+  var form = document.getElementById('loginForm');
   if (!form) return;
 
-  const emailInput    = form.querySelector('#email');
-  const passwordInput = form.querySelector('#password');
-  const submitBtn     = form.querySelector('button[type="submit"]');
+  // Serve-from-backend (port 8000) → relative URL.
+  // Serve-from-Live-Server (port 5500) → absolute URL to backend.
+  var API_BASE = (location.port === '8000' || location.port === '')
+    ? ''
+    : 'http://localhost:8000';
 
-  const errorBox = document.createElement('div');
-  errorBox.className = 's-notice s-notice__danger mb8';
-  errorBox.hidden = true;
-  form.prepend(errorBox);
+  var emailEl    = document.getElementById('email');
+  var passwordEl = document.getElementById('password');
+  var submitBtn  = form.querySelector('button[type="submit"]');
 
-  const showError = (msg) => { errorBox.textContent = msg; errorBox.hidden = false; };
-  const clearError = () => { errorBox.hidden = true; };
+  function getNextUrl() {
+    try {
+      var next = new URLSearchParams(location.search).get('next');
+      // Only allow local paths (no open-redirect)
+      if (next && next.charAt(0) === '/') return next;
+    } catch (_) { /* ignore */ }
+    return './index.html';
+  }
 
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
+  function clearError() {
+    var existing = form.querySelector('.auth-error');
+    if (existing) existing.remove();
+  }
+
+  function showError(message) {
+    clearError();
+    var div = document.createElement('div');
+    div.className = 'auth-error s-notice s-notice__danger mb16';
+    div.setAttribute('role', 'alert');
+    div.textContent = String(message || 'Something went wrong.');
+    form.insertBefore(div, form.firstChild);
+  }
+
+  function setLoading(on) {
+    if (!submitBtn) return;
+    submitBtn.disabled = !!on;
+    submitBtn.textContent = on ? 'Logging in…' : 'Log in';
+  }
+
+  function extractErrorDetail(body, fallback) {
+    if (!body) return fallback;
+    var detail = body.detail || body.message;
+    if (!detail) return fallback;
+    if (Array.isArray(detail)) {
+      return detail.map(function (d) {
+        return (d && (d.msg || d.message)) || JSON.stringify(d);
+      }).join('; ');
+    }
+    return String(detail);
+  }
+
+  form.addEventListener('submit', async function (event) {
+    event.preventDefault();
     clearError();
 
-    const email    = emailInput.value.trim();
-    const password = passwordInput.value;
-    if (!email || !password) {
-      showError('Email and password are required.');
-      return;
-    }
+    var email    = (emailEl && emailEl.value || '').trim();
+    var password = (passwordEl && passwordEl.value) || '';
 
-    submitBtn.disabled = true;
-    const prev = submitBtn.textContent;
-    submitBtn.textContent = 'Logging in…';
+    if (!email)    return showError('Please enter your email address.');
+    if (!password) return showError('Please enter your password.');
+
+    setLoading(true);
 
     try {
-      await auth.login({ email, password });
-      clearMeCache();
+      var res = await fetch(API_BASE + '/api/auth/login', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({ email: email, password: password })
+      });
 
-      const back = sessionStorage.getItem('app_return_to') || './index.html';
-      sessionStorage.removeItem('app_return_to');
-      window.location.href = back;
+      if (!res.ok) {
+        var body = null;
+        try { body = await res.json(); } catch (_) { /* not JSON */ }
+        showError(extractErrorDetail(body, 'Login failed (' + res.status + ').'));
+        setLoading(false);
+        return;
+      }
+
+      // 200 → server set the cookie. Go home (or ?next=).
+      window.location.href = getNextUrl();
     } catch (err) {
-      showError(err.detail || 'Could not log in.');
-      submitBtn.disabled = false;
-      submitBtn.textContent = prev;
+      showError('Network error — could not reach the server. ' +
+        (err && err.message ? '(' + err.message + ')' : ''));
+      setLoading(false);
     }
   });
 })();
