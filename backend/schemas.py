@@ -214,3 +214,28 @@ class UserAnswerPage(BaseModel):
     total:     int
     page:      int
     page_size: int
+
+
+class MeUpdate(BaseModel):
+    username:     str | None = Field(default=None, min_length=3, max_length=30)
+    display_name: str | None = Field(default=None, min_length=2, max_length=80)
+    email:        EmailStr | None = None
+    bio:          str | None = None
+    website:      str | None = None
+    location:     str | None = None
+
+    @field_validator("username")
+    @classmethod
+    def _username_format(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        if not USERNAME_RE.match(v):
+            raise ValueError(
+                "Username must be 3-30 characters: letters, digits, '_' or '-'."
+            )
+        return v
+
+
+class ChangePasswordIn(BaseModel):
+    current_password: str = Field(min_length=1)
+    new_password:     str = Field(min_length=8, max_length=72)

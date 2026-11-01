@@ -16,93 +16,82 @@
 
   <a href="#main" class="v-visible-sr">Skip to main content</a>
 
-  <!-- SITE HEADER -->
   <site-header is-logged-in="true"></site-header>
 
-  <!-- SETTINGS -->
-  <main id="main" class="fl-grow1 p24 pb128">
+  <main id="main" class="fl-grow1 p24 pb128 sm:px16 sm:pt16">
     <div class="w100 wmx9 mx-auto">
 
       <h1 class="fs-headline1 fw-bold mb8">Settings</h1>
       <p class="fc-black-400 fs-body1 mb24">
-        Manage your profile, account, notifications, and personalization.
+        Manage your profile, account, and personalization.
       </p>
 
-      <div class="d-flex g24 ai-start">
+      <!-- Mobile-only horizontal nav (hidden on desktop) -->
+      <nav class="s-navigation s-navigation__scroll d-none md:d-flex bg-white bar-md p8 mb16"
+           aria-label="Settings sections">
+        <a href="#profile"         class="s-navigation--item is-selected">Profile</a>
+        <a href="#account"         class="s-navigation--item">Account</a>
+        <a href="#notifications"   class="s-navigation--item">Notifications</a>
+        <a href="#personalization" class="s-navigation--item">Personalization</a>
+      </nav>
 
-        <!-- LEFT: STICKY TABS -->
-        <aside class="ps-sticky t64 ws2 flex__fl-shrink0">
+      <div class="d-flex g24 ai-start md:fd-column md:g16">
+
+        <!-- Desktop sidebar -->
+        <aside class="ps-sticky t64 ws2 flex__fl-shrink0 md:d-none">
           <nav class="s-navigation s-navigation__vertical" aria-label="Settings sections">
-            <a href="#profile" class="s-navigation--item is-selected">Profile</a>
-            <a href="#account" class="s-navigation--item">Account</a>
-            <a href="#notifications" class="s-navigation--item">Notification</a>
+            <a href="#profile"         class="s-navigation--item is-selected">Profile</a>
+            <a href="#account"         class="s-navigation--item">Account</a>
+            <a href="#notifications"   class="s-navigation--item">Notifications</a>
             <a href="#personalization" class="s-navigation--item">Personalization</a>
           </nav>
         </aside>
 
-        <!-- RIGHT: SETTINGS PANELS -->
-        <form id="settingsForm" class="fl-grow1 d-flex fd-column" action="#" method="get">
+        <form id="settingsForm" class="fl-grow1 d-flex fd-column w100" action="#" method="post">
 
-          <!-- PROFILE -->
-          <section id="profile" class="bg-white bar-md bs-sm p32 mb24">
+          <!-- ============ PROFILE ============ -->
+          <section id="profile" class="bg-white bar-md bs-sm p32 sm:p16 mb24">
             <h2 class="fs-title fw-bold mb4">Profile Settings</h2>
             <p class="fc-black-400 fs-body1 mb24">Update your public profile information.</p>
 
             <div class="d-flex fd-column g16">
 
-              <!-- Avatar -->
-              <div class="d-flex ai-center g16">
-                <a href="./profile.html"
-                   class="s-avatar s-avatar__64 flex__fl-shrink0"
-                   aria-label="Your profile">
-                  <img src="./img/avatar.png"
-                       alt=""
-                       class="s-avatar--image"
-                       width="64" height="64">
-                </a>
-                <div class="d-flex fd-column g4">
-                  <label class="s-label" for="avatar">Profile picture</label>
-                  <input class="s-input" id="avatar" name="avatar" type="file" accept="image/*" />
-                  <p class="s-description">PNG, JPG or GIF. Maximum 2 MB.</p>
-                </div>
-              </div>
-
-              <!-- Username -->
               <div class="s-form-group">
                 <label class="s-label" for="username">Username</label>
-                <input class="s-input" id="username" name="username" type="text" value="ada_lovelace" />
+                <input class="s-input" id="username" name="username" type="text"
+                       maxlength="30" autocomplete="username" />
                 <p class="s-description">Your unique handle. Changing it may break existing links.</p>
               </div>
 
-              <!-- Display name -->
               <div class="s-form-group">
                 <label class="s-label" for="displayName">Display name</label>
-                <input class="s-input" id="displayName" name="displayName" type="text" value="Ada Lovelace" />
+                <input class="s-input" id="displayName" name="displayName" type="text"
+                       maxlength="80" autocomplete="nickname" />
               </div>
 
-              <!-- Bio -->
               <div class="s-form-group">
                 <label class="s-label" for="bio">Bio</label>
-                <textarea class="s-textarea" id="bio" name="bio" placeholder="Tell the community a bit about yourself.">Mathematician and writer. Wrote the first algorithm intended for a machine.</textarea>
+                <textarea class="s-textarea" id="bio" name="bio" rows="4"
+                          placeholder="Tell the community a bit about yourself."></textarea>
               </div>
 
-              <!-- Website -->
               <div class="s-form-group">
                 <label class="s-label" for="website">Website</label>
-                <input class="s-input" id="website" name="website" type="url" value="https://example.com" />
+                <input class="s-input" id="website" name="website" type="url"
+                       placeholder="https://example.com" />
               </div>
 
-              <!-- Location -->
               <div class="s-form-group">
                 <label class="s-label" for="location">Location</label>
-                <input class="s-input" id="location" name="location" type="text" value="London, UK" />
+                <input class="s-input" id="location" name="location" type="text"
+                       placeholder="City, Country" />
               </div>
 
             </div>
           </section>
 
-          <!-- ACCOUNT -->
-          <section id="account" class="bg-white bar-md bs-sm p32 mb24">
+          <!-- ============ ACCOUNT ============ -->
+          <section id="account" class="bg-white bar-md bs-sm p32 sm:p16 mb24">
             <h2 class="fs-title fw-bold mb4">Account Settings</h2>
             <p class="fc-black-400 fs-body1 mb24">
               Manage your email, password, and account lifecycle.
@@ -112,7 +101,8 @@
 
               <div class="s-form-group">
                 <label class="s-label" for="email">Email address</label>
-                <input class="s-input" id="email" name="email" type="email" value="ada@example.com" />
+                <input class="s-input" id="email" name="email" type="email"
+                       autocomplete="email" />
                 <p class="s-description">Used for sign-in and notifications.</p>
               </div>
 
@@ -121,26 +111,38 @@
 
                 <div class="s-form-group">
                   <label class="s-label s-label__sm" for="currentPassword">Current password</label>
-                  <input class="s-input" id="currentPassword" name="currentPassword" type="password" placeholder="Enter your current password" />
+                  <input class="s-input" id="currentPassword" name="currentPassword"
+                         type="password" autocomplete="current-password"
+                         placeholder="Enter your current password" />
                 </div>
 
                 <div class="s-form-group">
                   <label class="s-label s-label__sm" for="newPassword">New password</label>
-                  <input class="s-input" id="newPassword" name="newPassword" type="password" placeholder="Enter a new password" />
+                  <input class="s-input" id="newPassword" name="newPassword"
+                         type="password" autocomplete="new-password"
+                         placeholder="Enter a new password" />
                 </div>
 
                 <div class="s-form-group">
                   <label class="s-label s-label__sm" for="confirmNewPassword">Confirm new password</label>
-                  <input class="s-input" id="confirmNewPassword" name="confirmNewPassword" type="password" placeholder="Re-enter the new password" />
+                  <input class="s-input" id="confirmNewPassword" name="confirmNewPassword"
+                         type="password" autocomplete="new-password"
+                         placeholder="Re-enter the new password" />
+                </div>
+
+                <div>
+                  <button type="button" class="s-btn s-btn__clear" id="changePasswordBtn">
+                    Update password
+                  </button>
                 </div>
               </div>
 
               <div class="d-flex fd-column g8">
                 <span class="s-label">Account status</span>
-                <div class="d-flex ai-center jc-space-between g16 bg-black-100 bar-md p12">
+                <div class="d-flex ai-center jc-space-between g16 bg-black-100 bar-md p12 fw-wrap">
                   <div>
                     <p class="fw-bold mb0">Your account is active</p>
-                    <p class="fc-black-400 fs-caption mb0">Member since January 2024.</p>
+                    <p class="fc-black-400 fs-caption mb0" id="memberSince">Member since —</p>
                   </div>
                   <span class="s-badge s-badge__success">Active</span>
                 </div>
@@ -148,55 +150,61 @@
 
               <div class="d-flex fd-column g8">
                 <span class="s-label">Danger zone</span>
-                <div class="s-notice s-notice__danger p12 bar-md d-flex ai-center jc-space-between g16">
+                <div class="s-notice s-notice__danger pl12 bar-md d-flex ai-center jc-space-between g16 fw-wrap p12">
                   <div>
                     <p class="fw-bold mb0">Delete account</p>
                     <p class="fs-caption mb0">Once you delete your account, there is no going back.</p>
                   </div>
-                  <button type="button" class="s-btn s-btn__danger">Delete account</button>
+                  <button type="button" class="s-btn s-btn__danger" id="deleteAccountBtn">
+                    Delete account
+                  </button>
                 </div>
               </div>
 
             </div>
           </section>
 
-          <!-- NOTIFICATIONS -->
-          <section id="notifications" class="bg-white bar-md bs-sm p32 mb24">
+          <!-- ============ NOTIFICATIONS (static, not wired) ============ -->
+          <section id="notifications" class="bg-white bar-md bs-sm p32 sm:p16 mb24">
             <h2 class="fs-title fw-bold mb4">Notification Settings</h2>
             <p class="fc-black-400 fs-body1 mb24">
               Choose what you're notified about and how.
             </p>
 
-            <div class="d-flex fd-column g24">
+            <div class="s-notice s-notice__info pl12 bar-md mb16">
+              Notification delivery isn't wired up in this build — these toggles are for show only.
+            </div>
 
-              <div class="d-flex fd-column g8">
-                <span class="s-label">Email notifications</span>
+            <div class="d-flex fd-column g8">
+              <span class="s-label">Email notifications</span>
 
-                <label class="d-flex ai-center jc-space-between g16 bg-black-100 bar-md p12">
-                  <span>
-                    <span class="fw-bold d-block">Activity on my posts</span>
-                    <span class="fc-black-400 fs-caption d-block">Answers, comments, and edits to your posts and answers.</span>
+              <label class="d-flex ai-center jc-space-between g16 bg-black-100 bar-md p12">
+                <span>
+                  <span class="fw-bold d-block">Activity on my posts</span>
+                  <span class="fc-black-400 fs-caption d-block">
+                    Answers, comments, and edits to your posts and answers.
                   </span>
-                  <input type="checkbox" class="s-toggle-switch" checked />
-                </label>
+                </span>
+                <input type="checkbox" class="s-toggle-switch" checked />
+              </label>
 
-                <label class="d-flex ai-center jc-space-between g16 bg-black-100 bar-md p12">
-                  <span>
-                    <span class="fw-bold d-block">Inbox messages</span>
-                    <span class="fc-black-400 fs-caption d-block">New private messages from other members.</span>
+              <label class="d-flex ai-center jc-space-between g16 bg-black-100 bar-md p12">
+                <span>
+                  <span class="fw-bold d-block">Inbox messages</span>
+                  <span class="fc-black-400 fs-caption d-block">
+                    New private messages from other members.
                   </span>
-                  <input type="checkbox" class="s-toggle-switch" checked />
-                </label>
-              </div>
-
+                </span>
+                <input type="checkbox" class="s-toggle-switch" checked />
+              </label>
             </div>
           </section>
 
-          <!-- PERSONALIZATION -->
-          <section id="personalization" class="bg-white bar-md bs-sm p32 mb24">
+          <!-- ============ PERSONALIZATION ============ -->
+          <section id="personalization" class="bg-white bar-md bs-sm p32 sm:p16 mb24">
             <h2 class="fs-title fw-bold mb4">Personalization Settings</h2>
             <p class="fc-black-400 fs-body1 mb24">
-              Tailor your feed and content experience.
+              Tailor your experience.
             </p>
 
             <div class="d-flex fd-column g24">
@@ -211,55 +219,29 @@
                   <input type="radio" name="theme" id="theme-dark" value="dark" />
                   <label for="theme-dark">Dark</label>
                 </div>
-                <p class="s-description">Choose how Tech4Rum looks to you.</p>
-              </div>
-
-              <!-- Preferred tags -->
-              <div class="s-form-group">
-                <label class="s-label" for="preferredTags">Preferred tags</label>
-                <div class="d-flex fw-wrap g4">
-                  <span class="s-tag">javascript<button type="button" class="s-tag--dismiss" aria-label="Remove javascript">×</button></span>
-                  <span class="s-tag">python<button type="button" class="s-tag--dismiss" aria-label="Remove python">×</button></span>
-                  <span class="s-tag">sql<button type="button" class="s-tag--dismiss" aria-label="Remove sql">×</button></span>
-                </div>
-                <input class="s-input" id="preferredTags" name="preferredTags" type="text" placeholder="Add a tag and press Enter" />
-                <p class="s-description">Posts with these tags appear more often in your feed.</p>
+                <p class="s-description">
+                  Choose how Tech4Rum looks to you. Saved per account.
+                </p>
               </div>
 
               <!-- Ignored tags -->
               <div class="s-form-group">
                 <label class="s-label" for="ignoredTags">Ignored tags</label>
-                <div class="d-flex fw-wrap g4">
-                  <span class="s-tag s-tag__ignored">php<button type="button" class="s-tag--dismiss" aria-label="Remove php">×</button></span>
-                </div>
-                <input class="s-input" id="ignoredTags" name="ignoredTags" type="text" placeholder="Add a tag to ignore" />
+                <div class="d-flex fw-wrap g4" id="ignoredTagsList"></div>
+                <input class="s-input" id="ignoredTags" name="ignoredTags" type="text"
+                       placeholder="Add a tag and press Enter" />
                 <p class="s-description">Posts with these tags are hidden or dimmed.</p>
-              </div>
-
-              <!-- Feed preferences -->
-              <div class="d-flex fd-column g8">
-                <span class="s-label">Feed preferences</span>
-                <label class="s-checkbox">
-                  <input type="checkbox" checked />
-                  <span class="s-label">Show posts from my preferred tags first</span>
-                </label>
-                <label class="s-checkbox">
-                  <input type="checkbox" />
-                  <span class="s-label">Hide posts from ignored tags entirely</span>
-                </label>
-                <label class="s-checkbox">
-                  <input type="checkbox" checked />
-                  <span class="s-label">Show a "Recommended" section on the home feed</span>
-                </label>
               </div>
 
             </div>
           </section>
 
-          <!-- FLOATING ACTION BAR -->
+          <!-- Floating action bar -->
           <div class="ps-fixed b0 l0 r0 z-nav d-flex ai-center jc-end g8 bg-white bt bc-black-200 p16 bs-lg">
-            <button type="reset" class="s-btn s-btn__clear">Cancel</button>
-            <button type="submit" class="s-btn bg-blue-400 bg-image-none h:bg-blue-500">Save changes</button>
+            <button type="button" class="s-btn s-btn__clear" id="cancelBtn">Cancel</button>
+            <button type="submit" class="s-btn bg-blue-400 bg-image-none h:bg-blue-500" id="saveBtn">
+              Save changes
+            </button>
           </div>
 
         </form>
@@ -267,7 +249,6 @@
     </div>
   </main>
 
-  <!-- SITE FOOTER -->
   <site-footer></site-footer>
 
   <script type="module" src="./js/components/site-header.js"></script>
