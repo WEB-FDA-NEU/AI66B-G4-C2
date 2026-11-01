@@ -1,16 +1,9 @@
 /**
- * question-page.js
+ * question-page.js — renders a Q&A page from the live backend.
  *
- * Renders a Q&A page from a JSON payload and wires up the answer editor
- * (toolbar insertions, tab-to-indent, live markdown preview).
- *
- * Data can be supplied three ways:
- *   1. fetch a JSON file:        init({ src: './data/question.json' })
- *   2. inline <script> JSON:     <script type="application/json" id="question-data">…</script>
- *   3. programmatically:         renderQuestionPage(myData, rootEl)
- *
- * Timestamps in the JSON must be ISO strings. Relative labels ("2 minutes ago")
- * are computed at render time and refreshed automatically by a ticker.
+ * Data source: GET /api/posts/{id} (the URL must carry ?id=<n>).
+ * PostDetail now includes `my_vote` on the post, each answer, and each
+ * comment — used here to color the vote count and set aria-pressed.
  */
 
 import { renderMarkdown } from './markdown-renderer.js';
@@ -22,17 +15,17 @@ import {
 } from './ask-question-editor.js';
 import { tagUrl } from './tag-url.js';
 
+const API_BASE = (typeof location !== 'undefined' &&
+                  (location.port === '8000' || location.port === ''))
+  ? '' : 'http://localhost:8000';
+
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
 /* ------------------------------------------------------------------ */
 
 export function escapeHtml(str) {
   return String(str ?? '').replace(/[&<>"']/g, (c) => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;'
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   }[c]));
 }
 
@@ -55,23 +48,36 @@ export function formatAbsolute(iso) {
   });
 }
 
-/** A <time> element whose text is the relative label and whose tooltip is absolute. */
+export function formatCount(n) {
+  const num = Number(n) || 0;
+  const abs = Math.abs(num);
+  if (abs >= 1_000_000) return (num / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'm';
+  if (abs >= 1_000)     return (num / 1_000).toFixed(1).replace(/\.0$/, '') + 'k';
+  return String(num);
+}
+
+function avatarColorFor(seed) {
+  const palette = [
+    'bg-orange-300', 'bg-blue-300', 'bg-purple-300', 'bg-green-300',
+    'bg-pink-300', 'bg-yellow-300', 'bg-red-300', 'bg-blue-300'
+  ];
+  const s = String(seed || '?');
+  let hash = 0;
+  for (let i = 0; i < s.length; i++) { hash = ((hash << 5) - hash) + s.charCodeAt(i); hash |= 0; }
+  return palette[Math.abs(hash) % palette.length];
+}
+
 export function timeElement(iso, verb = '') {
+  if (!iso) return '';
   const prefix = verb ? `${escapeHtml(verb)} ` : '';
   return `${prefix}<time datetime="${escapeHtml(iso)}" data-iso="${escapeHtml(iso)}" title="${escapeHtml(formatAbsolute(iso))}">${escapeHtml(timeAgo(iso))}</time>`;
 }
 
-/**
- * Build a URL to the report page for a question or an answer.
- * @param {'question'|'answer'} type
- * @param {string|number} id
- */
 export function reportUrl(type, id) {
   const params = new URLSearchParams({ type, id: String(id) });
   return `./report.html?${params.toString()}`;
 }
 
-/** Update every [data-iso] element under `root` with a fresh label. */
 export function refreshRelativeTimes(root = document) {
   root.querySelectorAll('time[data-iso]').forEach((el) => {
     const fresh = timeAgo(el.dataset.iso);
@@ -79,10 +85,6 @@ export function refreshRelativeTimes(root = document) {
   });
 }
 
-/**
- * Refresh relative times on a schedule. Faster while content is fresh,
- * slower once everything is older than an hour. Returns a stop() function.
- */
 export function startTimeTicker(root = document, {
   fast = 30_000,
   slow = 300_000,
@@ -101,20 +103,58 @@ export function startTimeTicker(root = document, {
 }
 
 /* ------------------------------------------------------------------ */
-/* Small template pieces                                               */
+/* Data loaders                                                        */
 /* ------------------------------------------------------------------ */
 
-function voteCell(votes, accepted) {
+export async function loadPostDetail(idOrSlug) {
+  const url = API_BASE + '/api/posts/' + encodeURIComponent(String(idOrSlug));
+  const res = await fetch(url, {
+    credentials: 'include',
+    headers: { Accept: 'application/json' }
+  });
+  if (res.status === 404) throw new Error('Post not found.');
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+
+/** Kept for edit-question-page.js's legacy src fallback. */
+export async function loadQuestionData(url) {
+  const res = await fetch(url, { headers: { Accept: 'application/json' } });
+  if (!res.ok) throw new Error(`Failed to load ${url}: ${res.status} ${res.statusText}`);
+  return res.json();
+}
+
+/* ------------------------------------------------------------------ */
+/* Vote cell (with my_vote highlighting)                               */
+/* ------------------------------------------------------------------ */
+
+function voteCell(score, targetType, targetId, accepted, myVote) {
+  myVote = myVote == null ? null : Number(myVote);
+  const s = Number(score) || 0;
+  const countClass = myVote === 1 ? ' fc-green-500'
+                   : myVote === -1 ? ' fc-red-500'
+                   : '';
+
   return `
     <div class="vote-cell">
       <div class="s-vote">
-        <button class="s-vote--btn" type="button" aria-label="Up vote">
+        <button class="s-vote--btn" type="button"
+                data-vote-target-type="${escapeHtml(targetType)}"
+                data-vote-target-id="${escapeHtml(String(targetId))}"
+                data-vote-value="1"
+                aria-label="Up vote"
+                aria-pressed="${myVote === 1}">
           <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
             <path d="M1 12h16L9 4 1 12Z"/>
           </svg>
         </button>
-        <div class="s-vote--votes">${escapeHtml(votes)}</div>
-        <button class="s-vote--btn" type="button" aria-label="Down vote">
+        <div class="s-vote--votes${countClass}">${escapeHtml(String(s))}</div>
+        <button class="s-vote--btn" type="button"
+                data-vote-target-type="${escapeHtml(targetType)}"
+                data-vote-target-id="${escapeHtml(String(targetId))}"
+                data-vote-value="-1"
+                aria-label="Down vote"
+                aria-pressed="${myVote === -1}">
           <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
             <path d="M1 6h16L9 14 1 6Z"/>
           </svg>
@@ -138,15 +178,21 @@ function voteCell(votes, accepted) {
 }
 
 function userCard(user, action, iso) {
+  user = user || {};
+  const name   = user.display_name || user.username || 'anonymous';
+  const letter = name.trim().charAt(0).toUpperCase() || '?';
+  const color  = avatarColorFor(user.username || user.id || '?');
+  const rep    = formatCount(user.reputation);
+
   return `
     <div class="s-user-card">
-      <a href="#" class="s-avatar ${escapeHtml(user.avatarColor)}" aria-hidden="true" tabindex="-1">
-        <span class="s-avatar--letter">${escapeHtml(user.avatarLetter)}</span>
+      <a href="#" class="s-avatar ${escapeHtml(color)}" aria-hidden="true" tabindex="-1">
+        <span class="s-avatar--letter">${escapeHtml(letter)}</span>
       </a>
       <div class="s-user-card--column">
-        <a class="s-user-card--username" href="#">${escapeHtml(user.name)}</a>
+        <a class="s-user-card--username" href="#">${escapeHtml(name)}</a>
         <div class="s-user-card--group">
-          <span class="s-user-card--rep">${escapeHtml(user.rep)}</span>
+          <span class="s-user-card--rep">${escapeHtml(rep)}</span>
           <span class="s-user-card--time">${timeElement(iso, action)}</span>
         </div>
       </div>
@@ -154,75 +200,100 @@ function userCard(user, action, iso) {
   `;
 }
 
-function commentsBlock(comments) {
-  if (!comments || !comments.length) return '';
+/* ------------------------------------------------------------------ */
+/* Comment block (with add-a-comment form)                             */
+/* ------------------------------------------------------------------ */
+
+function renderComment(c) {
+  const authorName = (c.author && (c.author.display_name || c.author.username)) || 'anonymous';
   return `
-    <ul class="comment-list" aria-label="Comments">
-      ${comments.map((c) => `
-        <li class="comment">
-          <span class="comment--score">${escapeHtml(c.score)}</span>
-          <div class="comment--body">
-            ${escapeHtml(c.body)}
-            <a class="comment--user" href="#">– ${escapeHtml(c.user)}</a>
-            ${timeElement(c.time)}
-          </div>
-        </li>
-      `).join('')}
-    </ul>
-    <div class="comment-add">
-      <a class="s-link" href="#">Add a comment</a>
+    <li class="comment">
+      <span class="comment--score">${escapeHtml(String(c.score ?? 0))}</span>
+      <div class="comment--body">
+        ${escapeHtml(c.body)}
+        <a class="comment--user" href="#">– ${escapeHtml(authorName)}</a>
+        ${timeElement(c.created_at)}
+      </div>
+    </li>
+  `;
+}
+
+function commentsBlock(comments, targetType, targetId) {
+  const hasComments = Array.isArray(comments) && comments.length > 0;
+  return `
+    ${hasComments ? `
+      <ul class="comment-list" aria-label="Comments">
+        ${comments.map(renderComment).join('')}
+      </ul>
+    ` : ''}
+    <div class="comment-add"
+         data-comment-target-type="${escapeHtml(targetType)}"
+         data-comment-target-id="${escapeHtml(String(targetId))}">
+      <a class="s-link" href="#" data-add-comment>Add a comment</a>
+      <form class="d-none d-flex fd-column g4 mt4" data-comment-form>
+        <textarea class="s-textarea s-textarea__sm" rows="2"
+                  placeholder="Add a comment…" maxlength="800"
+                  aria-label="Comment text"></textarea>
+        <div class="d-flex g4">
+          <button class="s-btn s-btn__sm" type="submit">Add</button>
+          <button class="s-btn s-btn__clear s-btn__sm" type="button" data-comment-cancel>Cancel</button>
+        </div>
+      </form>
     </div>
   `;
 }
 
 /* ------------------------------------------------------------------ */
-/* Render the whole page from JSON                                     */
+/* Render                                                              */
 /* ------------------------------------------------------------------ */
 
 export function renderQuestionPage(data, root = document.getElementById('question-root')) {
   if (!root) throw new Error('renderQuestionPage: #question-root not found');
   if (!data) throw new Error('renderQuestionPage: no data provided');
+  if (data.post_type === 'discussion') {
+    throw new Error('This page renders questions only.');
+  }
 
-  const answers = data.answers || [];
+  const answers = Array.isArray(data.answers) ? data.answers : [];
 
   root.innerHTML = `
-    <!-- Title -->
     <div class="d-flex ai-start jc-space-between g16 mb8">
       <h1 class="fs-headline1 fw-normal mb0">${escapeHtml(data.title)}</h1>
-      <a class="s-btn flex-shrink0" href="./ask-question.html">Ask Question</a>
+      <a class="s-btn fl-shrink0" href="./ask-question.html">Ask Question</a>
     </div>
 
-    <!-- Meta -->
     <div class="post-meta">
-      <span>Asked ${timeElement(data.time)}</span>
-      <span>Modified ${timeElement(data.modifiedAt)}</span>
-      <span>Viewed <span>${Number(data.views).toLocaleString()} times</span></span>
+      <span>Asked ${timeElement(data.created_at, '')}</span>
+      ${data.updated_at && data.updated_at !== data.created_at
+        ? `<span>Modified ${timeElement(data.updated_at, '')}</span>`
+        : ''}
+      <span>Viewed <span>${Number(data.view_count || 0).toLocaleString()} times</span></span>
     </div>
 
-    <!-- Question -->
-    <article class="post-layout" id="question-${escapeHtml(data.id)}">
-      ${voteCell(data.votes, false)}
+    <article class="post-layout" id="question-${escapeHtml(String(data.id))}">
+      ${voteCell(data.score, 'post', data.id, false, data.my_vote)}
 
       <div class="post-content">
         <div class="s-prose" id="question-body"></div>
 
         <div class="post-tags">
-          ${(data.tags || []).map(t =>
-            `<a class="s-tag" href="${tagUrl(t)}">${escapeHtml(t)}</a>`
-          ).join('')}
+          ${(data.tags || []).map(t => {
+            const name = typeof t === 'string' ? t : (t && t.name) || '';
+            return `<a class="s-tag" href="${tagUrl(name)}">${escapeHtml(name)}</a>`;
+          }).join('')}
         </div>
 
         <div class="post-footer">
           <div class="post-actions">
             <a class="s-link" href="#">Share</a>
-            <a class="s-link" href="./edit-question.html">Edit</a>
+            <a class="s-link" href="./edit-question.html?id=${encodeURIComponent(data.id)}">Edit</a>
             <a class="s-link" href="#">Follow</a>
             <a class="s-link" href="#">Close</a>
             <a class="s-btn s-btn__danger s-btn__xs"
               href="${reportUrl('question', data.id)}"
               data-report
               data-report-type="question"
-              data-report-id="${escapeHtml(data.id)}"
+              data-report-id="${escapeHtml(String(data.id))}"
               title="Report this question">
               <svg class="svg-icon" aria-hidden="true" width="14" height="14" viewBox="0 0 14 14">
                 <path d="M7 1 1 12h12L7 1Zm0 3.25.75 3.5h-1.5L7 4.25ZM7 10.5a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z"/>
@@ -230,14 +301,13 @@ export function renderQuestionPage(data, root = document.getElementById('questio
               Report
             </a>
           </div>
-          ${userCard(data.author, 'asked', data.time)}
+          ${userCard(data.author, 'asked', data.created_at)}
         </div>
 
-        ${commentsBlock(data.comments)}
+        ${commentsBlock(data.comments, 'post', data.id)}
       </div>
     </article>
 
-    <!-- Answers -->
     <section class="mt32" aria-labelledby="answers-heading">
       <div class="answers-header">
         <h2 id="answers-heading">${answers.length} ${answers.length === 1 ? 'Answer' : 'Answers'}</h2>
@@ -250,8 +320,8 @@ export function renderQuestionPage(data, root = document.getElementById('questio
       </div>
 
       ${answers.map((a, i) => `
-        <article class="post-layout answer" id="answer-${escapeHtml(a.id)}">
-          ${voteCell(a.votes, a.accepted)}
+        <article class="post-layout answer" id="answer-${escapeHtml(String(a.id))}">
+          ${voteCell(a.score, 'answer', a.id, a.is_accepted === true, a.my_vote)}
 
           <div class="post-content">
             <div class="s-prose" id="answer-body-${i}"></div>
@@ -265,7 +335,7 @@ export function renderQuestionPage(data, root = document.getElementById('questio
                   href="${reportUrl('answer', a.id)}"
                   data-report
                   data-report-type="answer"
-                  data-report-id="${escapeHtml(a.id)}"
+                  data-report-id="${escapeHtml(String(a.id))}"
                   title="Report this answer">
                   <svg class="svg-icon" aria-hidden="true" width="14" height="14" viewBox="0 0 14 14">
                     <path d="M7 1 1 12h12L7 1Zm0 3.25.75 3.5h-1.5L7 4.25ZM7 10.5a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z"/>
@@ -273,67 +343,43 @@ export function renderQuestionPage(data, root = document.getElementById('questio
                   Report
                 </a>
               </div>
-              ${userCard(a.author, 'answered', a.time)}
+              ${userCard(a.author, 'answered', a.created_at)}
             </div>
 
-            ${commentsBlock(a.comments)}
+            ${commentsBlock(a.comments, 'answer', a.id)}
           </div>
         </article>
       `).join('')}
     </section>
   `;
 
-  /* ---- Render Markdown into the prose containers ---- */
-  try {
-    renderMarkdown(data.body, root.querySelector('#question-body'));
-  } catch (e) {
-    console.error('Failed to render question body:', e);
-  }
-
+  try { renderMarkdown(data.body, root.querySelector('#question-body')); }
+  catch (e) { console.error('Failed to render question body:', e); }
   answers.forEach((a, i) => {
-    try {
-      renderMarkdown(a.body, root.querySelector(`#answer-body-${i}`));
-    } catch (e) {
-      console.error(`Failed to render answer ${i}:`, e);
-    }
+    try { renderMarkdown(a.body, root.querySelector(`#answer-body-${i}`)); }
+    catch (e) { console.error(`Failed to render answer ${i}:`, e); }
   });
+
+  try { document.title = `${data.title} — Tech4Rum`; } catch (_) {}
 
   return root;
 }
 
 /* ------------------------------------------------------------------ */
-/* Live editor for the "Your Answer" form                              */
+/* Editor + vote + comment wiring                                      */
 /* ------------------------------------------------------------------ */
 
-/**
- * Wire up the answer editor: toolbar insertions, tab-to-indent, and the
- * markdown preview toggle.
- *
- * Returns a `destroy()` function that unbinds everything, or `null` if the
- * core elements (toggle/textarea/preview) can't be found.
- */
 export function initAnswerEditor({
   toolbar  = document.querySelector('.editor-toolbar'),
   toggle   = document.getElementById('preview-toggle'),
   textarea = document.getElementById('answer-body'),
   preview  = document.getElementById('answer-preview')
 } = {}) {
-  // Preview is the minimum; without it there's nothing to do.
   if (!toggle || !textarea || !preview) return null;
-
   const teardown = [];
-
-  // Preview toggle
   teardown.push(bindPreviewToggle({ toggle, textarea, preview }));
-
-  // Toolbar insertions (bold, italic, code, link, image, quote, ul, ol)
-  if (toolbar) {
-    teardown.push(bindToolbar({ toolbar, textarea, insertions: INSERTIONS }));
-  }
-
-  // Tab inserts two spaces inside the textarea
+  if (toolbar) teardown.push(bindToolbar({ toolbar, textarea, insertions: INSERTIONS }));
   teardown.push(bindTabInsert({ textarea }));
-
   return function destroy() {
     while (teardown.length) {
       try { teardown.pop()(); } catch (e) { console.error(e); }
@@ -341,66 +387,235 @@ export function initAnswerEditor({
   };
 }
 
-/**
- * Backwards-compatible alias for the old name.
- * @deprecated Use `initAnswerEditor` instead.
- */
 export const initAnswerPreview = initAnswerEditor;
 
-/* ------------------------------------------------------------------ */
-/* Data loading                                                        */
-/* ------------------------------------------------------------------ */
+function bindVoteDelegation(root, onRefetch) {
+  const onClick = async (e) => {
+    const btn = e.target.closest('[data-vote-target-id]');
+    if (!btn || !root.contains(btn)) return;
+    e.preventDefault();
 
-export async function loadQuestionData(url) {
-  const res = await fetch(url, { headers: { Accept: 'application/json' } });
-  if (!res.ok) throw new Error(`Failed to load ${url}: ${res.status} ${res.statusText}`);
-  return res.json();
+    const payload = {
+      target_type: btn.dataset.voteTargetType,
+      target_id:   Number(btn.dataset.voteTargetId),
+      value:       Number(btn.dataset.voteValue)
+    };
+    if (!payload.target_type || !payload.target_id) return;
+
+    try {
+      const res = await fetch(API_BASE + '/api/votes', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.status === 401) {
+        window.location.href = './login.html?next=' +
+          encodeURIComponent(location.pathname + location.search);
+        return;
+      }
+      if (res.status === 400) {
+        const body = await res.json().catch(() => null);
+        alert((body && body.detail) || 'You cannot vote on your own content.');
+        return;
+      }
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+
+      if (typeof onRefetch === 'function') await onRefetch();
+    } catch (err) {
+      console.error('[vote]', err);
+      alert('Could not register your vote. ' + (err.message || ''));
+    }
+  };
+
+  root.addEventListener('click', onClick);
+  return () => root.removeEventListener('click', onClick);
+}
+
+function bindCommentForms(root, onRefetch) {
+  const onClick = (e) => {
+    const addLink = e.target.closest('[data-add-comment]');
+    if (addLink) {
+      e.preventDefault();
+      const block = addLink.closest('.comment-add');
+      const form = block.querySelector('[data-comment-form]');
+      addLink.classList.add('d-none');
+      form.classList.remove('d-none');
+      form.querySelector('textarea').focus();
+      return;
+    }
+
+    const cancelBtn = e.target.closest('[data-comment-cancel]');
+    if (cancelBtn) {
+      const form = cancelBtn.closest('[data-comment-form]');
+      const block = form.closest('.comment-add');
+      form.classList.add('d-none');
+      block.querySelector('[data-add-comment]').classList.remove('d-none');
+      form.querySelector('textarea').value = '';
+      return;
+    }
+  };
+
+  const onSubmit = async (e) => {
+    const form = e.target.closest('[data-comment-form]');
+    if (!form) return;
+    e.preventDefault();
+
+    const block = form.closest('.comment-add');
+    const targetType = block.dataset.commentTargetType;
+    const targetId   = block.dataset.commentTargetId;
+    const textarea   = form.querySelector('textarea');
+    const body = (textarea.value || '').trim();
+    if (!body) return;
+
+    const submitBtn = form.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Adding…';
+
+    try {
+      const url = targetType === 'answer'
+        ? API_BASE + '/api/answers/' + encodeURIComponent(targetId) + '/comments'
+        : API_BASE + '/api/posts/' + encodeURIComponent(targetId) + '/comments';
+
+      const res = await fetch(url, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ body })
+      });
+
+      if (res.status === 401) {
+        window.location.href = './login.html?next=' +
+          encodeURIComponent(location.pathname + location.search);
+        return;
+      }
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error((err && (err.detail || err.message)) || ('HTTP ' + res.status));
+      }
+
+      textarea.value = '';
+      if (typeof onRefetch === 'function') await onRefetch();
+    } catch (err) {
+      console.error('[comment]', err);
+      alert('Could not add your comment. ' + (err.message || ''));
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Add';
+    }
+  };
+
+  root.addEventListener('click', onClick);
+  root.addEventListener('submit', onSubmit);
+  return () => {
+    root.removeEventListener('click', onClick);
+    root.removeEventListener('submit', onSubmit);
+  };
+}
+
+async function submitAnswer({ postId, textarea, onSuccess }) {
+  const body = (textarea && textarea.value || '').trim();
+  if (body.length < 5) {
+    alert('Answers must be at least 5 characters.');
+    return;
+  }
+  try {
+    const res = await fetch(
+      API_BASE + '/api/posts/' + encodeURIComponent(String(postId)) + '/answers',
+      {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ body })
+      }
+    );
+    if (res.status === 401) {
+      window.location.href = './login.html?next=' +
+        encodeURIComponent(location.pathname + location.search);
+      return;
+    }
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error((err && (err.detail || err.message)) || ('HTTP ' + res.status));
+    }
+    if (textarea) textarea.value = '';
+    if (typeof onSuccess === 'function') await onSuccess();
+  } catch (err) {
+    console.error('[answer]', err);
+    alert('Could not post your answer. ' + (err.message || ''));
+  }
+}
+
+function wireAnswerSubmit({ postId, rootEl }) {
+  const section = document.querySelector('section[aria-labelledby="your-answer-heading"]');
+  if (!section) return () => {};
+  const btn = section.querySelector('button.s-btn');
+  const textarea = document.getElementById('answer-body');
+  if (!btn || !textarea) return () => {};
+
+  const onClick = async (e) => {
+    e.preventDefault();
+    btn.disabled = true;
+    btn.textContent = 'Posting…';
+    await submitAnswer({
+      postId, textarea,
+      onSuccess: async () => {
+        try {
+          const fresh = await loadPostDetail(postId);
+          renderQuestionPage(fresh, rootEl);
+        } catch (err) { console.error('[answer] refetch failed:', err); }
+      }
+    });
+    btn.disabled = false;
+    btn.textContent = 'Post Your Answer';
+  };
+
+  btn.addEventListener('click', onClick);
+  return () => btn.removeEventListener('click', onClick);
 }
 
 /* ------------------------------------------------------------------ */
 /* Bootstrap                                                           */
 /* ------------------------------------------------------------------ */
 
-/**
- * Init the page. Priority for data source:
- *   1. explicit `src` option       → fetch()
- *   2. data-src on #question-root  → fetch()
- *   3. inline #question-data       → JSON.parse()
- *
- * Returns { stop, editor } where:
- *   - stop()   halts the relative-time ticker
- *   - editor   is the answer-editor teardown (or null)
- */
-export async function init({ src, root, autoStartTicker = true } = {}) {
+export async function init({ id, root, autoStartTicker = true } = {}) {
   const rootEl = root || document.getElementById('question-root');
-  const dataEl = document.getElementById('question-data');
 
-  let data = null;
   let stopTicker = null;
+  let destroyVotes = null;
+  let destroyComments = null;
+  let destroySubmit = null;
 
   try {
     if (!rootEl) throw new Error('#question-root not found');
 
-    const url = src || rootEl.dataset.src;
-    if (url) {
-      data = await loadQuestionData(url);
-    } else if (dataEl) {
-      data = JSON.parse(dataEl.textContent);
-    } else {
-      throw new Error('No question data source (no src, data-src, or #question-data)');
-    }
+    const urlId = (() => {
+      try { return new URLSearchParams(location.search).get('id'); }
+      catch (_) { return null; }
+    })();
+    const postId = id != null ? String(id) : (urlId ? String(urlId) : null);
+    if (!postId) throw new Error('No post selected — add ?id=<n> to the URL.');
 
+    const data = await loadPostDetail(postId);
     renderQuestionPage(data, rootEl);
 
-    if (autoStartTicker) {
-      stopTicker = startTimeTicker(rootEl);
-    }
+    const refetch = async () => {
+      const fresh = await loadPostDetail(postId);
+      renderQuestionPage(fresh, rootEl);
+    };
+
+    destroyVotes    = bindVoteDelegation(rootEl, refetch);
+    destroyComments = bindCommentForms(rootEl, refetch);
+    destroySubmit   = wireAnswerSubmit({ postId, rootEl });
+
+    if (autoStartTicker) stopTicker = startTimeTicker(rootEl);
   } catch (err) {
     console.error('Could not render question page:', err);
     if (rootEl) {
       rootEl.innerHTML = `
         <p class="s-notice s-notice__danger" role="alert">
-          Could not load the question. See the console for details.
+          ${escapeHtml(err.message || 'Could not load the question.')}
         </p>
       `;
     }
@@ -409,29 +624,20 @@ export async function init({ src, root, autoStartTicker = true } = {}) {
   const destroyEditor = initAnswerEditor();
 
   return {
-    stop: () => stopTicker && stopTicker(),
+    stop() {
+      if (stopTicker)      stopTicker();
+      if (destroyVotes)    destroyVotes();
+      if (destroyComments) destroyComments();
+      if (destroySubmit)   destroySubmit();
+      if (destroyEditor)   destroyEditor();
+    },
     editor: destroyEditor
   };
 }
 
-/* Auto-bootstrap when loaded as a module and no explicit call is made. */
-// if (document.readyState === 'loading') {
-//   document.addEventListener('DOMContentLoaded', () => { init(); }, { once: true });
-// } else {
-//   init();
-// }
-
 export default {
-  init,
-  renderQuestionPage,
-  initAnswerEditor,
-  initAnswerPreview,
-  loadQuestionData,
-  refreshRelativeTimes,
-  startTimeTicker,
-  escapeHtml,
-  timeAgo,
-  formatAbsolute,
-  timeElement,
-  reportUrl,
+  init, renderQuestionPage, initAnswerEditor, initAnswerPreview,
+  loadPostDetail, loadQuestionData,
+  refreshRelativeTimes, startTimeTicker,
+  escapeHtml, timeAgo, formatAbsolute, formatCount, timeElement, reportUrl,
 };

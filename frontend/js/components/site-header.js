@@ -1,8 +1,22 @@
 // ============================================================
 //  <site-header>  —  Custom Element (Web Components)
+//
+//  Auth flow:
+//    - On mount, calls GET /api/auth/me with credentials:'include'.
+//    - 200 → renders user chip (letter avatar derived from display_name).
+//    - 401 → renders Log in / Sign up.
+//    - Logout calls POST /api/auth/logout then reloads home.
+//
+//  No localStorage. No `is-logged-in` attribute dependency
+//  (still tolerated in HTML for backward compat, ignored here).
 // ============================================================
 
 const SEARCH_URL = './search_result.html';
+
+const API_BASE = (typeof location !== 'undefined' &&
+                  (location.port === '8000' || location.port === ''))
+  ? ''
+  : 'http://localhost:8000';
 
 const TEMPLATE = /* html */ `
 <header class="site-header">
@@ -30,7 +44,33 @@ const AUTH_GUEST = /* html */ `
   <a class="s-btn s-btn__sm" href="./register.html">Sign up</a>
 `;
 
-const AUTH_USER = /* html */ `
+function escapeHtml(str) {
+  return String(str ?? '').replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+// Frozen rule: no avatar storage — derive a character avatar client-side.
+function avatarColorFor(seed) {
+  const palette = [
+    'bg-orange-300', 'bg-blue-300', 'bg-purple-300', 'bg-green-300',
+    'bg-pink-300', 'bg-yellow-300', 'bg-red-300', 'bg-blue-300'
+  ];
+  const s = String(seed || '?');
+  let hash = 0;
+  for (let i = 0; i < s.length; i++) {
+    hash = ((hash << 5) - hash) + s.charCodeAt(i);
+    hash |= 0;
+  }
+  return palette[Math.abs(hash) % palette.length];
+}
+
+function authUserHtml(user) {
+  const displayName = (user && (user.display_name || user.username)) || '?';
+  const letter = displayName.trim().charAt(0).toUpperCase() || '?';
+  const color  = avatarColorFor((user && user.username) || (user && user.id) || '?');
+
+  return /* html */ `
   <a href="./settings.html"
      class="s-btn s-btn__clear s-btn__icon ml4"
      aria-label="Settings"
@@ -41,85 +81,86 @@ const AUTH_USER = /* html */ `
   </a>
 
   <a href="./my-content.html"
-     class="s-avatar ml4 header-user-avatar"
+     class="s-avatar ml4 header-user-avatar ${color}"
      aria-label="My content"
      title="My content">
-    <img src="./img/avatar.png"
-         alt=""
-         class="s-avatar--image"
-         width="32" height="32">
+    <span class="s-avatar--letter">${escapeHtml(letter)}</span>
   </a>
 
-  <a href="./login.html"
+  <a href="#"
      class="s-btn s-btn__clear s-btn__sm ml4 header-logout-btn"
      aria-label="Log out"
      title="Log out"
      data-logout>
     Log out
   </a>
-`;
+  `;
+}
 
 const LOGO_LIGHT = './img/Tech4Rum_logo.png';
 const LOGO_DARK  = './img/Tech4Rum_dark_logo.png';
 
 class SiteHeader extends HTMLElement {
-  static get observedAttributes() {
-    return ['is-logged-in'];
-  }
-
-  get isLoggedIn() {
-    return this.getAttribute('is-logged-in') === 'true';
-  }
-
   connectedCallback() {
     this.innerHTML = TEMPLATE;
-
     this.classList.add('d-block', 'ps-sticky', 't0', 'z-nav');
 
+    // Logo swap on theme change
     const logo = this.querySelector('[data-logo]');
     const syncLogo = () => {
       const dark = document.body.classList.contains('theme-dark');
-      logo.src = dark ? LOGO_DARK : LOGO_LIGHT;
+      if (logo) logo.src = dark ? LOGO_DARK : LOGO_LIGHT;
     };
     syncLogo();
-
     new MutationObserver(syncLogo).observe(document.body, {
       attributes: true,
       attributeFilter: ['class']
     });
 
-    const active = this.getAttribute('active');
-    if (active) {
-      this.querySelector(`[data-nav="${active}"]`)?.classList.add('is-active');
-    }
-
     this._initSearch();
-    this._renderAuth();
+    this._loadCurrentUser();
   }
 
-  attributeChangedCallback(name, oldValue, newValue) {
-    if (name === 'is-logged-in' && oldValue !== newValue) {
-      this._renderAuth();
-    }
-  }
-
-  _renderAuth() {
+  async _loadCurrentUser() {
     const slot = this.querySelector('[data-auth-slot]');
     if (!slot) return;
-    slot.innerHTML = this.isLoggedIn ? AUTH_USER : AUTH_GUEST;
-    this._wireLogout();
+
+    // Optimistic guest paint — swapped to user UI when /me returns 200.
+    slot.innerHTML = AUTH_GUEST;
+    this.removeAttribute('is-logged-in');
+
+    try {
+      const res = await fetch(API_BASE + '/api/auth/me', {
+        credentials: 'include',
+        headers: { Accept: 'application/json' }
+      });
+
+      if (res.ok) {
+        const user = await res.json();
+        slot.innerHTML = authUserHtml(user);
+        this.setAttribute('is-logged-in', 'true');
+        this._wireLogout();
+      } else {
+        this.setAttribute('is-logged-in', 'false');
+      }
+    } catch (_) {
+      // Network error — stay as guest.
+      this.setAttribute('is-logged-in', 'false');
+    }
   }
 
   _wireLogout() {
     const btn = this.querySelector('[data-logout]');
     if (!btn) return;
-    btn.addEventListener('click', (e) => {
+    btn.addEventListener('click', async (e) => {
       e.preventDefault();
       try {
-        localStorage.removeItem('app_token');
-        localStorage.removeItem('app_user');
-      } catch { /* ignore */ }
-      window.location.href = './login.html';
+        await fetch(API_BASE + '/api/auth/logout', {
+          method: 'POST',
+          credentials: 'include'
+        });
+      } catch (_) { /* clear locally regardless */ }
+      window.location.href = './index.html';
     });
   }
 
@@ -128,10 +169,9 @@ class SiteHeader extends HTMLElement {
     if (!input) return;
 
     try {
-      const params = new URLSearchParams(location.search);
-      const q = params.get('q');
+      const q = new URLSearchParams(location.search).get('q');
       if (q) input.value = q;
-    } catch { /* ignore */ }
+    } catch (_) { /* ignore */ }
 
     input.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter') return;

@@ -1,37 +1,40 @@
 /**
  * search-results.js
  *
- * Renders the /search_result.html page.
- *   - reads ?q=, ?tab=, ?page= from the URL
- *   - searches across BOTH ./mock/question-list.json and ./mock/discussion-list.json
- *   - sorts client-side (relevance / newest)
- *   - paginates client-side
- *   - toggles the "Advanced Search Tips" table
+ * Renders the /search_result.html page from the live backend.
+ *   - Single call: GET /api/posts?q=&sort=&page=&page_size=
+ *     (no `type` param → backend returns BOTH questions and discussions)
+ *   - Reads ?q=, ?tab=, ?page= from the URL
+ *   - Sort nav refetches from the backend (server-side sort)
+ *   - Pagination reads total/page/page_size from the response envelope
+ *   - Advanced Search Tips toggle stays client-side
  *
- * Cards use the same markup as ./js/render-questions.js and
- * ./js/pages/discussions.js so every listing looks identical.
- * Type badge sits at the top of the stats column, using the shared
- * `.question-badge` / `.discussion-badge` classes.
+ * Fields consumed: PostCard (id, post_type, title, body_excerpt, author,
+ *   tags, score, answer_count, reply_count, view_count, is_answered,
+ *   created_at, updated_at).
  *
- * Tag links go through makeTagUrl().
+ * All styling lives in ./css/*.css.
  */
 
-const QUESTIONS_URL   = './mock/question-list.json';
-const DISCUSSIONS_URL = './mock/discussion-list.json';
-const LIST_ID         = 'search-results';
-const PAGE_SIZE       = 15;
-const EXCERPT_LENGTH  = 180;
+const LIST_ID   = 'search-results';
+const PAGE_SIZE = 15;
 
-/* ------------------------------------------------------------------ */
-/* State                                                               */
-/* ------------------------------------------------------------------ */
+// URL slug → backend sort key.
+// Backend has no true "relevance" scorer (q is a LIKE filter on title+body),
+// so we use `votes` as the closest proxy: high-score, keyword-matching posts
+// float to the top.
+const SORT_MAP = {
+  'relevance': 'votes',
+  'newest':    'newest'
+};
+
+const API_BASE = (location.port === '8000' || location.port === '')
+  ? '' : 'http://localhost:8000';
 
 const state = {
   query: '',
   sort: 'relevance',
-  page: 1,
-  pageSize: PAGE_SIZE,
-  all: []
+  page: 1
 };
 
 /* ------------------------------------------------------------------ */
@@ -74,57 +77,20 @@ function plural(count, singular, pluralForm) {
   return count === 1 ? singular : (pluralForm || singular + 's');
 }
 
-function truncate(text, len) {
-  const s = String(text ?? '').replace(/\s+/g, ' ').trim();
-  if (s.length <= len) return s;
-  return s.slice(0, len).replace(/\s+\S*$/, '') + '…';
-}
-
 function makeTagUrl(name) {
   if (typeof window.tagUrl === 'function') return window.tagUrl(name);
   return './tag-detail.html?tag=' + encodeURIComponent(String(name || ''));
 }
 
-function summariseAnswers(answers) {
-  const list = Array.isArray(answers) ? answers : [];
-  return {
-    total: list.length,
-    accepted: list.some((a) => a && a.accepted === true)
-  };
-}
-
-/* ------------------------------------------------------------------ */
-/* Normalize                                                           */
-/* ------------------------------------------------------------------ */
-
-function normalizeQuestion(q) {
-  return {
-    id: q.id,
-    type: 'question',
-    title: q.title,
-    body: q.body || '',
-    tags: q.tags || [],
-    votes: Number(q.votes) || 0,
-    answers: Array.isArray(q.answers) ? q.answers : [],
-    views: Number(q.views) || 0,
-    time: q.time,
-    author: q.author || {}
-  };
-}
-
-function normalizeDiscussion(d) {
-  return {
-    id: d.id,
-    type: 'discussion',
-    title: d.title,
-    body: d.body || '',
-    tags: d.tags || [],
-    votes: Number(d.votes) || 0,
-    replyCount: Number(d.replyCount) || 0,
-    views: Number(d.views) || 0,
-    time: d.time,
-    author: d.author || {}
-  };
+function colorFromString(str) {
+  const palette = [
+    'bg-orange-300', 'bg-blue-300', 'bg-purple-300', 'bg-green-300',
+    'bg-pink-300', 'bg-yellow-300', 'bg-red-300', 'bg-blue-300'
+  ];
+  const s = String(str || '?');
+  let hash = 0;
+  for (let i = 0; i < s.length; i++) { hash = ((hash << 5) - hash) + s.charCodeAt(i); hash |= 0; }
+  return palette[Math.abs(hash) % palette.length];
 }
 
 /* ------------------------------------------------------------------ */
@@ -132,26 +98,26 @@ function normalizeDiscussion(d) {
 /* ------------------------------------------------------------------ */
 
 function renderTagsHtml(tags) {
-  return (tags || []).map((t) =>
-    `<a class="s-tag" href="${makeTagUrl(t)}">${escapeHtml(t)}</a>`
-  ).join('');
+  return (tags || []).map((t) => {
+    const name = typeof t === 'string' ? t : (t && t.name) || '';
+    return `<a class="s-tag" href="${escapeHtml(makeTagUrl(name))}">${escapeHtml(name)}</a>`;
+  }).join('');
 }
 
 function renderAuthorCard(author, timeIso, action) {
   author = author || {};
-  const avatarBg  = author.avatarColor  || 'bg-blue-300';
-  const avatarLet = author.avatarLetter || (author.name ? author.name.charAt(0) : '?');
-  const rep = author.rep != null
-    ? author.rep
-    : (author.reputation != null ? author.reputation : '0');
+  const name   = author.display_name || author.username || 'anonymous';
+  const letter = name.trim().charAt(0).toUpperCase() || '?';
+  const color  = colorFromString(author.username || author.id || '?');
+  const rep    = formatCount(author.reputation);
 
   return `
     <div class="s-user-card">
-      <a href="#" class="s-avatar ${escapeHtml(avatarBg)}" aria-hidden="true" tabindex="-1">
-        <span class="s-avatar--letter">${escapeHtml(avatarLet)}</span>
+      <a href="#" class="s-avatar ${escapeHtml(color)}" aria-hidden="true" tabindex="-1">
+        <span class="s-avatar--letter">${escapeHtml(letter)}</span>
       </a>
       <div class="s-user-card--column">
-        <a class="s-user-card--username" href="#">${escapeHtml(author.name || 'anonymous')}</a>
+        <a class="s-user-card--username" href="#">${escapeHtml(name)}</a>
         <div class="s-user-card--group">
           <span class="s-user-card--rep">${escapeHtml(rep)}</span>
           <span class="s-user-card--time">${escapeHtml(action || 'asked')} ${escapeHtml(formatRelativeTime(timeIso))}</span>
@@ -161,22 +127,19 @@ function renderAuthorCard(author, timeIso, action) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Card renderers                                                      */
+/* Card renderers (backend PostCard shape)                             */
 /* ------------------------------------------------------------------ */
 
 function renderQuestionCard(q) {
-  const stats  = summariseAnswers(q.answers);
-  const votes  = q.votes;
-  const views  = q.views;
-  const hasAns = stats.total > 0;
+  const votes    = Number(q.score) || 0;
+  const views    = Number(q.view_count) || 0;
+  const total    = Number(q.answer_count) || 0;
+  const accepted = q.is_answered === true;
 
-  const answeredCls = stats.accepted ? ' post-stat--answered' : '';
-
-  const answersCell = hasAns
-    ? `<span class="post-stat--num">${escapeHtml(String(stats.total))}</span>${plural(stats.total, 'answer')}`
+  const answeredCls = accepted ? ' post-stat--answered' : '';
+  const answersCell = total > 0
+    ? `<span class="post-stat--num">${escapeHtml(String(total))}</span>${plural(total, 'answer')}`
     : `<span class="post-stat--num">0</span>answers`;
-
-  const excerpt = truncate(q.body, EXCERPT_LENGTH);
 
   return `
     <div class="s-post-summary" data-question-id="${escapeHtml(q.id)}">
@@ -192,28 +155,23 @@ function renderQuestionCard(q) {
           ${plural(views, 'view')}
         </div>
       </div>
-
       <div class="s-post-summary--content">
         <h3 class="s-post-summary--title mb0">
-          <a class="s-post-summary--title-link" href="#">${escapeHtml(q.title)}</a>
+          <a class="s-post-summary--title-link" href="./question-detail.html?id=${encodeURIComponent(q.id)}">${escapeHtml(q.title)}</a>
         </h3>
-
-        ${excerpt ? `<div class="s-post-summary--excerpt v-truncate2">${escapeHtml(excerpt)}</div>` : ''}
-
+        ${q.body_excerpt ? `<div class="s-post-summary--excerpt v-truncate2">${escapeHtml(q.body_excerpt)}</div>` : ''}
         <div class="d-flex ai-center jc-space-between g8 fw-wrap mt8">
           <div class="s-post-summary--tags mt0">${renderTagsHtml(q.tags)}</div>
-          ${renderAuthorCard(q.author, q.time, 'asked')}
+          ${renderAuthorCard(q.author, q.created_at, 'asked')}
         </div>
       </div>
     </div>`;
 }
 
 function renderDiscussionCard(d) {
-  const votes   = d.votes;
-  const replies = d.replyCount;
-  const views   = d.views;
-
-  const excerpt = truncate(d.body, EXCERPT_LENGTH);
+  const votes   = Number(d.score) || 0;
+  const views   = Number(d.view_count) || 0;
+  const replies = Number(d.reply_count) || 0;
 
   return `
     <div class="s-post-summary" data-discussion-id="${escapeHtml(d.id)}">
@@ -224,7 +182,7 @@ function renderDiscussionCard(d) {
           ${plural(votes, 'vote')}
         </div>
         <div class="post-stat">
-          <span class="post-stat--num">${escapeHtml(String(replies))}</span>
+          <span class="post-stat--num">${escapeHtml(formatCount(replies))}</span>
           ${plural(replies, 'reply', 'replies')}
         </div>
         <div class="post-stat">
@@ -232,24 +190,21 @@ function renderDiscussionCard(d) {
           ${plural(views, 'view')}
         </div>
       </div>
-
       <div class="s-post-summary--content">
         <h3 class="s-post-summary--title mb0">
-          <a class="s-post-summary--title-link" href="#">${escapeHtml(d.title)}</a>
+          <a class="s-post-summary--title-link" href="./discussion-detail.html?id=${encodeURIComponent(d.id)}">${escapeHtml(d.title)}</a>
         </h3>
-
-        ${excerpt ? `<div class="s-post-summary--excerpt v-truncate2">${escapeHtml(excerpt)}</div>` : ''}
-
+        ${d.body_excerpt ? `<div class="s-post-summary--excerpt v-truncate2">${escapeHtml(d.body_excerpt)}</div>` : ''}
         <div class="d-flex ai-center jc-space-between g8 fw-wrap mt8">
           <div class="s-post-summary--tags mt0">${renderTagsHtml(d.tags)}</div>
-          ${renderAuthorCard(d.author, d.time, 'started')}
+          ${renderAuthorCard(d.author, d.created_at, 'started')}
         </div>
       </div>
     </div>`;
 }
 
 function renderRow(post) {
-  return post.type === 'discussion' ? renderDiscussionCard(post) : renderQuestionCard(post);
+  return post.post_type === 'discussion' ? renderDiscussionCard(post) : renderQuestionCard(post);
 }
 
 /* ------------------------------------------------------------------ */
@@ -288,89 +243,12 @@ function renderError(listEl, err) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Search scoring + sort                                               */
+/* Pagination                                                          */
 /* ------------------------------------------------------------------ */
-
-function scorePost(post, q) {
-  if (!q) return 0;
-  const needle = q.toLowerCase();
-  const title = String(post.title || '').toLowerCase();
-  const body  = String(post.body  || '').toLowerCase();
-  const tags  = (post.tags || []).map((t) => String(t).toLowerCase());
-
-  let score = 0;
-  if (title.includes(needle))               score += 10;
-  if (tags.some((t) => t.includes(needle))) score += 6;
-  if (body.includes(needle))                score += 2;
-  return score;
-}
-
-function filterAndSort() {
-  const q = state.query.trim();
-
-  let list;
-  if (q) {
-    list = state.all
-      .map((p) => ({ post: p, score: scorePost(p, q) }))
-      .filter((x) => x.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .map((x) => x.post);
-  } else {
-    list = [...state.all];
-  }
-
-  if (state.sort === 'newest') {
-    list.sort((a, b) => {
-      const ta = new Date(a.time).getTime() || 0;
-      const tb = new Date(b.time).getTime() || 0;
-      return tb - ta;
-    });
-  } else if (!q) {
-    list.sort((a, b) => {
-      const ta = new Date(a.time).getTime() || 0;
-      const tb = new Date(b.time).getTime() || 0;
-      return tb - ta;
-    });
-  }
-
-  return list;
-}
-
-/* ------------------------------------------------------------------ */
-/* Render + pagination                                                 */
-/* ------------------------------------------------------------------ */
-
-function renderResults(listEl) {
-  const filtered = filterAndSort();
-  const total    = filtered.length;
-  const pages    = Math.max(1, Math.ceil(total / state.pageSize));
-
-  if (state.page > pages) state.page = 1;
-
-  const start = (state.page - 1) * state.pageSize;
-  const slice = filtered.slice(start, start + state.pageSize);
-
-  if (!slice.length) {
-    renderEmpty(listEl);
-  } else {
-    listEl.removeAttribute('aria-busy');
-    listEl.innerHTML = slice.map(renderRow).join('');
-  }
-
-  const countEl = document.querySelector('[data-result-count]');
-  if (countEl) {
-    countEl.textContent = total === 0
-      ? 'No results'
-      : `${total.toLocaleString()} ${plural(total, 'result')}`;
-  }
-
-  renderPagination(pages);
-}
 
 function renderPagination(totalPages) {
   const nav = document.querySelector('[data-pagination]');
   if (!nav) return;
-
   if (totalPages <= 1) { nav.innerHTML = ''; return; }
 
   const cur = state.page;
@@ -387,40 +265,45 @@ function renderPagination(totalPages) {
     last = p;
   }
 
-  const makeLink = (p, label) =>
-    `<a class="s-pagination--item js-page" href="?q=${encodeURIComponent(state.query)}&tab=${state.sort}&page=${p}"
-        data-page="${p}" aria-label="Go to page ${p}">${label}</a>`;
+  const prevArrow = '<svg class="svg-icon" aria-hidden="true" width="12" height="12" viewBox="0 0 12 12"><path d="M7.35.65 6.29 1.71 9.59 5H.65v1.5h8.94L6.29 9.79l1.06 1.06L12 6 7.35.65Z" transform="rotate(180 6 6)"/></svg>';
+  const nextArrow = '<svg class="svg-icon" aria-hidden="true" width="12" height="12" viewBox="0 0 12 12"><path d="M7.35.65 6.29 1.71 9.59 5H.65v1.5h8.94L6.29 9.79l1.06 1.06L12 6 7.35.65Z"/></svg>';
+
+  const makeLink = (p, html, aria) =>
+    `<a class="s-pagination--item${aria ? ' s-pagination--item__nav' : ''} js-page" href="#" data-page="${p}" aria-label="${aria || ('Go to page ' + p)}">${html}</a>`;
 
   const parts = items.map((item) => {
-    if (item.ellipsis) return `<span class="s-pagination--item s-pagination--item__clear">…</span>`;
+    if (item.ellipsis) return '<span class="s-pagination--item s-pagination--item__clear">…</span>';
     if (item.page === cur) return `<span class="s-pagination--item is-selected" aria-current="page">${item.page}</span>`;
     return makeLink(item.page, item.page);
   });
 
-  if (cur < totalPages) parts.push(makeLink(cur + 1, 'Next'));
-  nav.innerHTML = parts.join('');
+  if (cur > 1) parts.unshift(makeLink(cur - 1, prevArrow, 'Previous page'));
+  if (cur < totalPages) parts.push(makeLink(cur + 1, nextArrow, 'Next page'));
 
+  nav.innerHTML = parts.join('');
   nav.querySelectorAll('.js-page').forEach((a) => {
     a.addEventListener('click', (e) => {
       e.preventDefault();
       const p = Number(a.dataset.page);
       if (!p) return;
       state.page = p;
-      renderResults(document.getElementById(LIST_ID));
+      updateUrl();
+      load();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     });
   });
 }
 
 /* ------------------------------------------------------------------ */
-/* Wiring                                                              */
+/* URL state                                                           */
 /* ------------------------------------------------------------------ */
 
 function readUrlState() {
   const p = new URLSearchParams(location.search);
-  state.query = p.get('q')   || '';
-  state.sort  = p.get('tab') || 'relevance';
-  state.page  = Math.max(1, Number(p.get('page') || 1));
+  state.query = p.get('q') || '';
+  const tab = p.get('tab') || 'relevance';
+  state.sort = SORT_MAP[tab] ? tab : 'relevance';
+  state.page = Math.max(1, Number(p.get('page') || 1));
 
   const queryEl = document.querySelector('[data-query]');
   if (queryEl) queryEl.textContent = state.query || '(empty)';
@@ -431,6 +314,19 @@ function readUrlState() {
       b.classList.toggle('is-selected', b.dataset.sort === state.sort));
   }
 }
+
+function updateUrl() {
+  const p = new URLSearchParams(location.search);
+  if (state.query) p.set('q', state.query); else p.delete('q');
+  p.set('tab', state.sort);
+  if (state.page > 1) p.set('page', String(state.page)); else p.delete('page');
+  const qs = p.toString();
+  history.replaceState(null, '', location.pathname + (qs ? '?' + qs : ''));
+}
+
+/* ------------------------------------------------------------------ */
+/* Wiring                                                              */
+/* ------------------------------------------------------------------ */
 
 function bindAdvancedTips() {
   const toggle = document.querySelector('[data-advanced-tips-toggle]');
@@ -443,42 +339,88 @@ function bindAdvancedTips() {
   });
 }
 
-function bindSortNav(listEl) {
+function bindSortNav() {
   const nav = document.querySelector('[data-sort-nav]');
   if (!nav) return;
 
-  nav.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-sort]');
-    if (!btn) return;
-    e.preventDefault();
+  nav.querySelectorAll('[data-sort]').forEach((a) => {
+    const tab = a.dataset.sort;
+    if (!SORT_MAP[tab]) return;
 
-    state.sort = btn.dataset.sort;
-    state.page = 1;
+    // Clone + rebind so repeated calls don't stack listeners.
+    const fresh = a.cloneNode(true);
+    a.parentNode.replaceChild(fresh, a);
 
-    nav.querySelectorAll('[data-sort]').forEach((b) =>
-      b.classList.toggle('is-selected', b === btn));
-
-    if (state.all.length) renderResults(listEl);
+    fresh.addEventListener('click', (e) => {
+      e.preventDefault();
+      state.sort = tab;
+      state.page = 1;
+      nav.querySelectorAll('[data-sort]').forEach((b) =>
+        b.classList.toggle('is-selected', b.dataset.sort === tab));
+      updateUrl();
+      load();
+    });
   });
 }
 
-async function fetchJson(url) {
-  const res = await fetch(url, { cache: 'no-store' });
-  if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText} — ${url}`);
-  const text = await res.text();
-  if (!text.trim()) throw new Error(`Empty response from ${url}`);
-  try {
-    return JSON.parse(text);
-  } catch (e) {
-    throw new Error(`Invalid JSON at ${url}: ${e.message}`);
-  }
+/* ------------------------------------------------------------------ */
+/* Loader                                                              */
+/* ------------------------------------------------------------------ */
+
+function load() {
+  const listEl = document.getElementById(LIST_ID);
+  if (!listEl) return;
+
+  renderLoading(listEl);
+
+  const params = new URLSearchParams();
+  if (state.query) params.set('q', state.query);
+  params.set('sort', SORT_MAP[state.sort] || 'votes');
+  params.set('page', String(state.page));
+  params.set('page_size', String(PAGE_SIZE));
+
+  const url = API_BASE + '/api/posts?' + params.toString();
+
+  fetch(url, { credentials: 'include', headers: { Accept: 'application/json' } })
+    .then((res) => {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    })
+    .then((data) => {
+      const items = Array.isArray(data.items) ? data.items : [];
+      const total = Number(data.total) || 0;
+      const pageSize = Number(data.page_size) || PAGE_SIZE;
+      const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+      if (!items.length) renderEmpty(listEl);
+      else {
+        listEl.removeAttribute('aria-busy');
+        listEl.innerHTML = items.map(renderRow).join('');
+      }
+
+      const countEl = document.querySelector('[data-result-count]');
+      if (countEl) {
+        countEl.textContent = total === 0
+          ? 'No results'
+          : `${total.toLocaleString()} ${plural(total, 'result')}`;
+      }
+
+      renderPagination(totalPages);
+    })
+    .catch((err) => {
+      console.error('[search-results]', err);
+      renderError(listEl, err);
+      renderPagination(0);
+      const countEl = document.querySelector('[data-result-count]');
+      if (countEl) countEl.textContent = '';
+    });
 }
 
 /* ------------------------------------------------------------------ */
 /* Bootstrap                                                           */
 /* ------------------------------------------------------------------ */
 
-async function init() {
+function init() {
   const listEl = document.getElementById(LIST_ID);
   if (!listEl) {
     console.warn('[search-results] #search-results not found — aborting.');
@@ -487,33 +429,8 @@ async function init() {
 
   readUrlState();
   bindAdvancedTips();
-  bindSortNav(listEl);
-
-  renderLoading(listEl);
-
-  if (location.protocol === 'file:') {
-    renderError(listEl, new Error(
-      'Page opened via file:// — fetch is blocked. Serve the project over HTTP.'
-    ));
-    return;
-  }
-
-  try {
-    const [questionsRaw, discussionsRaw] = await Promise.all([
-      fetchJson(QUESTIONS_URL),
-      fetchJson(DISCUSSIONS_URL)
-    ]);
-
-    const questions   = (Array.isArray(questionsRaw)   ? questionsRaw   : []).map(normalizeQuestion);
-    const discussions = (Array.isArray(discussionsRaw) ? discussionsRaw : []).map(normalizeDiscussion);
-
-    state.all = [...questions, ...discussions];
-
-    renderResults(listEl);
-  } catch (err) {
-    console.error('[search-results] Failed to load:', err);
-    renderError(listEl, err);
-  }
+  bindSortNav();
+  load();
 }
 
 if (document.readyState === 'loading') {

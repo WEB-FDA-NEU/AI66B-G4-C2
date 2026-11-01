@@ -1,48 +1,42 @@
-/**
- * tag-detail.js
- *
- * Renders a single tag's page (tag-detail.html).
- *   - reads ?tag=<name> from the URL
- *   - shows tag name + description from ./mock/tags.json
- *   - "Questions" tab:   ./mock/question-list.json   filtered by tag
- *   - "Discussions" tab: ./mock/discussion-list.json filtered by tag
- *   - sort tabs: Trending / Newest / Most upvotes / Most views / Most replies
- *
- * Cards are rendered with the same markup as ./js/render-questions.js and
- * ./js/pages/discussions.js so every listing looks identical.
- * Type badge sits at the top of the stats column, using the shared
- * `.question-badge` / `.discussion-badge` classes.
- *
- * Classic script (loaded with <script src> not type=module).
+/* tag-detail.js — single tag page.
+ *   - GET /api/tags/{name}                            → tag metadata
+ *   - GET /api/posts?tag={name}&type=question&...     → questions
+ *   - GET /api/posts?tag={name}&type=discussion&...   → discussions
+ * Fetches both types on init; switches client-side.
+ * Uses page_size=50 to avoid pagination on tag pages (seed data < 50 per tag).
  */
 
 (function () {
   'use strict';
 
-  var TAGS_URL        = './mock/tags.json';
-  var QUESTIONS_URL   = './mock/question-list.json';
-  var DISCUSSIONS_URL = './mock/discussion-list.json';
-  var EXCERPT_LENGTH  = 180;
+  var PAGE_SIZE = 50;
+  var API_BASE  = (location.port === '8000' || location.port === '')
+    ? '' : 'http://localhost:8000';
+
+  var SORT_MAP = {
+    'trending':     'active',
+    'newest':       'newest',
+    'upvotes':      'votes',
+    'views':        'views',
+    'replies':      'active'   // no backend equivalent — closest
+  };
 
   var state = {
     tag: '',
-    type: 'quest',       // 'quest' | 'discuss'
-    sort: 'trending',
+    type: 'quest',          // 'quest' | 'discuss'
+    sort: 'active',
+    sortLabel: 'trending',
     questions: [],
-    discussions: []
+    discussions: [],
+    meta: null
   };
 
-  /* ---------------------------------------------------------------- */
-  /* Primitives                                                       */
-  /* ---------------------------------------------------------------- */
+  /* ---------- helpers ---------- */
 
-  function escapeHtml(value) {
-    return String(value == null ? '' : value)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
+  function escapeHtml(v) {
+    return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
   }
 
   function formatCount(n) {
@@ -71,14 +65,16 @@
     return yr + (yr === 1 ? ' year ago' : ' years ago');
   }
 
-  function plural(count, singular, pluralForm) {
-    return count === 1 ? singular : (pluralForm || singular + 's');
-  }
+  function plural(n, s, p) { return n === 1 ? s : (p || s + 's'); }
 
-  function truncate(text, len) {
-    var s = String(text || '').replace(/\s+/g, ' ').trim();
-    if (s.length <= len) return s;
-    return s.slice(0, len).replace(/\s+\S*$/, '') + '…';
+  function colorFromString(str) {
+    var palette = [
+      'bg-orange-300', 'bg-blue-300', 'bg-purple-300', 'bg-green-300',
+      'bg-pink-300', 'bg-yellow-300', 'bg-red-300', 'bg-blue-300'
+    ];
+    var s = String(str || '?'), hash = 0;
+    for (var i = 0; i < s.length; i++) { hash = ((hash << 5) - hash) + s.charCodeAt(i); hash |= 0; }
+    return palette[Math.abs(hash) % palette.length];
   }
 
   function makeTagUrl(name) {
@@ -86,58 +82,42 @@
     return './tag-detail.html?tag=' + encodeURIComponent(String(name || ''));
   }
 
-  function readQuery() {
-    var p = new URLSearchParams(location.search);
-    return (p.get('tag') || '').trim().toLowerCase();
+  function readQueryTag() {
+    return (new URLSearchParams(location.search).get('tag') || '').trim().toLowerCase();
   }
 
   function fetchJson(url) {
-    return fetch(url, { cache: 'no-store' }).then(function (res) {
-      if (!res.ok) throw new Error('HTTP ' + res.status + ' ' + res.statusText + ' — ' + url);
-      return res.text().then(function (text) {
-        if (!text.trim()) throw new Error('Empty response from ' + url);
-        try {
-          return JSON.parse(text);
-        } catch (e) {
-          throw new Error('Invalid JSON at ' + url + ': ' + e.message);
-        }
+    return fetch(url, { credentials: 'include', headers: { Accept: 'application/json' } })
+      .then(function (res) {
+        if (res.status === 404) return null;
+        if (!res.ok) throw new Error('HTTP ' + res.status + ' — ' + url);
+        return res.json();
       });
-    });
   }
 
-  function summariseAnswers(answers) {
-    var list = Array.isArray(answers) ? answers : [];
-    return {
-      total: list.length,
-      accepted: list.some(function (a) { return a && a.accepted === true; })
-    };
-  }
-
-  /* ---------------------------------------------------------------- */
-  /* Shared fragments                                                 */
-  /* ---------------------------------------------------------------- */
+  /* ---------- author / tag helpers ---------- */
 
   function renderTagsHtml(tags) {
     return (tags || []).map(function (t) {
-      return '<a class="s-tag" href="' + escapeHtml(makeTagUrl(t)) + '">' + escapeHtml(t) + '</a>';
+      var name = typeof t === 'string' ? t : (t && t.name) || '';
+      return '<a class="s-tag" href="' + escapeHtml(makeTagUrl(name)) + '">' + escapeHtml(name) + '</a>';
     }).join('');
   }
 
   function renderAuthorCard(author, timeIso, action) {
     author = author || {};
-    var avatarBg  = author.avatarColor  || 'bg-blue-300';
-    var avatarLet = author.avatarLetter || (author.name ? author.name.charAt(0) : '?');
-    var rep = author.rep != null
-      ? author.rep
-      : (author.reputation != null ? author.reputation : '0');
+    var name   = author.display_name || author.username || 'anonymous';
+    var letter = name.trim().charAt(0).toUpperCase() || '?';
+    var color  = colorFromString(author.username || author.id || '?');
+    var rep    = formatCount(author.reputation);
 
     return [
       '<div class="s-user-card">',
-        '<a href="#" class="s-avatar ' + escapeHtml(avatarBg) + '" aria-hidden="true" tabindex="-1">',
-          '<span class="s-avatar--letter">' + escapeHtml(avatarLet) + '</span>',
+        '<a href="#" class="s-avatar ' + escapeHtml(color) + '" aria-hidden="true" tabindex="-1">',
+          '<span class="s-avatar--letter">' + escapeHtml(letter) + '</span>',
         '</a>',
         '<div class="s-user-card--column">',
-          '<a class="s-user-card--username" href="#">' + escapeHtml(author.name || 'anonymous') + '</a>',
+          '<a class="s-user-card--username" href="#">' + escapeHtml(name) + '</a>',
           '<div class="s-user-card--group">',
             '<span class="s-user-card--rep">' + escapeHtml(rep) + '</span>',
             '<span class="s-user-card--time">' + escapeHtml(action || 'asked') + ' ' + escapeHtml(formatRelativeTime(timeIso)) + '</span>',
@@ -147,46 +127,35 @@
     ].join('');
   }
 
-  /* ---------------------------------------------------------------- */
-  /* Card renderers                                                   */
-  /* ---------------------------------------------------------------- */
+  /* ---------- card renderers ---------- */
 
   function renderQuestionCard(q) {
-    var stats  = summariseAnswers(q.answers);
-    var votes  = Number(q.votes) || 0;
-    var views  = Number(q.views) || 0;
-    var hasAns = stats.total > 0;
+    var votes    = Number(q.score) || 0;
+    var views    = Number(q.view_count) || 0;
+    var total    = Number(q.answer_count) || 0;
+    var accepted = q.is_answered === true;
 
-    var answeredCls = stats.accepted ? ' post-stat--answered' : '';
-
-    var answersCell = hasAns
-      ? '<span class="post-stat--num">' + escapeHtml(String(stats.total)) + '</span>' + plural(stats.total, 'answer')
+    var answeredCls = accepted ? ' post-stat--answered' : '';
+    var answersCell = total > 0
+      ? '<span class="post-stat--num">' + escapeHtml(String(total)) + '</span>' + plural(total, 'answer')
       : '<span class="post-stat--num">0</span>answers';
-
-    var excerpt = truncate(q.body, EXCERPT_LENGTH);
 
     return [
       '<div class="s-post-summary" data-question-id="' + escapeHtml(q.id) + '">',
         '<div class="s-post-summary--stats s-post-summary--sm-hide">',
           '<span class="question-badge">Question</span>',
-          '<div class="post-stat">',
-            '<span class="post-stat--num">' + escapeHtml(formatCount(votes)) + '</span>',
-            plural(votes, 'vote'),
-          '</div>',
+          '<div class="post-stat"><span class="post-stat--num">' + escapeHtml(formatCount(votes)) + '</span>' + plural(votes, 'vote') + '</div>',
           '<div class="post-stat' + answeredCls + '">' + answersCell + '</div>',
-          '<div class="post-stat">',
-            '<span class="post-stat--num">' + escapeHtml(formatCount(views)) + '</span>',
-            plural(views, 'view'),
-          '</div>',
+          '<div class="post-stat"><span class="post-stat--num">' + escapeHtml(formatCount(views)) + '</span>' + plural(views, 'view') + '</div>',
         '</div>',
         '<div class="s-post-summary--content">',
           '<h3 class="s-post-summary--title mb0">',
-            '<a class="s-post-summary--title-link" href="#">' + escapeHtml(q.title) + '</a>',
+            '<a class="s-post-summary--title-link" href="./question-detail.html?id=' + escapeHtml(q.id) + '">' + escapeHtml(q.title) + '</a>',
           '</h3>',
-          excerpt ? '<div class="s-post-summary--excerpt v-truncate2">' + escapeHtml(excerpt) + '</div>' : '',
+          q.body_excerpt ? '<div class="s-post-summary--excerpt v-truncate2">' + escapeHtml(q.body_excerpt) + '</div>' : '',
           '<div class="d-flex ai-center jc-space-between g8 fw-wrap mt8">',
             '<div class="s-post-summary--tags mt0">' + renderTagsHtml(q.tags) + '</div>',
-            renderAuthorCard(q.author, q.time, 'asked'),
+            renderAuthorCard(q.author, q.created_at, 'asked'),
           '</div>',
         '</div>',
       '</div>'
@@ -194,100 +163,36 @@
   }
 
   function renderDiscussionCard(d) {
-    var votes   = Number(d.votes) || 0;
-    var replies = Number(d.replyCount != null ? d.replyCount : d.answers) || 0;
-    var views   = Number(d.views) || 0;
-
-    var excerpt = truncate(d.body, EXCERPT_LENGTH);
+    var votes   = Number(d.score) || 0;
+    var views   = Number(d.view_count) || 0;
+    var replies = Number(d.reply_count) || 0;
 
     return [
       '<div class="s-post-summary" data-discussion-id="' + escapeHtml(d.id) + '">',
         '<div class="s-post-summary--stats s-post-summary--sm-hide">',
           '<span class="discussion-badge">Discussion</span>',
-          '<div class="post-stat">',
-            '<span class="post-stat--num">' + escapeHtml(formatCount(votes)) + '</span>',
-            plural(votes, 'vote'),
-          '</div>',
-          '<div class="post-stat">',
-            '<span class="post-stat--num">' + escapeHtml(String(replies)) + '</span>',
-            plural(replies, 'reply', 'replies'),
-          '</div>',
-          '<div class="post-stat">',
-            '<span class="post-stat--num">' + escapeHtml(formatCount(views)) + '</span>',
-            plural(views, 'view'),
-          '</div>',
+          '<div class="post-stat"><span class="post-stat--num">' + escapeHtml(formatCount(votes)) + '</span>' + plural(votes, 'vote') + '</div>',
+          '<div class="post-stat"><span class="post-stat--num">' + escapeHtml(formatCount(replies)) + '</span>' + plural(replies, 'reply', 'replies') + '</div>',
+          '<div class="post-stat"><span class="post-stat--num">' + escapeHtml(formatCount(views)) + '</span>' + plural(views, 'view') + '</div>',
         '</div>',
         '<div class="s-post-summary--content">',
           '<h3 class="s-post-summary--title mb0">',
-            '<a class="s-post-summary--title-link" href="#">' + escapeHtml(d.title) + '</a>',
+            '<a class="s-post-summary--title-link" href="./discussion-detail.html?id=' + escapeHtml(d.id) + '">' + escapeHtml(d.title) + '</a>',
           '</h3>',
-          excerpt ? '<div class="s-post-summary--excerpt v-truncate2">' + escapeHtml(excerpt) + '</div>' : '',
+          d.body_excerpt ? '<div class="s-post-summary--excerpt v-truncate2">' + escapeHtml(d.body_excerpt) + '</div>' : '',
           '<div class="d-flex ai-center jc-space-between g8 fw-wrap mt8">',
             '<div class="s-post-summary--tags mt0">' + renderTagsHtml(d.tags) + '</div>',
-            renderAuthorCard(d.author, d.time, 'started'),
+            renderAuthorCard(d.author, d.created_at, 'started'),
           '</div>',
         '</div>',
       '</div>'
     ].join('');
   }
 
-  /* ---------------------------------------------------------------- */
-  /* Data shape                                                       */
-  /* ---------------------------------------------------------------- */
-
-  function questionHasTag(q, tagName) {
-    return Array.isArray(q.tags) &&
-           q.tags.some(function (t) { return String(t).toLowerCase() === tagName; });
-  }
-
-  function discussionHasTag(d, tagName) {
-    return Array.isArray(d.tags) &&
-           d.tags.some(function (t) { return String(t).toLowerCase() === tagName; });
-  }
-
-  /* ---------------------------------------------------------------- */
-  /* Sorting                                                          */
-  /* ---------------------------------------------------------------- */
-
-  function sortPosts(list, mode) {
-    var copy = list.slice();
-    if (mode === 'newest') {
-      copy.sort(function (a, b) {
-        var ta = new Date(a.time).getTime() || 0;
-        var tb = new Date(b.time).getTime() || 0;
-        return tb - ta;
-      });
-    } else if (mode === 'upvotes') {
-      copy.sort(function (a, b) { return (b.votes || 0) - (a.votes || 0); });
-    } else if (mode === 'views') {
-      copy.sort(function (a, b) { return (b.views || 0) - (a.views || 0); });
-    } else if (mode === 'replies') {
-      copy.sort(function (a, b) {
-        var ra = (a.replyCount != null ? a.replyCount : a.answers) || 0;
-        var rb = (b.replyCount != null ? b.replyCount : b.answers) || 0;
-        return rb - ra;
-      });
-    } else {
-      // trending: votes + 2×answers, tie-break by views
-      copy.sort(function (a, b) {
-        var aa = (a.replyCount != null ? a.replyCount : a.answers) || 0;
-        var ab = (b.replyCount != null ? b.replyCount : b.answers) || 0;
-        var sa = (a.votes || 0) + 2 * aa;
-        var sb = (b.votes || 0) + 2 * ab;
-        if (sb !== sa) return sb - sa;
-        return (b.views || 0) - (a.views || 0);
-      });
-    }
-    return copy;
-  }
-
-  /* ---------------------------------------------------------------- */
-  /* Rendering                                                        */
-  /* ---------------------------------------------------------------- */
+  /* ---------- listing render ---------- */
 
   function currentPosts() {
-    var source = state.type === 'discuss' ? state.discussions : state.questions;
-    return sortPosts(source, state.sort);
+    return state.type === 'discuss' ? state.discussions : state.questions;
   }
 
   function renderList() {
@@ -301,17 +206,15 @@
       var label = state.type === 'discuss' ? 'discussions' : 'questions';
       listEl.innerHTML =
         '<div class="s-card p24 ta-center fc-black-400">' +
-          'No ' + escapeHtml(label) + ' tagged <strong>' + escapeHtml(state.tag || '') + '</strong> yet.' +
+          'No ' + escapeHtml(label) + ' tagged <strong>' + escapeHtml(state.tag) + '</strong> yet.' +
         '</div>';
       updateCount(0);
       return;
     }
 
-    var html = posts.map(function (p) {
+    listEl.innerHTML = posts.map(function (p) {
       return state.type === 'discuss' ? renderDiscussionCard(p) : renderQuestionCard(p);
     }).join('');
-
-    listEl.innerHTML = html;
     updateCount(posts.length);
   }
 
@@ -322,21 +225,50 @@
     el.textContent = n + ' ' + plural(n, label);
   }
 
-  function renderTagHeader(tag) {
+  function renderTagHeader(meta) {
     var nameEl = document.getElementById('tag-name');
     var descEl = document.getElementById('tag-description');
-    if (nameEl) nameEl.textContent = tag ? tag.name : (state.tag || 'Tag');
-    if (descEl) {
-      descEl.textContent = tag && tag.description
-        ? tag.description
-        : 'No description available.';
-    }
-    document.title = (tag ? tag.name : state.tag) + ' — Tech4Rum';
+    if (nameEl) nameEl.textContent = (meta && meta.name) || state.tag || 'Tag';
+    if (descEl) descEl.textContent = (meta && meta.description) || 'No description available.';
+    document.title = ((meta && meta.name) || state.tag || 'Tag') + ' — Tech4Rum';
   }
 
-  /* ---------------------------------------------------------------- */
-  /* Wiring                                                           */
-  /* ---------------------------------------------------------------- */
+  /* ---------- sort nav ---------- */
+
+  function applySortUI() {
+    var navId = state.type === 'discuss' ? '#discuss-filters' : '#quest-filters';
+    var nav = document.querySelector(navId);
+    if (!nav) return;
+    nav.querySelectorAll('[data-filter]').forEach(function (a) {
+      var label = a.dataset.filter;
+      if (label === state.sortLabel) {
+        a.classList.add('is-selected'); a.setAttribute('aria-current', 'true');
+      } else {
+        a.classList.remove('is-selected'); a.removeAttribute('aria-current');
+      }
+    });
+  }
+
+  function sortPosts(list) {
+    var copy = list.slice();
+    if (state.sort === 'newest') {
+      copy.sort(function (a, b) {
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+    } else if (state.sort === 'votes') {
+      copy.sort(function (a, b) { return (b.score || 0) - (a.score || 0); });
+    } else if (state.sort === 'views') {
+      copy.sort(function (a, b) { return (b.view_count || 0) - (a.view_count || 0); });
+    } else {
+      // active — use updated_at desc (already sorted server-side)
+      copy.sort(function (a, b) {
+        return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+      });
+    }
+    return copy;
+  }
+
+  /* ---------- wiring ---------- */
 
   function bindTypeTabs() {
     var nav = document.getElementById('type-tabs');
@@ -345,45 +277,53 @@
       var btn = e.target.closest('[data-type]');
       if (!btn) return;
       e.preventDefault();
-      state.type = btn.dataset.type;
-      state.sort = 'trending';
+      state.type = btn.dataset.type === 'discuss' ? 'discuss' : 'quest';
+      state.sortLabel = 'trending'; state.sort = 'active';
+
       nav.querySelectorAll('[data-type]').forEach(function (b) {
         b.classList.toggle('is-selected', b === btn);
       });
-      ['#quest-filters', '#discuss-filters'].forEach(function (sel) {
-        var n = document.querySelector(sel);
-        if (!n) return;
-        n.querySelectorAll('[data-filter]').forEach(function (b) {
-          b.classList.toggle('is-selected', b.dataset.filter === 'trending');
-        });
-      });
+
+      // Toggle filter navs
+      var qn = document.getElementById('quest-filters');
+      var dn = document.getElementById('discuss-filters');
+      if (qn && dn) {
+        qn.classList.toggle('d-none', state.type !== 'quest');
+        dn.classList.toggle('d-none', state.type !== 'discuss');
+      }
+      applySortUI();
       renderList();
     });
   }
 
   function bindSortNav() {
-    document.querySelectorAll('#quest-filters, #discuss-filters').forEach(function (nav) {
+    ['#quest-filters', '#discuss-filters'].forEach(function (sel) {
+      var nav = document.querySelector(sel);
+      if (!nav) return;
       nav.addEventListener('click', function (e) {
         var btn = e.target.closest('[data-filter]');
         if (!btn) return;
         e.preventDefault();
-        state.sort = btn.dataset.filter;
-        nav.querySelectorAll('[data-filter]').forEach(function (b) {
-          b.classList.toggle('is-selected', b === btn);
-        });
+        var label = btn.dataset.filter;
+        var key = SORT_MAP[label] || 'active';
+        state.sortLabel = label; state.sort = key;
+
+        // Re-sort locally (server sort already applied to base list)
+        // We just re-sort the cached array to reflect the chosen order.
+        state.questions = sortPosts(state.questions);
+        state.discussions = sortPosts(state.discussions);
+
+        applySortUI();
         renderList();
       });
     });
   }
 
-  /* ---------------------------------------------------------------- */
-  /* Bootstrap                                                        */
-  /* ---------------------------------------------------------------- */
+  /* ---------- bootstrap ---------- */
 
   function init() {
     var listEl = document.getElementById('question-list');
-
-    state.tag = readQuery();
+    state.tag = readQueryTag();
 
     if (!state.tag) {
       renderTagHeader(null);
@@ -398,42 +338,26 @@
 
     if (listEl) listEl.setAttribute('aria-busy', 'true');
 
-    if (location.protocol === 'file:') {
-      if (listEl) {
-        listEl.innerHTML =
-          '<div class="s-card p24 ta-center fc-red-400">' +
-            'Page opened via file:// — fetch is blocked. Serve the project over HTTP.' +
-          '</div>';
-      }
-      return;
-    }
+    var metaUrl = API_BASE + '/api/tags/' + encodeURIComponent(state.tag);
+    var qUrl = API_BASE + '/api/posts?tag=' + encodeURIComponent(state.tag) + '&type=question&sort=active&page_size=' + PAGE_SIZE;
+    var dUrl = API_BASE + '/api/posts?tag=' + encodeURIComponent(state.tag) + '&type=discussion&sort=active&page_size=' + PAGE_SIZE;
 
     Promise.all([
-      fetchJson(TAGS_URL).catch(function () { return { tags: [] }; }),
-      fetchJson(QUESTIONS_URL),
-      fetchJson(DISCUSSIONS_URL)
+      fetchJson(metaUrl).catch(function () { return null; }),
+      fetchJson(qUrl),
+      fetchJson(dUrl)
     ]).then(function (results) {
-      var tagsData       = results[0];
-      var questionsRaw   = results[1];
-      var discussionsRaw = results[2];
+      state.meta        = results[0];
+      state.questions   = (results[1] && results[1].items) || [];
+      state.discussions = (results[2] && results[2].items) || [];
 
-      var allTags = Array.isArray(tagsData) ? tagsData : (tagsData.tags || []);
-      var tagMeta = allTags.filter(function (t) {
-        return String(t.name || '').toLowerCase() === state.tag;
-      })[0];
-      renderTagHeader(tagMeta);
-
-      state.questions = (Array.isArray(questionsRaw) ? questionsRaw : [])
-        .filter(function (q) { return questionHasTag(q, state.tag); });
-
-      state.discussions = (Array.isArray(discussionsRaw) ? discussionsRaw : [])
-        .filter(function (d) { return discussionHasTag(d, state.tag); });
-
+      renderTagHeader(state.meta);
       bindTypeTabs();
       bindSortNav();
+      applySortUI();
       renderList();
     }).catch(function (err) {
-      console.error('[tag-detail] Failed to load:', err);
+      console.error('[tag-detail]', err);
       if (listEl) {
         listEl.removeAttribute('aria-busy');
         listEl.innerHTML =

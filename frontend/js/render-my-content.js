@@ -2,13 +2,26 @@
  * render-my-content.js
  *
  * "My Content" page (my-content.html).
- *   - Loads the current user (ME_ID) from ./mock/users.json
- *   - Profile header matches user-profile.html (no Follow button);
- *     avatar uses ./img/avatar.png
- *   - 4 tabs: Profile / Questions / Discussions / Answers
- *   - Questions & Discussions cards carry Edit / Delete actions:
- *       Edit   → ./edit-question.html?id=<id>  (or discussion variant)
- *       Delete → confirm dialog; removal is permanent in this mock
+ *
+ * Data flow:
+ *   1. GET /api/auth/me                                   → current user
+ *   2. Parallel (after #1):
+ *        GET /api/users/{username}                         → answer_count
+ *        GET /api/posts?mine=true&type=question&page_size=50
+ *        GET /api/posts?mine=true&type=discussion&page_size=50
+ *
+ * Tabs: Profile / Questions / Discussions / Answers.
+ *   - Questions & Discussions: Edit / Delete actions.
+ *       Edit   → ./edit-question.html?id=<id> (questions only)
+ *       Delete → confirm + local removal
+ *                (TODO: wire to DELETE /api/posts/{id})
+ *   - Answers: backend has no "list answers by author" endpoint yet →
+ *     the tab shows a graceful "coming soon" empty state, but the
+ *     count in the stat box uses /api/users/{username}.answer_count.
+ *
+ * On 401 from /api/auth/me (or either mine=true call), the page shows a
+ * "log in" prompt instead of hard-redirecting (the site-header renders
+ * its own auth chip).
  *
  * Classic script (loaded with <script src> not type=module).
  */
@@ -16,12 +29,10 @@
 (function () {
   'use strict';
 
-  var USERS_JSON    = './mock/users.json';
-  var QUEST_JSON    = './mock/question-list.json';
-  var DISCUSS_JSON  = './mock/discussion-list.json';
-  var ME_ID         = 101;
-  var AVATAR_SRC    = './img/avatar.png';
-  var EXCERPT_LENGTH = 180;
+  var API_BASE = (location.port === '8000' || location.port === '')
+    ? '' : 'http://localhost:8000';
+
+  var PAGE_SIZE = 50; // backend max is 50
 
   var statusEl = document.getElementById('profile-status');
   var headerEl = document.getElementById('profile-header');
@@ -33,10 +44,12 @@
 
   var state = {
     user: null,
+    profile: null,
     tab: 'profile',
     questions: [],
     discussions: [],
-    answers: []
+    answers: [],                          // placeholder — no backend yet
+    totals: { questions: 0, discussions: 0, answers: 0 }
   };
 
   /* ---------------- Helpers ---------------- */
@@ -80,10 +93,14 @@
     return count === 1 ? singular : (pluralForm || singular + 's');
   }
 
-  function truncate(text, len) {
-    var s = String(text || '').replace(/\s+/g, ' ').trim();
-    if (s.length <= len) return s;
-    return s.slice(0, len).replace(/\s+\S*$/, '') + '…';
+  function colorFromString(str) {
+    var palette = [
+      'bg-orange-300', 'bg-blue-300', 'bg-purple-300', 'bg-green-300',
+      'bg-pink-300', 'bg-yellow-300', 'bg-red-300', 'bg-blue-300'
+    ];
+    var s = String(str || '?'), hash = 0;
+    for (var i = 0; i < s.length; i++) { hash = ((hash << 5) - hash) + s.charCodeAt(i); hash |= 0; }
+    return palette[Math.abs(hash) % palette.length];
   }
 
   function makeTagUrl(name) {
@@ -91,43 +108,23 @@
     return './tag-detail.html?tag=' + encodeURIComponent(String(name || ''));
   }
 
-  function summariseAnswers(answers) {
-    var list = Array.isArray(answers) ? answers : [];
-    return {
-      total: list.length,
-      accepted: list.some(function (a) { return a && a.accepted === true; })
-    };
-  }
-
-  /* ---------------- Ownership test ---------------- */
-
-  function authorBelongsTo(author, user) {
-    if (!author || !user) return false;
-    if (author.id != null && user.id != null) {
-      return Number(author.id) === Number(user.id);
-    }
-    var postName = String(author.name || '').toLowerCase();
-    var userName = String(user.username || '').toLowerCase();
-    return postName !== '' && postName === userName;
-  }
-
-  /* ---------------- Profile header ---------------- */
+  /* ---------------- Profile header (letter avatar) ---------------- */
 
   function renderProfileHeader(user) {
-    var rep = formatCount(user.reputation);
+    var displayName = user.display_name || user.username || '?';
+    var letter = displayName.trim().charAt(0).toUpperCase() || '?';
+    var color  = colorFromString(user.username || user.id);
+    var rep    = formatCount(user.reputation);
 
     headerEl.innerHTML = [
       '<div class="d-flex ai-start g16 mb16 fw-wrap">',
 
-        '<div class="s-avatar s-avatar__96 flex__fl-shrink0" aria-hidden="true"',
-        '     style="width:96px;height:96px;overflow:hidden;border-radius:50%;">',
-          '<img src="' + AVATAR_SRC + '" alt=""',
-          '     class="s-avatar--image" width="96" height="96"',
-          '     style="width:100%;height:100%;object-fit:cover;display:block;">',
+        '<div class="s-avatar s-avatar__96 ' + color + '" aria-hidden="true">',
+          '<span class="s-avatar--letter">' + escapeHtml(letter) + '</span>',
         '</div>',
 
         '<div class="d-flex fd-column g8 fl-grow1" style="min-width:0;">',
-          '<h1 class="fs-headline1 fw-normal mb0">' + escapeHtml(user.display_name || user.username) + '</h1>',
+          '<h1 class="fs-headline1 fw-normal mb0">' + escapeHtml(displayName) + '</h1>',
           '<div class="fc-black-500 fs-body1">@' + escapeHtml(user.username) + '</div>',
           '<div class="d-flex ai-center g16 fw-wrap fs-body1">',
             '<span><strong>' + escapeHtml(rep) + '</strong> reputation</span>',
@@ -162,9 +159,9 @@
 
         '<div class="d-flex g16 fw-wrap">',
           statBox(rep, 'Reputation'),
-          statBox(String(state.questions.length),   'Questions'),
-          statBox(String(state.discussions.length), 'Discussions'),
-          statBox(String(state.answers.length),     'Answers'),
+          statBox(String(state.totals.questions),   'Questions'),
+          statBox(String(state.totals.discussions), 'Discussions'),
+          statBox(String(state.totals.answers),     'Answers'),
         '</div>',
 
         '<div class="widget">',
@@ -186,29 +183,29 @@
     ].join('');
   }
 
-  /* ---------------- Card pieces ---------------- */
+  /* ---------------- Card fragments ---------------- */
 
   function renderTagsHtml(tags) {
     return (tags || []).map(function (t) {
-      return '<a class="s-tag" href="' + escapeHtml(makeTagUrl(t)) + '">' + escapeHtml(t) + '</a>';
+      var name = typeof t === 'string' ? t : (t && t.name) || '';
+      return '<a class="s-tag" href="' + escapeHtml(makeTagUrl(name)) + '">' + escapeHtml(name) + '</a>';
     }).join('');
   }
 
   function renderAuthorCard(author, timeIso, action) {
     author = author || {};
-    var avatarBg  = author.avatarColor  || 'bg-blue-300';
-    var avatarLet = author.avatarLetter || (author.name ? author.name.charAt(0) : '?');
-    var rep = author.rep != null
-      ? author.rep
-      : (author.reputation != null ? author.reputation : '0');
+    var name   = author.display_name || author.username || 'anonymous';
+    var letter = name.trim().charAt(0).toUpperCase() || '?';
+    var color  = colorFromString(author.username || author.id || '?');
+    var rep    = formatCount(author.reputation);
 
     return [
       '<div class="s-user-card">',
-        '<a href="#" class="s-avatar ' + escapeHtml(avatarBg) + '" aria-hidden="true" tabindex="-1">',
-          '<span class="s-avatar--letter">' + escapeHtml(avatarLet) + '</span>',
+        '<a href="#" class="s-avatar ' + escapeHtml(color) + '" aria-hidden="true" tabindex="-1">',
+          '<span class="s-avatar--letter">' + escapeHtml(letter) + '</span>',
         '</a>',
         '<div class="s-user-card--column">',
-          '<a class="s-user-card--username" href="#">' + escapeHtml(author.name || 'anonymous') + '</a>',
+          '<a class="s-user-card--username" href="#">' + escapeHtml(name) + '</a>',
           '<div class="s-user-card--group">',
             '<span class="s-user-card--rep">' + escapeHtml(rep) + '</span>',
             '<span class="s-user-card--time">' + escapeHtml(action || 'asked') + ' ' + escapeHtml(formatRelativeTime(timeIso)) + '</span>',
@@ -218,11 +215,6 @@
     ].join('');
   }
 
-  /**
-   * Edit / Delete buttons for the current user's own posts.
-   * `kind` is 'question' | 'discussion'.
-   * `id`   is the post id (number or string).
-   */
   function renderActions(id, kind) {
     return [
       '<div class="d-flex g4" data-actions-for="' + escapeHtml(kind) + '-' + escapeHtml(String(id)) + '">',
@@ -244,21 +236,18 @@
     ].join('');
   }
 
-  /* ---------------- Card renderers ---------------- */
+  /* ---------------- Card renderers (backend PostCard shape) ---------------- */
 
   function renderQuestionCard(q) {
-    var stats  = summariseAnswers(q.answers);
-    var votes  = Number(q.votes) || 0;
-    var views  = Number(q.views) || 0;
-    var hasAns = stats.total > 0;
+    var votes    = Number(q.score) || 0;
+    var views    = Number(q.view_count) || 0;
+    var total    = Number(q.answer_count) || 0;
+    var accepted = q.is_answered === true;
 
-    var answeredCls = stats.accepted ? ' post-stat--answered' : '';
-
-    var answersCell = hasAns
-      ? '<span class="post-stat--num">' + escapeHtml(String(stats.total)) + '</span>' + plural(stats.total, 'answer')
+    var answeredCls = accepted ? ' post-stat--answered' : '';
+    var answersCell = total > 0
+      ? '<span class="post-stat--num">' + escapeHtml(String(total)) + '</span>' + plural(total, 'answer')
       : '<span class="post-stat--num">0</span>answers';
-
-    var excerpt = truncate(q.body, EXCERPT_LENGTH);
 
     return [
       '<div class="s-post-summary" data-question-id="' + escapeHtml(q.id) + '">',
@@ -278,10 +267,10 @@
           '<h3 class="s-post-summary--title mb0">',
             '<a class="s-post-summary--title-link" href="./question-detail.html?id=' + encodeURIComponent(q.id) + '">' + escapeHtml(q.title) + '</a>',
           '</h3>',
-          excerpt ? '<div class="s-post-summary--excerpt v-truncate2">' + escapeHtml(excerpt) + '</div>' : '',
+          q.body_excerpt ? '<div class="s-post-summary--excerpt v-truncate2">' + escapeHtml(q.body_excerpt) + '</div>' : '',
           '<div class="d-flex ai-center jc-space-between g8 fw-wrap mt8">',
             '<div class="s-post-summary--tags mt0">' + renderTagsHtml(q.tags) + '</div>',
-            renderAuthorCard(q.author, q.time, 'asked'),
+            renderAuthorCard(q.author, q.created_at, 'asked'),
           '</div>',
           '<div class="mt8 d-flex ai-center jc-end g8 fw-wrap">',
             renderActions(q.id, 'question'),
@@ -292,11 +281,9 @@
   }
 
   function renderDiscussionCard(d) {
-    var votes   = Number(d.votes) || 0;
-    var replies = Number(d.replyCount != null ? d.replyCount : d.answers) || 0;
-    var views   = Number(d.views) || 0;
-
-    var excerpt = truncate(d.body, EXCERPT_LENGTH);
+    var votes   = Number(d.score) || 0;
+    var views   = Number(d.view_count) || 0;
+    var replies = Number(d.reply_count) || 0;
 
     return [
       '<div class="s-post-summary" data-discussion-id="' + escapeHtml(d.id) + '">',
@@ -319,53 +306,14 @@
           '<h3 class="s-post-summary--title mb0">',
             '<a class="s-post-summary--title-link" href="./discussion-detail.html?id=' + encodeURIComponent(d.id) + '">' + escapeHtml(d.title) + '</a>',
           '</h3>',
-          excerpt ? '<div class="s-post-summary--excerpt v-truncate2">' + escapeHtml(excerpt) + '</div>' : '',
+          d.body_excerpt ? '<div class="s-post-summary--excerpt v-truncate2">' + escapeHtml(d.body_excerpt) + '</div>' : '',
           '<div class="d-flex ai-center jc-space-between g8 fw-wrap mt8">',
             '<div class="s-post-summary--tags mt0">' + renderTagsHtml(d.tags) + '</div>',
-            renderAuthorCard(d.author, d.time, 'started'),
+            renderAuthorCard(d.author, d.created_at, 'started'),
           '</div>',
           '<div class="mt8 d-flex ai-center jc-end g8 fw-wrap">',
             renderActions(d.id, 'discussion'),
           '</div>',
-        '</div>',
-      '</div>'
-    ].join('');
-  }
-
-  function renderAnswerCard(entry) {
-    var a = entry.answer;
-    var q = entry.question;
-
-    var votes    = Number(a.votes) || 0;
-    var accepted = a.accepted === true;
-
-    var acceptedCls  = accepted ? ' post-stat--answered' : '';
-    var acceptedCell = accepted
-      ? '<span class="post-stat--num">1</span>accepted'
-      : '<span class="post-stat--num">0</span>accepted';
-
-    var excerpt = truncate(a.body, EXCERPT_LENGTH);
-    var detailUrl = './question-detail.html?id=' + encodeURIComponent(q.id) +
-                    '#answer-' + encodeURIComponent(a.id);
-
-    return [
-      '<div class="s-post-summary">',
-        '<div class="s-post-summary--stats s-post-summary--sm-hide">',
-          '<span class="question-badge">Answer</span>',
-          '<div class="post-stat">',
-            '<span class="post-stat--num">' + escapeHtml(formatCount(votes)) + '</span>',
-            plural(votes, 'vote'),
-          '</div>',
-          '<div class="post-stat' + acceptedCls + '">' + acceptedCell + '</div>',
-        '</div>',
-        '<div class="s-post-summary--content">',
-          '<h3 class="s-post-summary--title mb0">',
-            '<a class="s-post-summary--title-link" href="' + detailUrl + '">',
-              'Re: ' + escapeHtml(q.title),
-            '</a>',
-          '</h3>',
-          excerpt ? '<div class="s-post-summary--excerpt v-truncate2">' + escapeHtml(excerpt) + '</div>' : '',
-          '<div class="s-post-summary--tags mt8">' + renderTagsHtml(q.tags) + '</div>',
         '</div>',
       '</div>'
     ].join('');
@@ -397,7 +345,7 @@
 
     if (state.tab === 'questions') {
       var qs = state.questions;
-      countEl.textContent = qs.length + ' ' + plural(qs.length, 'question');
+      countEl.textContent = state.totals.questions + ' ' + plural(state.totals.questions, 'question');
       listEl.innerHTML = qs.length
         ? qs.map(renderQuestionCard).join('')
         : emptyState('No questions yet', "You haven't asked any questions.");
@@ -406,7 +354,7 @@
 
     if (state.tab === 'discussions') {
       var ds = state.discussions;
-      countEl.textContent = ds.length + ' ' + plural(ds.length, 'discussion');
+      countEl.textContent = state.totals.discussions + ' ' + plural(state.totals.discussions, 'discussion');
       listEl.innerHTML = ds.length
         ? ds.map(renderDiscussionCard).join('')
         : emptyState('No discussions yet', "You haven't started any discussions.");
@@ -414,11 +362,11 @@
     }
 
     if (state.tab === 'answers') {
-      var as = state.answers;
-      countEl.textContent = as.length + ' ' + plural(as.length, 'answer');
-      listEl.innerHTML = as.length
-        ? as.map(renderAnswerCard).join('')
-        : emptyState('No answers yet', "You haven't answered any questions.");
+      countEl.textContent = state.totals.answers + ' ' + plural(state.totals.answers, 'answer');
+      listEl.innerHTML = emptyState(
+        'Answers list coming soon',
+        'Listing your answers is not yet available in this build.'
+      );
       return;
     }
   }
@@ -426,22 +374,18 @@
   /* ---------------- Edit / Delete ---------------- */
 
   function onEdit(kind, id) {
-    var url;
     if (kind === 'discussion') {
-      // No discussion editor exists in this mock — fall back to a message.
       window.alert(
         'Editing discussions is not supported in this build.\n' +
         'Would open: ./create-discussion.html?id=' + id
       );
       return;
     }
-    url = './edit-question.html?id=' + encodeURIComponent(id);
-    window.location.href = url;
+    window.location.href = './edit-question.html?id=' + encodeURIComponent(id);
   }
 
   function onDelete(kind, id) {
     var noun = kind === 'discussion' ? 'discussion' : 'question';
-
     var msg =
       'Delete this ' + noun + '?\n\n' +
       'This will permanently delete it and all its replies. ' +
@@ -449,15 +393,17 @@
 
     if (!window.confirm(msg)) return;
 
+    // TODO: wire to DELETE /api/posts/{id} once write operations are in scope.
     if (kind === 'discussion') {
       state.discussions = state.discussions.filter(function (d) {
         return String(d.id) !== String(id);
       });
+      state.totals.discussions = Math.max(0, state.totals.discussions - 1);
     } else {
-      // Questions: also drop any of my answers attached to it (none in mock)
       state.questions = state.questions.filter(function (q) {
         return String(q.id) !== String(id);
       });
+      state.totals.questions = Math.max(0, state.totals.questions - 1);
     }
 
     renderList();
@@ -487,13 +433,33 @@
     });
   }
 
-  /* ---------------- Bootstrap ---------------- */
+  /* ---------------- Data loading ---------------- */
 
   function fetchJson(url) {
-    return fetch(url, { cache: 'no-store' }).then(function (res) {
-      if (!res.ok) throw new Error('HTTP ' + res.status + ' ' + url);
+    return fetch(url, {
+      credentials: 'include',
+      headers: { Accept: 'application/json' }
+    }).then(function (res) {
+      if (res.status === 401) {
+        var err = new Error('UNAUTHORIZED');
+        err.status = 401;
+        throw err;
+      }
+      if (!res.ok) throw new Error('HTTP ' + res.status + ' — ' + url);
       return res.json();
     });
+  }
+
+  function showAuthRequired() {
+    statusEl.className = 's-notice s-notice__warning';
+    statusEl.innerHTML =
+      'You must be <a class="s-link" href="./login.html?next=' +
+      encodeURIComponent(location.pathname + location.search) +
+      '">logged in</a> to view your content.';
+    headerEl.classList.add('d-none');
+    tabsEl.classList.add('d-none');
+    countEl.classList.add('d-none');
+    listEl.innerHTML = '';
   }
 
   function init() {
@@ -503,43 +469,50 @@
       return;
     }
 
-    Promise.all([
-      fetchJson(USERS_JSON),
-      fetchJson(QUEST_JSON),
-      fetchJson(DISCUSS_JSON)
-    ]).then(function (results) {
-      var users       = Array.isArray(results[0]) ? results[0] : (results[0].users || []);
-      var questions   = Array.isArray(results[1]) ? results[1] : [];
-      var discussions = Array.isArray(results[2]) ? results[2] : [];
+    // 1. Identify the current user, then load their content in parallel.
+    fetchJson(API_BASE + '/api/auth/me')
+      .then(function (user) {
+        state.user = user;
 
-      var user = users.filter(function (u) { return Number(u.id) === ME_ID; })[0];
-      if (!user) throw new Error('User ' + ME_ID + ' not found in users.json');
+        return Promise.all([
+          fetchJson(API_BASE + '/api/users/' + encodeURIComponent(user.username)),
+          fetchJson(API_BASE + '/api/posts?mine=true&type=question&page=1&page_size=' + PAGE_SIZE),
+          fetchJson(API_BASE + '/api/posts?mine=true&type=discussion&page=1&page_size=' + PAGE_SIZE)
+        ]);
+      })
+      .then(function (results) {
+        var profile = results[0] || {};
+        var qData   = results[1] || {};
+        var dData   = results[2] || {};
 
-      state.user = user;
-      state.questions   = questions.filter(function (q) { return authorBelongsTo(q.author, user); });
-      state.discussions = discussions.filter(function (d) { return authorBelongsTo(d.author, user); });
+        state.profile     = profile;
+        state.questions   = Array.isArray(qData.items) ? qData.items : [];
+        state.discussions = Array.isArray(dData.items) ? dData.items : [];
+        state.totals.questions   = Number(qData.total) || state.questions.length;
+        state.totals.discussions = Number(dData.total) || state.discussions.length;
+        state.totals.answers     = Number(profile.answer_count) || 0;
 
-      state.answers = [];
-      questions.forEach(function (q) {
-        (Array.isArray(q.answers) ? q.answers : []).forEach(function (a) {
-          if (authorBelongsTo(a.author, user)) {
-            state.answers.push({ answer: a, question: q });
-          }
-        });
+        // 2. Render
+        statusEl.classList.add('d-none');
+        renderProfileHeader(state.user);
+        headerEl.classList.remove('d-none');
+        tabsEl.classList.remove('d-none');
+
+        bindTabs();
+        renderList();
+      })
+      .catch(function (err) {
+        console.error('[my-content]', err);
+        if (err && err.status === 401) {
+          showAuthRequired();
+        } else {
+          statusEl.className = 's-notice s-notice__danger';
+          statusEl.innerHTML =
+            '<span class="fc-red-400">Could not load your content. ' +
+            escapeHtml(err && err.message ? err.message : '') +
+            '</span>';
+        }
       });
-
-      statusEl.classList.add('d-none');
-      renderProfileHeader(user);
-      headerEl.classList.remove('d-none');
-      tabsEl.classList.remove('d-none');
-
-      bindTabs();
-      renderList();
-    }).catch(function (err) {
-      console.error('[my-content]', err);
-      statusEl.innerHTML =
-        '<span class="fc-red-400">Could not load your content. ' + escapeHtml(err.message) + '</span>';
-    });
   }
 
   if (document.readyState === 'loading') {

@@ -1,34 +1,42 @@
 /**
  * tags.js
  *
- * Renders the /tags page from ./mock/tags.json.
- *   - debounced filter input (fires 1s after the user stops typing)
- *   - sort tabs: Popular (default) / Name / New
- *   - client-side pagination
- *   - tag names link to ./tag-detail.html?tag=<name>
+ * Renders the /tags page from the live backend.
+ *   - GET /api/tags?q=&sort=popular|name|new&page=&page_size=
+ *   - Debounced filter input (1s after typing stops; Enter applies immediately)
+ *   - Sort tabs: Popular (default) / Name / New — server-side sort
+ *   - Server-side pagination
+ *   - Tag names link to ./tag-detail.html?tag=<name>
+ *
+ * Backend response shape (from routers/tags.py list_tags):
+ *   { items: [{ id, name, description, post_count }],
+ *     total, page, page_size }
  *
  * Tag URLs go through makeTagUrl(), which prefers window.tagUrl when
  * ./js/tag-url.js has run and falls back to building the URL locally
- * otherwise. That way load order between the two scripts doesn't matter.
+ * otherwise — so load order between the two scripts doesn't matter.
  *
  * All styling lives in ./css/*.css.
  */
 
 const LIST_ID     = 'tags-list';
-const JSON_URL    = './mock/tags.json';
 const DEBOUNCE_MS = 1000;
-const PAGE_SIZE   = 36;
+const PAGE_SIZE   = 36;    // 9 rows on the grid__4 desktop layout
 
-/* ------------------------------------------------------------------ */
-/* State                                                               */
-/* ------------------------------------------------------------------ */
+const API_BASE = (location.port === '8000' || location.port === '')
+  ? '' : 'http://localhost:8000';
+
+// Backend sort keys — the current schema supports these three.
+const SORT_MAP = {
+  'popular': 'popular',
+  'name':    'name',
+  'new':     'new'
+};
 
 const state = {
-  all: [],
   query: '',
-  sort: 'popular',
-  page: 1,
-  pageSize: PAGE_SIZE
+  sort:  'popular',
+  page:  1
 };
 
 /* ------------------------------------------------------------------ */
@@ -62,12 +70,12 @@ function makeTagUrl(name) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Row template                                                        */
+/* Row template (backend TagOut shape)                                 */
 /* ------------------------------------------------------------------ */
 
 function renderTag(tag) {
   const name  = String(tag.name || '');
-  const count = Number(tag.questionCount) || 0;
+  const count = Number(tag.post_count) || 0;
   const url   = makeTagUrl(name);
 
   return `
@@ -89,69 +97,55 @@ function renderTag(tag) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Filter + sort                                                       */
+/* States                                                              */
 /* ------------------------------------------------------------------ */
 
-function getFiltered() {
-  const q = state.query.trim().toLowerCase();
-
-  let list = q
-    ? state.all.filter((t) => String(t.name || '').toLowerCase().includes(q))
-    : [...state.all];
-
-  if (state.sort === 'name') {
-    list.sort((a, b) => String(a.name).localeCompare(String(b.name)));
-  } else if (state.sort === 'new') {
-    list.sort((a, b) => {
-      const ta = new Date(a.createdAt).getTime() || 0;
-      const tb = new Date(b.createdAt).getTime() || 0;
-      return tb - ta;
-    });
-  } else {
-    list.sort((a, b) => (Number(b.questionCount) || 0) - (Number(a.questionCount) || 0));
-  }
-
-  return list;
-}
-
-/* ------------------------------------------------------------------ */
-/* Rendering                                                           */
-/* ------------------------------------------------------------------ */
-
-function renderList() {
+function renderLoading() {
   const listEl = document.getElementById(LIST_ID);
   if (!listEl) return;
 
-  const filtered = getFiltered();
-  const total    = filtered.length;
-  const pages    = Math.max(1, Math.ceil(total / state.pageSize));
-
-  if (state.page > pages) state.page = 1;
-
-  const start = (state.page - 1) * state.pageSize;
-  const slice = filtered.slice(start, start + state.pageSize);
-
-  listEl.removeAttribute('aria-busy');
-
-  if (!slice.length) {
-    listEl.innerHTML = `
-      <div class="grid--item ta-center fc-black-400 p24" style="grid-column: 1 / -1;">
-        No tags match <strong>${escapeHtml(state.query)}</strong>.
-      </div>`;
-  } else {
-    listEl.innerHTML = slice.map(renderTag).join('');
-  }
-
-  updateSummary(total);
-  renderPagination(pages);
+  listEl.setAttribute('aria-busy', 'true');
+  listEl.innerHTML = Array.from({ length: 8 }, () => `
+    <div class="grid--item s-card d-flex fd-column" style="min-height:120px;">
+      <div class="bg-loading bar-md mb12" style="height:20px;width:60%;"></div>
+      <div class="bg-loading bar-md mb8" style="height:12px;width:100%;"></div>
+      <div class="bg-loading bar-md mb8" style="height:12px;width:85%;"></div>
+      <div class="bg-loading bar-md mt-auto" style="height:12px;width:40%;"></div>
+    </div>`).join('');
 }
 
-function updateSummary(count) {
+function renderEmpty() {
+  const listEl = document.getElementById(LIST_ID);
+  if (!listEl) return;
+
+  listEl.removeAttribute('aria-busy');
+  listEl.innerHTML = `
+    <div class="grid--item ta-center fc-black-400 p24" style="grid-column: 1 / -1;">
+      No tags match <strong>${escapeHtml(state.query || '(all)')}</strong>.
+    </div>`;
+}
+
+function renderError(err) {
+  const listEl = document.getElementById(LIST_ID);
+  if (!listEl) return;
+
+  listEl.removeAttribute('aria-busy');
+  listEl.innerHTML = `
+    <div class="grid--item ta-center fc-red-400 p24" style="grid-column: 1 / -1;">
+      Could not load tags. ${escapeHtml(err?.message ?? String(err))}
+    </div>`;
+}
+
+/* ------------------------------------------------------------------ */
+/* Summary + pagination                                                */
+/* ------------------------------------------------------------------ */
+
+function updateSummary(total) {
   const el = document.querySelector('[data-tag-summary]');
   if (!el) return;
 
   if (state.query.trim()) {
-    el.textContent = `${count.toLocaleString()} ${count === 1 ? 'tag' : 'tags'} matching “${state.query.trim()}”`;
+    el.textContent = `${total.toLocaleString()} ${total === 1 ? 'tag' : 'tags'} matching “${state.query.trim()}”`;
     el.hidden = false;
   } else {
     el.textContent = '';
@@ -179,23 +173,29 @@ function renderPagination(totalPages) {
     last = p;
   }
 
-  const makeLink = (p, label) =>
-    `<a class="s-pagination--item js-page" href="#" data-page="${p}" aria-label="Go to page ${p}">${label}</a>`;
+  const prevArrow = '<svg class="svg-icon" aria-hidden="true" width="12" height="12" viewBox="0 0 12 12"><path d="M7.35.65 6.29 1.71 9.59 5H.65v1.5h8.94L6.29 9.79l1.06 1.06L12 6 7.35.65Z" transform="rotate(180 6 6)"/></svg>';
+  const nextArrow = '<svg class="svg-icon" aria-hidden="true" width="12" height="12" viewBox="0 0 12 12"><path d="M7.35.65 6.29 1.71 9.59 5H.65v1.5h8.94L6.29 9.79l1.06 1.06L12 6 7.35.65Z"/></svg>';
+
+  const makeLink = (p, html, aria) =>
+    `<a class="s-pagination--item${aria ? ' s-pagination--item__nav' : ''} js-page" href="#" data-page="${p}" aria-label="${aria || ('Go to page ' + p)}">${html}</a>`;
 
   const parts = items.map((item) => {
-    if (item.ellipsis) return `<span class="s-pagination--item s-pagination--item__clear">…</span>`;
+    if (item.ellipsis) return '<span class="s-pagination--item s-pagination--item__clear">…</span>';
     if (item.page === cur) return `<span class="s-pagination--item is-selected" aria-current="page">${item.page}</span>`;
     return makeLink(item.page, item.page);
   });
 
-  if (cur < totalPages) parts.push(makeLink(cur + 1, 'Next'));
-  nav.innerHTML = parts.join('');
+  if (cur > 1) parts.unshift(makeLink(cur - 1, prevArrow, 'Previous page'));
+  if (cur < totalPages) parts.push(makeLink(cur + 1, nextArrow, 'Next page'));
 
+  nav.innerHTML = parts.join('');
   nav.querySelectorAll('.js-page').forEach((a) => {
     a.addEventListener('click', (e) => {
       e.preventDefault();
-      state.page = Number(a.dataset.page);
-      renderList();
+      const p = Number(a.dataset.page);
+      if (!p) return;
+      state.page = p;
+      load();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     });
   });
@@ -213,19 +213,19 @@ function bindFilter() {
   const onFilter = debounce(() => {
     state.query = input.value;
     state.page = 1;
-    renderList();
+    load();
   }, DEBOUNCE_MS);
 
   input.addEventListener('input', onFilter);
 
-  // If the user presses Enter, apply immediately.
+  // Enter applies immediately, bypassing the debounce delay.
   input.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter') return;
     e.preventDefault();
     onFilter.cancel();
     state.query = input.value;
     state.page = 1;
-    renderList();
+    load();
   });
 }
 
@@ -233,38 +233,90 @@ function bindSortNav() {
   const nav = document.querySelector('[data-sort-nav]');
   if (!nav) return;
 
-  nav.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-sort]');
-    if (!btn) return;
-    e.preventDefault();
+  nav.querySelectorAll('[data-sort]').forEach((btn) => {
+    const sortKey = SORT_MAP[btn.dataset.sort];
+    if (!sortKey) return;
 
-    state.sort = btn.dataset.sort;
-    state.page = 1;
+    // Clone + rebind so repeated calls don't stack listeners.
+    const fresh = btn.cloneNode(true);
+    btn.parentNode.replaceChild(fresh, btn);
 
-    nav.querySelectorAll('[data-sort]').forEach((b) => {
-      const on = b === btn;
-      b.classList.toggle('is-selected', on);
-      b.setAttribute('aria-pressed', String(on));
+    fresh.addEventListener('click', (e) => {
+      e.preventDefault();
+      state.sort = sortKey;
+      state.page = 1;
+      nav.querySelectorAll('[data-sort]').forEach((b) => {
+        const on = b.dataset.sort === sortKey;
+        b.classList.toggle('is-selected', on);
+        b.setAttribute('aria-pressed', String(on));
+      });
+      load();
     });
-
-    renderList();
   });
+
+  // Paint initial selection from state.
+  nav.querySelectorAll('[data-sort]').forEach((b) => {
+    const on = b.dataset.sort === state.sort;
+    b.classList.toggle('is-selected', on);
+    b.setAttribute('aria-pressed', String(on));
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/* Loader                                                              */
+/* ------------------------------------------------------------------ */
+
+function load() {
+  const listEl = document.getElementById(LIST_ID);
+  if (!listEl) return;
+
+  renderLoading();
+
+  const params = new URLSearchParams();
+  if (state.query.trim()) params.set('q', state.query.trim());
+  params.set('sort', state.sort);
+  params.set('page', String(state.page));
+  params.set('page_size', String(PAGE_SIZE));
+
+  const url = API_BASE + '/api/tags?' + params.toString();
+
+  fetch(url, { credentials: 'include', headers: { Accept: 'application/json' } })
+    .then((res) => {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    })
+    .then((data) => {
+      const items      = Array.isArray(data.items) ? data.items : [];
+      const total      = Number(data.total) || 0;
+      const pageSize   = Number(data.page_size) || PAGE_SIZE;
+      const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+      listEl.removeAttribute('aria-busy');
+
+      if (!items.length) renderEmpty();
+      else listEl.innerHTML = items.map(renderTag).join('');
+
+      updateSummary(total);
+      renderPagination(totalPages);
+    })
+    .catch((err) => {
+      console.error('[tags]', err);
+      renderError(err);
+      updateSummary(0);
+      renderPagination(0);
+    });
 }
 
 /* ------------------------------------------------------------------ */
 /* Bootstrap                                                           */
 /* ------------------------------------------------------------------ */
 
-async function init() {
+function init() {
   const listEl = document.getElementById(LIST_ID);
   if (!listEl) {
     console.warn('[tags] #tags-list not found — aborting.');
     return;
   }
-
-  listEl.setAttribute('aria-busy', 'true');
-  bindFilter();
-  bindSortNav();
 
   if (location.protocol === 'file:') {
     listEl.removeAttribute('aria-busy');
@@ -275,25 +327,9 @@ async function init() {
     return;
   }
 
-  try {
-    const res = await fetch(JSON_URL, { cache: 'no-store' });
-    if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
-    const text = await res.text();
-    if (!text.trim()) throw new Error(`Empty response from ${JSON_URL}`);
-    const data = JSON.parse(text);
-
-    state.all      = Array.isArray(data) ? data : (data.tags || []);
-    state.pageSize = Number(data.pageSize) || PAGE_SIZE;
-
-    renderList();
-  } catch (err) {
-    console.error('[tags] Failed to load:', err);
-    listEl.removeAttribute('aria-busy');
-    listEl.innerHTML = `
-      <div class="grid--item ta-center fc-red-400 p24" style="grid-column: 1 / -1;">
-        Could not load tags. ${escapeHtml(err.message)}
-      </div>`;
-  }
+  bindFilter();
+  bindSortNav();
+  load();
 }
 
 if (document.readyState === 'loading') {
