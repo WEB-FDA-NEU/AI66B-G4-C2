@@ -17,10 +17,10 @@
 
 const NAV_ITEMS = [
   { key: 'home',       label: 'Home',       href: './index.html' },
-  { key: 'questions',  label: 'Questions',  href: './posts.html' },
-  { key: 'discussion', label: 'Discussion', href: '#' },
-  { key: 'tags',       label: 'Tags',       href: '#' },
-  { key: 'users',      label: 'Users',      href: '#' },
+  { key: 'questions',  label: 'Questions',  href: './questions.html' },
+  { key: 'discussion', label: 'Discussion', href: './discussions.html' },
+  { key: 'tags',       label: 'Tags',       href: './tags.html' },
+  { key: 'users',      label: 'Users',      href: './users.html' },
   { key: 'admin',      label: 'Admin',      href: './admin.html' },
 ];
 

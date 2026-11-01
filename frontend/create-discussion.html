@@ -50,16 +50,7 @@
   <div class="d-flex ai-start g24 wmx12 mx-auto px16 py24">
 
     <!-- ---------- LEFT RAIL ---------- -->
-    <aside class="sidebar-left sm:d-none" aria-label="Section navigation">
-      <nav class="s-navigation s-navigation__vertical">
-        <a class="s-navigation--item" href="./index.html">Home</a>
-        <a class="s-navigation--item" href="./questions.html">Questions</a>
-        <a class="s-navigation--item is-selected" href="./discussions.html" aria-current="page">Discussion</a>
-        <a class="s-navigation--item" href="./tags.html">Tags</a>
-        <a class="s-navigation--item" href="./users.html">Users</a>
-        <a class="s-navigation--item" href="./admin.html">Admin</a>
-      </nav>
-    </aside>
+    <site-sidebar active="discussion"></site-sidebar>
 
     <!-- ---------- MAIN ---------- -->
     <main id="main" class="fl-grow1" style="min-width: 0;">
@@ -236,6 +227,7 @@
   <!-- Modular elements -->
   <script type="module" src="./js/components/site-header.js"></script>
   <script type="module" src="./js/components/site-footer.js"></script>
+  <script type="module" src="./js/components/site-sidebar.js"></script>
 
   <!-- Reuse the ask-question editor: IDs match, so no new module is needed -->
   <script type="module">
