@@ -4,43 +4,74 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Start a new discussion — Tech4Rum</title>
+
+  <!-- Design system -->
   <link rel="stylesheet" href="./css/reset.css">
   <link rel="stylesheet" href="./css/tokens.css">
   <link rel="stylesheet" href="./css/layout.css">
   <link rel="stylesheet" href="./css/components.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github.min.css">
+  <link rel="stylesheet" href="./css/extra.css">
+
+  <!-- KaTeX + highlight.js themes -->
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github.min.css">
 </head>
+
 <body class="theme-light">
 
   <a href="#main" class="v-visible-sr">Skip to main content</a>
+
+  <!-- ================= TOP BAR ================= -->
   <site-header is-logged-in="true"></site-header>
 
-  <div class="bg-black-100 bb bc-black-150">
-    <div class="d-flex ai-center g16 wmx12 mx-auto px16 py24">
+  <!-- ================= HERO ================= -->
+  <div class="ask-hero">
+    <div class="ask-hero__inner d-flex ai-center g16">
       <div class="fl-grow1">
-        <span class="s-badge s-badge__featured s-badge__important mb8">Discussion</span>
+        <span class="discussion-badge mb8">Discussion</span>
         <h1 class="fs-headline1 fw-normal mb0">Start a new discussion</h1>
       </div>
-      <svg class="d-none md:d-block flex__fl-shrink0" width="120" height="78" viewBox="0 0 120 78" aria-hidden="true">
+      <svg class="ask-hero__illustration d-none md:d-block" width="120" height="78"
+           viewBox="0 0 120 78" aria-hidden="true">
         <path d="M10 14h74a4 4 0 0 1 4 4v32a4 4 0 0 1-4 4H42L22 70V54H10a4 4 0 0 1-4-4V18a4 4 0 0 1 4-4Z"
               fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-        <path d="M22 28h50M22 38h42M22 48h30" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M22 28h50M22 38h42M22 48h30" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round"/>
         <circle cx="100" cy="42" r="12" fill="none" stroke="currentColor" stroke-width="2"/>
-        <path d="M92 42h16M100 34v16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M92 42h16M100 34v16" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round"/>
       </svg>
     </div>
   </div>
 
+  <!-- ================= PAGE ================= -->
   <div class="d-flex ai-start g24 wmx12 mx-auto px16 py24">
-    <site-sidebar class="ws2 flex__fl-shrink0 sm:d-none"></site-sidebar>
 
-    <main id="main" class="fl-grow1 wmn0">
-      <div class="s-form-group">
+    <!-- ---------- LEFT RAIL ---------- -->
+    <aside class="sidebar-left sm:d-none" aria-label="Section navigation">
+      <nav class="s-navigation s-navigation__vertical">
+        <a class="s-navigation--item" href="./index.html">Home</a>
+        <a class="s-navigation--item" href="./questions.html">Questions</a>
+        <a class="s-navigation--item is-selected" href="./discussions.html" aria-current="page">Discussion</a>
+        <a class="s-navigation--item" href="./tags.html">Tags</a>
+        <a class="s-navigation--item" href="./users.html">Users</a>
+        <a class="s-navigation--item" href="./admin.html">Admin</a>
+      </nav>
+    </aside>
 
+    <!-- ---------- MAIN ---------- -->
+    <main id="main" class="fl-grow1" style="min-width: 0;">
+
+      <form class="s-form-group" onsubmit="return false">
+
+        <!-- ===== Title ===== -->
         <div class="s-form-group">
           <label class="s-label" for="question-title">Topic</label>
-          <div class="s-description">Give your discussion a clear, specific title. It's the first thing people read.</div>
+          <div class="s-description">
+            Give your discussion a clear, specific title. It's the first thing people read.
+          </div>
           <input class="s-input" id="question-title" name="title" type="text"
                  placeholder="e.g. What's your preferred way to handle environment secrets in local dev?"
                  maxlength="150" autocomplete="off" required>
@@ -49,6 +80,7 @@
           </div>
         </div>
 
+        <!-- ===== Body ===== -->
         <div class="s-form-group">
           <label class="s-label" for="answer-body">What would you like to discuss?</label>
           <div class="s-description">
@@ -58,16 +90,16 @@
 
           <div class="editor">
             <div class="editor-toolbar" role="toolbar" aria-label="Formatting">
-              <button class="tool-btn" type="button" data-md="bold"   aria-label="Bold"><strong aria-hidden="true">B</strong></button>
-              <button class="tool-btn" type="button" data-md="italic" aria-label="Italic"><em aria-hidden="true">I</em></button>
+              <button class="tool-btn" type="button" data-md="bold"     aria-label="Bold"><strong aria-hidden="true">B</strong></button>
+              <button class="tool-btn" type="button" data-md="italic"   aria-label="Italic"><em aria-hidden="true">I</em></button>
               <span class="tool-sep" aria-hidden="true"></span>
-              <button class="tool-btn" type="button" data-md="code"   aria-label="Code">&lt;/&gt;</button>
-              <button class="tool-btn" type="button" data-md="link"   aria-label="Link">🔗</button>
-              <button class="tool-btn" type="button" data-md="image"  aria-label="Image">🖼</button>
+              <button class="tool-btn" type="button" data-md="code"     aria-label="Code">&lt;/&gt;</button>
+              <button class="tool-btn" type="button" data-md="link"     aria-label="Link">🔗</button>
+              <button class="tool-btn" type="button" data-md="image"    aria-label="Image">🖼</button>
               <span class="tool-sep" aria-hidden="true"></span>
-              <button class="tool-btn" type="button" data-md="quote"  aria-label="Blockquote">❝</button>
-              <button class="tool-btn" type="button" data-md="ul"     aria-label="Bulleted list">•</button>
-              <button class="tool-btn" type="button" data-md="ol"     aria-label="Numbered list">1.</button>
+              <button class="tool-btn" type="button" data-md="quote"    aria-label="Blockquote">❝</button>
+              <button class="tool-btn" type="button" data-md="ul"       aria-label="Bulleted list">•</button>
+              <button class="tool-btn" type="button" data-md="ol"       aria-label="Numbered list">1.</button>
               <span class="tool-sep" aria-hidden="true"></span>
               <button class="tool-btn" type="button" id="preview-toggle">Preview</button>
             </div>
@@ -79,10 +111,10 @@
             <div id="answer-preview" class="s-prose editor-preview" style="display:none;"></div>
           </div>
 
-          <div class="d-flex ai-center jc-space-between g8 fw-wrap mt8 fs-caption fc-black-400">
+          <div class="editor-footer">
             <span>
               <a class="s-link s-link__muted" href="#">Markdown help</a>
-              · KaTeX &amp; highlight.js enabled
+              · <span class="fc-black-400">KaTeX &amp; highlight.js enabled</span>
             </span>
             <span>
               <span id="body-count" class="fw-bold fc-black-500">0</span> / 30000 characters
@@ -90,71 +122,134 @@
           </div>
         </div>
 
+        <!-- ===== Tags ===== -->
         <div class="s-form-group">
           <label class="s-label" for="tag-input">Tags</label>
-          <div class="s-description">Add up to 5 tags to help people find your discussion. Press <kbd>Enter</kbd> or <kbd>,</kbd> to add.</div>
-          <div class="tag-editor" id="tag-editor">
-            <input id="tag-input" type="text" placeholder="e.g. devops" autocomplete="off" aria-label="Add a tag">
+          <div class="s-description">
+            Add up to 5 tags to help people find your discussion. Press <kbd>Enter</kbd> or <kbd>,</kbd> to add.
           </div>
+
+          <div class="tag-editor" id="tag-editor">
+            <input id="tag-input" type="text" placeholder="e.g. devops" autocomplete="off"
+                   aria-label="Add a tag">
+          </div>
+
           <div class="s-input-message fc-black-400">
             <span id="tag-count" class="fw-bold">0</span> / 5 tags
           </div>
         </div>
 
+        <!-- ===== Actions ===== -->
         <div class="d-flex ai-center g8 fw-wrap mt8">
           <button type="button" class="s-btn" id="post-discussion-btn">Post discussion</button>
           <button type="button" class="s-btn s-btn__clear">Save as draft</button>
           <span class="fl-grow1"></span>
           <button type="button" class="s-btn s-btn__link s-btn__link__danger">Discard draft</button>
         </div>
-      </div>
+
+      </form>
+
     </main>
 
-    <aside class="ws2 flex__fl-shrink0 md:d-none" aria-label="Discussion guidance">
-      <div class="bg-white bc-light ba bar-md mb16 p16">
-        <h2 class="fs-body2 fw-bold mb8">Step 1: Frame the topic</h2>
-        <p class="fs-body1 fc-black-500">A good discussion title invites a real conversation — specific enough to answer, open enough to disagree about.</p>
-        <ul class="fs-body1 fc-black-500">
+    <!-- ---------- RIGHT RAIL ---------- -->
+    <aside class="sidebar-right md:d-none" aria-label="Discussion guidance">
+
+      <div class="guide-widget">
+        <h2>Step 1: Frame the topic</h2>
+        <p>
+          A good discussion title invites a real conversation — it's specific enough
+          to answer, open enough to disagree about.
+        </p>
+        <ul>
           <li>Make the claim or question clear up front</li>
           <li>Say why it matters to you right now</li>
-          <li>Avoid bait-y phrasing</li>
+          <li>Avoid bait-y phrasing and sweeping generalisations</li>
         </ul>
       </div>
-      <div class="bg-white bc-light ba bar-md mb16 p16">
-        <h2 class="fs-body2 fw-bold mb8">Step 2: Share your own take</h2>
-        <p class="fs-body1 fc-black-500 mb0">Discussions work best when the OP starts. Share what you currently do, what you've tried, or what changed your mind.</p>
+
+      <div class="guide-widget">
+        <h2>Step 2: Share your own take</h2>
+        <p>
+          Discussions work best when the OP doesn't just ask — it starts. Share what
+          you currently do, what you've tried, or what changed your mind, and others
+          will respond in kind.
+        </p>
       </div>
-      <div class="bg-white bc-light ba bar-md mb16 p16">
-        <h2 class="fs-body2 fw-bold mb8">Step 3: Invite disagreement</h2>
-        <p class="fs-body1 fc-black-500 mb0">Good discussions welcome pushback. Instead of "am I right?", try "here's why I think X — what am I missing?".</p>
+
+      <div class="guide-widget">
+        <h2>Step 3: Invite disagreement</h2>
+        <p>
+          Good discussions welcome pushback. Instead of "am I right?", try "here's
+          why I think X — what am I missing?". You'll get better replies.
+        </p>
       </div>
-      <div class="bg-white bc-light ba bar-md">
-        <div class="bb bc-black-150 p12 fw-bold fc-black-600">Before you post</div>
-        <div class="p16">
-          <ul class="list-reset d-flex fd-column g8 fs-body1">
-            <li class="d-flex g8"><span class="fc-green-400 fw-bold">✓</span><span>The title makes the topic clear</span></li>
-            <li class="d-flex g8"><span class="fc-green-400 fw-bold">✓</span><span>Your own perspective is included</span></li>
-            <li class="d-flex g8"><span class="fc-green-400 fw-bold">✓</span><span>Relevant tags are added</span></li>
+
+      <div class="widget">
+        <div class="widget-header">Before you post</div>
+        <div class="widget-body">
+          <ul class="list-reset d-flex fd-column g8">
+            <li class="d-flex g8">
+              <span class="fc-green-400 fw-bold">✓</span>
+              <span>The title makes the topic clear</span>
+            </li>
+            <li class="d-flex g8">
+              <span class="fc-green-400 fw-bold">✓</span>
+              <span>Your own perspective is included</span>
+            </li>
+            <li class="d-flex g8">
+              <span class="fc-green-400 fw-bold">✓</span>
+              <span>Relevant tags are added</span>
+            </li>
+            <li class="d-flex g8">
+              <span class="fc-green-400 fw-bold">✓</span>
+              <span>It isn't a question in disguise</span>
+            </li>
           </ul>
         </div>
       </div>
+
+      <div class="widget">
+        <div class="widget-header">Need more help?</div>
+        <div class="widget-body">
+          <ul class="list-reset d-flex fd-column g8">
+            <li><a class="s-link" href="#">Discussion guidelines</a></li>
+            <li><a class="s-link" href="#">How moderation works</a></li>
+            <li><a class="s-link" href="#">Browse the help center</a></li>
+          </ul>
+        </div>
+      </div>
+
     </aside>
+
   </div>
 
+  <!-- ================= FOOTER ================= -->
   <site-footer></site-footer>
 
+  <!-- =========================================================
+       Third-party libraries (globals required by markdown-renderer.js)
+       ========================================================= -->
   <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js" defer></script>
 
+  <!-- Modular elements -->
   <script type="module" src="./js/components/site-header.js"></script>
   <script type="module" src="./js/components/site-footer.js"></script>
-  <script type="module" src="./js/components/site-sidebar.js"></script>
 
+  <!-- Reuse the ask-question editor: IDs match, so no new module is needed -->
   <script type="module">
-    import { initAskQuestionEditor, bindPostSubmit } from './js/ask-question-editor.js';
-    const editor = initAskQuestionEditor();
-    bindPostSubmit({ getTags: editor.getTags });
+    import { initAskQuestionEditor } from './js/ask-question-editor.js';
+    initAskQuestionEditor();
+
+    /* Static submit — the demo build has no backend. */
+    const postBtn = document.getElementById('post-discussion-btn');
+    if (postBtn) {
+      postBtn.addEventListener('click', () => {
+        window.alert('Posting is not available in this demo build.');
+      });
+    }
   </script>
+
 </body>
 </html>

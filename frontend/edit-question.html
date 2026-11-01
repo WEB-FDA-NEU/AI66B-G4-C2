@@ -4,45 +4,88 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Edit question — Tech4Rum</title>
+
   <link rel="stylesheet" href="./css/reset.css">
   <link rel="stylesheet" href="./css/tokens.css">
   <link rel="stylesheet" href="./css/layout.css">
   <link rel="stylesheet" href="./css/components.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github.min.css">
+  <link rel="stylesheet" href="./css/extra.css">
+
+  <!-- KaTeX (math) -->
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+
+  <!-- highlight.js theme (light) -->
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github.min.css">
+
 </head>
+
 <body class="theme-light">
 
   <a href="#main" class="v-visible-sr">Skip to main content</a>
+
+  <!-- ================= TOP BAR ================= -->
   <site-header is-logged-in="true"></site-header>
 
-  <div class="bg-black-100 bb bc-black-150">
-    <div class="d-flex ai-center g16 wmx12 mx-auto px16 py24">
+  <!-- ================= HERO ================= -->
+  <div class="ask-hero">
+    <div class="ask-hero__inner d-flex ai-center g16">
       <div class="fl-grow1">
-        <span class="s-badge s-badge__info s-badge__important mb8">Question</span>
+        <span class="question-badge mb8">Question</span>
         <h1 class="fs-headline1 fw-normal mb0">Edit question</h1>
       </div>
+      <svg class="ask-hero__illustration d-none md:d-block" width="120" height="78"
+           viewBox="0 0 120 78" aria-hidden="true">
+        <rect x="4" y="10" width="76" height="52" rx="4" fill="none"
+              stroke="currentColor" stroke-width="2"/>
+        <path d="M16 24h44M16 34h52M16 44h34" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round"/>
+        <path d="M88 60 L104 44 L110 50 L94 66 L88 66 Z"
+              fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linejoin="round"/>
+        <path d="M104 44 L108 40 L114 46 L110 50"
+              fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linejoin="round"/>
+      </svg>
     </div>
   </div>
 
+  <!-- ================= PAGE ================= -->
   <div class="d-flex ai-start g24 wmx12 mx-auto px16 py24">
-    <site-sidebar class="ws2 flex__fl-shrink0 sm:d-none"></site-sidebar>
 
-    <main id="main" class="fl-grow1 wmn0">
+    <!-- ---------- LEFT RAIL ---------- -->
+    <aside class="sidebar-left sm:d-none" aria-label="Section navigation">
+      <nav class="s-navigation s-navigation__vertical">
+        <a class="s-navigation--item" href="./index.html">Home</a>
+        <a class="s-navigation--item is-selected" href="./questions.html" aria-current="page">Questions</a>
+        <a class="s-navigation--item" href="./discussions.html">Discussion</a>
+        <a class="s-navigation--item" href="./tags.html">Tags</a>
+        <a class="s-navigation--item" href="./users.html">Users</a>
+        <a class="s-navigation--item" href="./admin.html">Admin</a>
+      </nav>
+    </aside>
 
-      <div class="bg-black-100 bc-black-150 ba bar-md p12 mb16 d-flex ai-center g8 fs-caption fc-black-500"
-           id="edit-context" role="status" aria-live="polite">
-        <svg class="svg-icon flex__fl-shrink0" aria-hidden="true" width="16" height="16" viewBox="0 0 16 16">
+    <!-- ---------- MAIN ---------- -->
+    <main id="main" class="fl-grow1" style="min-width: 0;">
+
+      <!-- Edit-context strip (populated by JS) -->
+      <div class="edit-context mb16" id="edit-context" role="status" aria-live="polite">
+        <svg class="svg-icon" aria-hidden="true" width="16" height="16" viewBox="0 0 16 16">
           <path d="M8 1a7 7 0 1 1 0 14A7 7 0 0 1 8 1Zm0 1.2a5.8 5.8 0 1 0 0 11.6A5.8 5.8 0 0 0 8 2.2ZM7.4 11h1.2v1.2H7.4V11Zm0-6.4h1.2v5H7.4v-5Z"/>
         </svg>
         <span id="edit-context-text">Loading question…</span>
       </div>
 
-      <form class="s-form-group edit-form is-loading" id="edit-form" action="#" method="post" novalidate>
+      <form class="s-form-group edit-form is-loading" id="edit-form"
+            action="#" method="post" novalidate>
 
+        <!-- ===== Title ===== -->
         <div class="s-form-group">
           <label class="s-label" for="question-title">Title</label>
-          <div class="s-description">Be specific and imagine you're asking a question to another person.</div>
+          <div class="s-description">
+            Be specific and imagine you're asking a question to another person.
+          </div>
           <input class="s-input" id="question-title" name="title" type="text"
                  placeholder="e.g. Why does React re-render my component twice inside StrictMode?"
                  maxlength="150" autocomplete="off" required>
@@ -51,6 +94,7 @@
           </div>
         </div>
 
+        <!-- ===== Body ===== -->
         <div class="s-form-group">
           <label class="s-label" for="answer-body">What are the details of your problem?</label>
           <div class="s-description">
@@ -60,16 +104,16 @@
 
           <div class="editor">
             <div class="editor-toolbar" role="toolbar" aria-label="Formatting">
-              <button class="tool-btn" type="button" data-md="bold"   aria-label="Bold"><strong aria-hidden="true">B</strong></button>
-              <button class="tool-btn" type="button" data-md="italic" aria-label="Italic"><em aria-hidden="true">I</em></button>
+              <button class="tool-btn" type="button" data-md="bold"     aria-label="Bold"><strong aria-hidden="true">B</strong></button>
+              <button class="tool-btn" type="button" data-md="italic"   aria-label="Italic"><em aria-hidden="true">I</em></button>
               <span class="tool-sep" aria-hidden="true"></span>
-              <button class="tool-btn" type="button" data-md="code"   aria-label="Code">&lt;/&gt;</button>
-              <button class="tool-btn" type="button" data-md="link"   aria-label="Link">🔗</button>
-              <button class="tool-btn" type="button" data-md="image"  aria-label="Image">🖼</button>
+              <button class="tool-btn" type="button" data-md="code"     aria-label="Code">&lt;/&gt;</button>
+              <button class="tool-btn" type="button" data-md="link"     aria-label="Link">🔗</button>
+              <button class="tool-btn" type="button" data-md="image"    aria-label="Image">🖼</button>
               <span class="tool-sep" aria-hidden="true"></span>
-              <button class="tool-btn" type="button" data-md="quote"  aria-label="Blockquote">❝</button>
-              <button class="tool-btn" type="button" data-md="ul"     aria-label="Bulleted list">•</button>
-              <button class="tool-btn" type="button" data-md="ol"     aria-label="Numbered list">1.</button>
+              <button class="tool-btn" type="button" data-md="quote"    aria-label="Blockquote">❝</button>
+              <button class="tool-btn" type="button" data-md="ul"       aria-label="Bulleted list">•</button>
+              <button class="tool-btn" type="button" data-md="ol"       aria-label="Numbered list">1.</button>
               <span class="tool-sep" aria-hidden="true"></span>
               <button class="tool-btn" type="button" id="preview-toggle">Preview</button>
             </div>
@@ -81,10 +125,10 @@
             <div id="answer-preview" class="s-prose editor-preview" style="display:none;"></div>
           </div>
 
-          <div class="d-flex ai-center jc-space-between g8 fw-wrap mt8 fs-caption fc-black-400">
+          <div class="editor-footer">
             <span>
               <a class="s-link s-link__muted" href="#">Markdown help</a>
-              · KaTeX &amp; highlight.js enabled
+              · <span class="fc-black-400">KaTeX &amp; highlight.js enabled</span>
             </span>
             <span>
               <span id="body-count" class="fw-bold fc-black-500">0</span> / 30000 characters
@@ -92,119 +136,185 @@
           </div>
         </div>
 
+        <!-- ===== Tags ===== -->
         <div class="s-form-group">
           <label class="s-label" for="tag-input">Tags</label>
-          <div class="s-description">Add up to 5 tags to describe what your question is about. Press <kbd>Enter</kbd> or <kbd>,</kbd> to add.</div>
-          <div class="tag-editor" id="tag-editor">
-            <input id="tag-input" type="text" placeholder="e.g. rust" autocomplete="off" aria-label="Add a tag">
+          <div class="s-description">
+            Add up to 5 tags to describe what your question is about. Press <kbd>Enter</kbd> or <kbd>,</kbd> to add.
           </div>
+
+          <div class="tag-editor" id="tag-editor">
+            <input id="tag-input" type="text" placeholder="e.g. rust" autocomplete="off"
+                   aria-label="Add a tag">
+          </div>
+
           <div class="s-input-message fc-black-400">
             <span id="tag-count" class="fw-bold">0</span> / 5 tags
           </div>
         </div>
 
+        <!-- ===== Edit summary ===== -->
         <div class="s-form-group">
           <label class="s-label" for="edit-summary">
             Edit summary
             <span class="s-badge s-badge__sm s-badge__warning">required</span>
           </label>
           <div class="s-description">
-            Briefly describe your changes. This helps reviewers understand what you fixed and appears in the revision history.
+            Briefly describe your changes. This helps reviewers understand what you fixed and
+            appears in the revision history.
           </div>
           <input class="s-input" id="edit-summary" name="edit-summary" type="text"
                  maxlength="300" autocomplete="off" required
-                 placeholder="e.g. Fixed grammar, added an AbortController example">
+                 placeholder="e.g. Fixed grammar, added an AbortController example, corrected the effect snippet">
           <div class="s-input-message fc-black-400">
             <span id="summary-count" class="fw-bold">0</span> / 300 characters
           </div>
         </div>
 
+        <!-- ===== Actions ===== -->
         <div class="d-flex ai-center g8 fw-wrap mt8">
           <button type="submit" class="s-btn" id="save-btn" disabled>Save edits</button>
           <a class="s-btn s-btn__clear" href="./my-content.html">Cancel</a>
           <span class="fl-grow1"></span>
-          <button type="button" class="s-btn s-btn__link s-btn__link__danger" id="delete-btn">Delete post</button>
+          <button type="button" class="s-btn s-btn__link s-btn__link__danger" id="delete-btn">
+            Delete post
+          </button>
         </div>
 
-        <div class="bg-black-100 bc-black-150 ba bar-md p16 mt16 d-flex ai-start jc-space-between g16 fw-wrap">
-          <p class="fc-black-400 fs-caption mb0 wmx7">
+        <!-- ===== Danger zone note ===== -->
+        <div class="danger-zone">
+          <div class="fc-black-400 fs-caption" style="max-width: 46rem;">
             Once saved, your edits become publicly visible and will appear in the post's
             revision history. Deleted posts can be restored within 30 days by a moderator.
-          </p>
-          <a class="s-link s-link__muted fs-caption flex__fl-shrink0" href="#">Editing help</a>
+          </div>
+          <a class="s-link s-link__muted fs-caption" href="#">Editing help</a>
         </div>
+
       </form>
+
     </main>
 
-    <aside class="ws2 flex__fl-shrink0 md:d-none" aria-label="Edit guidance">
-      <div class="bg-white bc-light ba bar-md mb16 p16">
-        <h2 class="fs-body2 fw-bold mb8">How to edit a post</h2>
-        <p class="fs-body1 fc-black-500">Editing is for clarifying meaning, not changing it. Keep the original author's intent intact.</p>
-        <ul class="fs-body1 fc-black-500">
-          <li><strong>Fix typos &amp; grammar</strong></li>
-          <li><strong>Add missing context</strong></li>
-          <li><strong>Improve formatting</strong></li>
+    <!-- ---------- RIGHT RAIL ---------- -->
+    <aside class="sidebar-right md:d-none" aria-label="Edit guidance">
+
+      <div class="guide-widget">
+        <h2>How to edit a post</h2>
+        <p>
+          Editing is for clarifying meaning, not changing it. Keep the original author's
+          intent intact.
+        </p>
+        <ul>
+          <li><strong>Fix typos &amp; grammar</strong> — small edits that don't change meaning.</li>
+          <li><strong>Add missing context</strong> — versions, error messages, repro steps.</li>
+          <li><strong>Improve formatting</strong> — fenced code blocks, tags, headings.</li>
+          <li><strong>Don't</strong> answer in the question body. Use a separate answer.</li>
         </ul>
       </div>
 
-      <div class="bg-white bc-light ba bar-md mb16">
-        <div class="bb bc-black-150 p12 fw-bold fc-black-600">Revision history</div>
-        <div class="p8">
-          <ul class="list-reset d-flex fd-column g12" id="revision-list"></ul>
+      <div class="widget">
+        <div class="widget-header">Revision history</div>
+        <div class="widget-body" style="padding-top: var(--su8); padding-bottom: var(--su8);">
+          <ul class="revision-list" id="revision-list">
+            <!-- populated by JS -->
+          </ul>
         </div>
       </div>
 
-      <div class="bg-white bc-light ba bar-md mb16">
-        <div class="bb bc-black-150 p12 fw-bold fc-black-600">Post preview</div>
-        <div class="p16">
-          <p class="mb8"><a class="s-link" href="./question-detail.html" id="view-post-link">View the current post →</a></p>
-          <p class="fc-black-400 mb0 fs-body1">Open the published version in a new tab while you edit.</p>
+      <div class="widget">
+        <div class="widget-header">Post preview</div>
+        <div class="widget-body">
+          <p class="mb8">
+            <a class="s-link" href="./question-detail.html" id="view-post-link">
+              View the current post →
+            </a>
+          </p>
+          <p class="fc-black-400 mb0">
+            Open the published version in a new tab so you can compare while you edit.
+          </p>
         </div>
       </div>
 
-      <div class="bg-white bc-light ba bar-md">
-        <div class="bb bc-black-150 p12 fw-bold fc-black-600">Need more help?</div>
-        <div class="p16">
-          <ul class="list-reset d-flex fd-column g8 fs-body1">
+      <div class="widget">
+        <div class="widget-header">Need more help?</div>
+        <div class="widget-body">
+          <ul class="list-reset d-flex fd-column g8">
             <li><a class="s-link" href="#">Editing help</a></li>
             <li><a class="s-link" href="#">How to Ask a good question</a></li>
             <li><a class="s-link" href="#">Browse the help center</a></li>
           </ul>
         </div>
       </div>
+
     </aside>
+
   </div>
 
+  <!-- ================= FOOTER ================= -->
   <site-footer></site-footer>
 
+  <!-- =========================================================
+       Third-party libraries (globals required by markdown-renderer.js)
+       ========================================================= -->
   <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js" defer></script>
 
+  <!-- Modular elements -->
   <script type="module" src="./js/components/site-header.js"></script>
   <script type="module" src="./js/components/site-footer.js"></script>
-  <script type="module" src="./js/components/site-sidebar.js"></script>
 
+  <!-- =========================================================
+       Load the right question by ?id= and hand it to the editor
+       ========================================================= -->
   <script type="module">
     import { initEditQuestionPage } from './js/edit-question-page.js';
-    import { posts as postsApi } from './js/api.js';
 
-    const id = new URLSearchParams(location.search).get('id');
-    if (!id) {
-      document.getElementById('edit-context-text').textContent = 'No post id.';
-    } else {
-      try {
-        const data = await postsApi.get(id);
-        await initEditQuestionPage({
-          data,
-          onSave:   async (payload) => { await postsApi.update(id, payload); },
-          onDelete: async () => { await postsApi.remove(id); window.location.href = './my-content.html'; },
+    const QUESTIONS_URL = './mock/question-list.json';
+
+    async function loadQuestionForEdit() {
+      const params = new URLSearchParams(location.search);
+      const idParam = params.get('id');
+
+      const res = await fetch(QUESTIONS_URL, { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const list = await res.json();
+      const items = Array.isArray(list) ? list : [];
+
+      if (!items.length) throw new Error('No questions available');
+
+      if (idParam) {
+        const found = items.find(function (q) {
+          return String(q.id) === String(idParam);
         });
-      } catch (err) {
-        document.getElementById('edit-context-text').innerHTML =
-          `<span class="fc-red-400">Could not load: ${err.detail || err.message}</span>`;
+        if (found) return found;
+        console.warn('[edit-question] id=' + idParam + ' not found — falling back to first');
+      }
+
+      return items[0];
+    }
+
+    try {
+      const data = await loadQuestionForEdit();
+      await initEditQuestionPage({
+        data,
+        onSave: async function (payload) {
+          console.info('[edit-question] save payload', payload);
+        },
+        onDelete: async function () {
+          console.info('[edit-question] delete confirmed');
+        }
+      });
+    } catch (err) {
+      console.error('[edit-question] Failed to load:', err);
+      const ctx = document.getElementById('edit-context-text');
+      if (ctx) {
+        ctx.innerHTML =
+          '<span class="fc-red-400">Could not load the question: ' +
+          String(err.message || err) +
+          '</span>';
       }
     }
   </script>
+
 </body>
 </html>
