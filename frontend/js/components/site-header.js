@@ -7,7 +7,14 @@
 //    - 401 → renders Log in / Sign up.
 //    - Logout calls POST /api/auth/logout then reloads home.
 //
-//  No localStorage. No `is-logged-in` attribute dependency
+//  Theme flow:
+//    - Before /me resolves, applies the guest theme (default: light).
+//    - After /me resolves, applies the per-user theme stored under
+//      localStorage key `t4r_theme:<user.id>` — so each account keeps
+//      its own Light/Dark preference across pages, sessions, and
+//      username changes.
+//
+//  No localStorage for auth. No `is-logged-in` attribute dependency
 //  (still tolerated in HTML for backward compat, ignored here).
 // ============================================================
 
@@ -17,6 +24,9 @@ const API_BASE = (typeof location !== 'undefined' &&
                   (location.port === '8000' || location.port === ''))
   ? ''
   : 'http://localhost:8000';
+
+const THEME_GUEST_KEY = 't4r_theme';
+const THEME_USER_KEY  = (uid) => `t4r_theme:${uid}`;
 
 const TEMPLATE = /* html */ `
 <header class="site-header">
@@ -105,7 +115,12 @@ class SiteHeader extends HTMLElement {
     this.innerHTML = TEMPLATE;
     this.classList.add('d-block', 'ps-sticky', 't0', 'z-nav');
 
-    // Logo swap on theme change
+    // 1. Apply the guest theme immediately — before /me resolves.
+    //    This avoids a flash of the wrong palette and resets any
+    //    leftover theme from a previous session on this browser.
+    this._applyStoredTheme(null);
+
+    // 2. Swap logo on theme change (both guest and user states).
     const logo = this.querySelector('[data-logo]');
     const syncLogo = () => {
       const dark = document.body.classList.contains('theme-dark');
@@ -114,11 +129,38 @@ class SiteHeader extends HTMLElement {
     syncLogo();
     new MutationObserver(syncLogo).observe(document.body, {
       attributes: true,
-      attributeFilter: ['class']
+      attributeFilter: ['class'],
     });
 
+    // 3. Wire search + load the current user (which re-applies
+    //    the per-user theme once the identity is known).
     this._initSearch();
     this._loadCurrentUser();
+  }
+
+  /**
+   * Apply the correct theme class on <body>.
+   *
+   * - Called with `null` in connectedCallback → uses the guest key
+   *   (`t4r_theme`), defaulting to light. That way a signed-out visitor
+   *   never inherits the previous user's dark mode.
+   * - Called with a `userId` after /me resolves → uses the per-user key
+   *   `t4r_theme:<id>`, falling back to the guest key, then light.
+   */
+  _applyStoredTheme(userId) {
+    let pref = null;
+    try {
+      if (userId != null) {
+        pref = localStorage.getItem(THEME_USER_KEY(userId));
+      }
+      if (!pref) pref = localStorage.getItem(THEME_GUEST_KEY);
+    } catch (_) {
+      // localStorage disabled — default to light.
+    }
+
+    const dark = pref === 'dark';
+    document.body.classList.toggle('theme-dark', dark);
+    document.body.classList.toggle('theme-light', !dark);
   }
 
   async _loadCurrentUser() {
@@ -132,7 +174,7 @@ class SiteHeader extends HTMLElement {
     try {
       const res = await fetch(API_BASE + '/api/auth/me', {
         credentials: 'include',
-        headers: { Accept: 'application/json' }
+        headers: { Accept: 'application/json' },
       });
 
       if (res.ok) {
@@ -140,11 +182,13 @@ class SiteHeader extends HTMLElement {
         slot.innerHTML = authUserHtml(user);
         this.setAttribute('is-logged-in', 'true');
         this._wireLogout();
+        // Apply the user's own stored theme now that we know who they are.
+        this._applyStoredTheme(user.id);
       } else {
         this.setAttribute('is-logged-in', 'false');
       }
     } catch (_) {
-      // Network error — stay as guest.
+      // Network error — stay as guest, keep guest theme.
       this.setAttribute('is-logged-in', 'false');
     }
   }
@@ -157,7 +201,7 @@ class SiteHeader extends HTMLElement {
       try {
         await fetch(API_BASE + '/api/auth/logout', {
           method: 'POST',
-          credentials: 'include'
+          credentials: 'include',
         });
       } catch (_) { /* clear locally regardless */ }
       window.location.href = './index.html';
