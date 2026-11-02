@@ -1,9 +1,28 @@
 /**
  * question-page.js — renders a Q&A page from the live backend.
  *
+ * Changes in this revision (fix bundle):
+ *   - Edit link is now author-only (matching the strict PATCH auth
+ *     enforced by the backend — non-authors get 403 if they try anyway).
+ *   - Share / Follow buttons removed from post-actions.
+ *   - Bookmark button removed from the vote cell.
+ *   - Author (and every comment author, answer author) is now a
+ *     clickable link to ./user-profile.html?username=<u>.
+ *   - Accept / Unaccept an answer: small check-mark toggle shown to
+ *     the question author on every answer. Calls
+ *     POST /api/posts/{postId}/accept-answer and refetches.
+ *   - Comments have the new UI: avatar + name top-left, timestamp
+ *     top-right, body, actions row with icon-based upvote
+ *     (counter + green-when-voted) and Reply. Replies show a
+ *     "↳ @parentuser" link inside the body.
+ *   - Comment threads nest up to 3 levels. Replies at depth 3+ are
+ *     flattened into an expandable list ("Show N more replies →").
+ *   - init() fetches /api/auth/me in parallel with the post so
+ *     author-only controls render in a single paint.
+ *
  * Data source: GET /api/posts/{id} (the URL must carry ?id=<n>).
- * PostDetail now includes `my_vote` on the post, each answer, and each
- * comment — used here to color the vote count and set aria-pressed.
+ * PostDetail includes `my_vote` on the post, each answer, and each
+ * comment, plus `author` objects for user-profile links.
  */
 
 import { renderMarkdown } from './markdown-renderer.js';
@@ -78,6 +97,11 @@ export function reportUrl(type, id) {
   return `./report.html?${params.toString()}`;
 }
 
+function userProfileUrl(username) {
+  if (!username) return '#';
+  return `./user-profile.html?username=${encodeURIComponent(username)}`;
+}
+
 export function refreshRelativeTimes(root = document) {
   root.querySelectorAll('time[data-iso]').forEach((el) => {
     const fresh = timeAgo(el.dataset.iso);
@@ -117,23 +141,82 @@ export async function loadPostDetail(idOrSlug) {
   return res.json();
 }
 
-/** Kept for edit-question-page.js's legacy src fallback. */
 export async function loadQuestionData(url) {
   const res = await fetch(url, { headers: { Accept: 'application/json' } });
   if (!res.ok) throw new Error(`Failed to load ${url}: ${res.status} ${res.statusText}`);
   return res.json();
 }
 
+async function fetchCurrentUser() {
+  try {
+    const res = await fetch(API_BASE + '/api/auth/me', {
+      credentials: 'include',
+      headers: { Accept: 'application/json' }
+    });
+    if (!res.ok) return null;
+    return res.json();
+  } catch (_) {
+    return null;
+  }
+}
+
 /* ------------------------------------------------------------------ */
-/* Vote cell (with my_vote highlighting)                               */
+/* Vote cell + answer-accept toggle                                    */
 /* ------------------------------------------------------------------ */
 
-function voteCell(score, targetType, targetId, accepted, myVote) {
-  myVote = myVote == null ? null : Number(myVote);
+/**
+ * Renders the left-side vote column. Bookmark button removed.
+ * For answers, optionally renders an accept / unaccept toggle in
+ * the same slot, shown only to the question author.
+ */
+function voteCell(score, targetType, targetId, options = {}) {
+  const {
+    accepted = false,
+    myVote = null,
+    isQuestionAuthor = false
+  } = options;
+
   const s = Number(score) || 0;
-  const countClass = myVote === 1 ? ' fc-green-500'
-                   : myVote === -1 ? ' fc-red-500'
+  const myV = myVote == null ? null : Number(myVote);
+  const countClass = myV === 1 ? ' fc-green-500'
+                   : myV === -1 ? ' fc-red-500'
                    : '';
+
+  let acceptBlock = '';
+  if (targetType === 'answer') {
+    if (isQuestionAuthor) {
+      // Toggle button — visible only to the question author.
+      // Click → POST /api/posts/{postId}/accept-answer. Wired by
+      // bindAcceptAnswer below (delegated on the root).
+      acceptBlock = `
+        <button class="post-side-btn" type="button"
+                data-accept-answer
+                data-answer-id="${escapeHtml(String(targetId))}"
+                data-accepted="${accepted}"
+                aria-pressed="${accepted}"
+                aria-label="${accepted ? 'Un-accept this answer' : 'Accept this answer'}"
+                title="${accepted ? 'Un-accept this answer' : 'Accept this answer'}">
+          <svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"
+               fill="${accepted ? 'currentColor' : 'none'}"
+               stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round"
+               class="${accepted ? 'fc-green-500' : 'fc-black-300'}">
+            <path d="M4.5 9l3 3L13.5 6"/>
+          </svg>
+        </button>
+      `;
+    } else if (accepted) {
+      // Visual indicator for everyone else — answer is already accepted.
+      acceptBlock = `
+        <div class="accepted-mark" title="Accepted answer" aria-label="Accepted answer">
+          <svg viewBox="0 0 32 32" aria-hidden="true">
+            <circle cx="16" cy="16" r="16" fill="currentColor"/>
+            <path d="M13.5 22.5 7 16l2.1-2.1 4.4 4.4 10.4-10.4L26 10l-12.5 12.5Z" fill="#fff"/>
+          </svg>
+        </div>
+      `;
+    }
+  }
 
   return `
     <div class="vote-cell">
@@ -143,7 +226,7 @@ function voteCell(score, targetType, targetId, accepted, myVote) {
                 data-vote-target-id="${escapeHtml(String(targetId))}"
                 data-vote-value="1"
                 aria-label="Up vote"
-                aria-pressed="${myVote === 1}">
+                aria-pressed="${myV === 1}">
           <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
             <path d="M1 12h16L9 4 1 12Z"/>
           </svg>
@@ -154,28 +237,20 @@ function voteCell(score, targetType, targetId, accepted, myVote) {
                 data-vote-target-id="${escapeHtml(String(targetId))}"
                 data-vote-value="-1"
                 aria-label="Down vote"
-                aria-pressed="${myVote === -1}">
+                aria-pressed="${myV === -1}">
           <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
             <path d="M1 6h16L9 14 1 6Z"/>
           </svg>
         </button>
       </div>
-      ${accepted ? `
-        <div class="accepted-mark" title="Accepted answer" aria-label="Accepted answer">
-          <svg viewBox="0 0 32 32" aria-hidden="true">
-            <circle cx="16" cy="16" r="16" fill="currentColor"/>
-            <path d="M13.5 22.5 7 16l2.1-2.1 4.4 4.4 10.4-10.4L26 10l-12.5 12.5Z" fill="#fff"/>
-          </svg>
-        </div>
-      ` : ''}
-      <button class="post-side-btn" type="button" aria-label="Bookmark">
-        <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
-          <path d="M3 2h12v15l-6-4-6 4V2Zm2 2v9.5l4-2.7 4 2.7V4H5Z"/>
-        </svg>
-      </button>
+      ${acceptBlock}
     </div>
   `;
 }
+
+/* ------------------------------------------------------------------ */
+/* User card (clickable)                                               */
+/* ------------------------------------------------------------------ */
 
 function userCard(user, action, iso) {
   user = user || {};
@@ -183,14 +258,15 @@ function userCard(user, action, iso) {
   const letter = name.trim().charAt(0).toUpperCase() || '?';
   const color  = avatarColorFor(user.username || user.id || '?');
   const rep    = formatCount(user.reputation);
+  const url    = userProfileUrl(user.username);
 
   return `
     <div class="s-user-card">
-      <a href="#" class="s-avatar ${escapeHtml(color)}" aria-hidden="true" tabindex="-1">
+      <a href="${url}" class="s-avatar ${escapeHtml(color)}" aria-hidden="true" tabindex="-1">
         <span class="s-avatar--letter">${escapeHtml(letter)}</span>
       </a>
       <div class="s-user-card--column">
-        <a class="s-user-card--username" href="#">${escapeHtml(name)}</a>
+        <a class="s-user-card--username" href="${url}">${escapeHtml(name)}</a>
         <div class="s-user-card--group">
           <span class="s-user-card--rep">${escapeHtml(rep)}</span>
           <span class="s-user-card--time">${timeElement(iso, action)}</span>
@@ -201,64 +277,258 @@ function userCard(user, action, iso) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Comment block (with add-a-comment form)                             */
+/* Comment tree + rendering                                            */
 /* ------------------------------------------------------------------ */
 
-function renderComment(c) {
-  const authorName = (c.author && (c.author.display_name || c.author.username)) || 'anonymous';
+const MAX_COMMENT_DEPTH = 3;
+
+function buildCommentTree(flat) {
+  const byId = new Map();
+  const roots = [];
+  (flat || []).forEach((c) => byId.set(c.id, { ...c, replies: [] }));
+  byId.forEach((c) => {
+    if (c.parent_comment_id != null && byId.has(c.parent_comment_id)) {
+      byId.get(c.parent_comment_id).replies.push(c);
+    } else {
+      roots.push(c);
+    }
+  });
+  return roots;
+}
+
+function countReplies(list) {
+  let n = 0;
+  for (const c of list || []) {
+    n += 1;
+    if (Array.isArray(c.replies)) n += countReplies(c.replies);
+  }
+  return n;
+}
+
+function flattenSubtree(list) {
+  const out = [];
+  const walk = (arr) => {
+    for (const c of arr || []) {
+      out.push(c);
+      if (Array.isArray(c.replies) && c.replies.length) walk(c.replies);
+    }
+  };
+  walk(list);
+  return out;
+}
+
+/**
+ * Render one comment with the new UI:
+ *
+ *   [avatar] [name] [rep]                        [timestamp]
+ *   [↳ @parentuser] body text
+ *   [▲ N] [Reply]
+ *
+ * `forceFlat` skips nested rendering — used for the flat expanded
+ * view past depth 3 (siblings are iterated by the caller instead).
+ */
+function renderComment(c, depth, { forceFlat = false } = {}) {
+  const author = c.author || {};
+  const name = author.display_name || author.username || 'anonymous';
+  const letter = name.trim().charAt(0).toUpperCase() || '?';
+  const color = avatarColorFor(author.username || author.id || '?');
+  const rep = formatCount(author.reputation);
   const myVote = c.my_vote == null ? null : Number(c.my_vote);
   const upvoted = myVote === 1;
+  const score = Number(c.score) || 0;
+  const profileUrl = userProfileUrl(author.username);
+
+  // "↳ @parentuser" indicator inside the body for replies
+  let replyToHtml = '';
+  if (c.parent_comment_id != null && c._parentInfo) {
+    const p = c._parentInfo;
+    const pUrl = userProfileUrl(p.username);
+    const pName = p.display_name || p.username || 'anonymous';
+    replyToHtml = `<a class="s-link s-link__muted" href="${pUrl}">↳ @${escapeHtml(pName)}</a> `;
+  }
+
+  const commentShell = `
+    <div class="thread-node--head">
+      <a href="${profileUrl}" class="s-avatar s-avatar__24 ${escapeHtml(color)}" aria-label="${escapeHtml(name)}'s profile">
+        <span class="s-avatar--letter">${escapeHtml(letter)}</span>
+      </a>
+      <a href="${profileUrl}" class="thread-node--author">${escapeHtml(name)}</a>
+      <span class="thread-node--rep">${escapeHtml(rep)}</span>
+      <time class="thread-node--time"
+            datetime="${escapeHtml(c.created_at)}"
+            data-iso="${escapeHtml(c.created_at)}"
+            title="${escapeHtml(formatAbsolute(c.created_at))}">${escapeHtml(timeAgo(c.created_at))}</time>
+    </div>
+    <div class="thread-node--body">${replyToHtml}${escapeHtml(c.body)}</div>
+    <div class="thread-node--actions">
+      <button type="button"
+              class="thread-upvote${upvoted ? ' is-upvoted' : ''}"
+              data-vote-target-type="comment"
+              data-vote-target-id="${escapeHtml(String(c.id))}"
+              data-vote-value="1"
+              aria-pressed="${upvoted}"
+              aria-label="Upvote">
+        <svg viewBox="0 0 18 18" width="12" height="12" aria-hidden="true"><path d="M1 12h16L9 4 1 12Z" fill="currentColor"/></svg>
+        <span>${escapeHtml(String(score))}</span>
+      </button>
+      <button type="button" data-reply
+              data-parent-id="${escapeHtml(String(c.id))}"
+              data-parent-author="${escapeHtml(author.username || '')}">Reply</button>
+    </div>
+    <div class="thread-reply-box" hidden>
+      <form class="d-flex fd-column g4" data-reply-form>
+        <label class="v-visible-sr" for="reply-${escapeHtml(String(c.id))}">Reply to ${escapeHtml(name)}</label>
+        <textarea id="reply-${escapeHtml(String(c.id))}"
+                  class="s-textarea s-textarea__sm"
+                  rows="2"
+                  maxlength="800"
+                  placeholder="Reply to @${escapeHtml(name)}…"></textarea>
+        <div class="d-flex g4">
+          <button class="s-btn s-btn__sm" type="submit">Reply</button>
+          <button class="s-btn s-btn__clear s-btn__sm" type="button" data-reply-cancel>Cancel</button>
+        </div>
+      </form>
+    </div>
+  `;
+
+  const hasReplies = Array.isArray(c.replies) && c.replies.length > 0;
+  const childDepth = depth + 1;
+
+  // Flattened view (used inside an already-expanded .thread-flattened list
+  // OR when depth >= MAX). No nested children — the caller iterates.
+  if (forceFlat || !hasReplies) {
+    return `<li class="thread-node" data-comment-id="${escapeHtml(String(c.id))}" data-author="${escapeHtml(name)}">${commentShell}</li>`;
+  }
+
+  // Nested view
+  if (childDepth < MAX_COMMENT_DEPTH) {
+    const childrenHtml = c.replies
+      .map((r) => renderComment(r, childDepth))
+      .join('');
+    return `
+      <li class="thread-node" data-comment-id="${escapeHtml(String(c.id))}" data-author="${escapeHtml(name)}">
+        ${commentShell}
+        <ul class="thread-children">${childrenHtml}</ul>
+      </li>
+    `;
+  }
+
+  // Depth 2 + replies: stop nesting. Show "Show N more replies" toggle
+  // that reveals all descendants as a flat list.
+  const total = countReplies(c.replies);
+  const flat = flattenSubtree(c.replies);
+  const flatHtml = flat
+    .map((r) => renderComment(r, childDepth, { forceFlat: true }))
+    .join('');
 
   return `
-    <li class="comment">
-      <span class="comment--score">${escapeHtml(String(c.score ?? 0))}</span>
-      <div class="comment--body">
-        ${escapeHtml(c.body)}
-        <a class="comment--user" href="#">– ${escapeHtml(authorName)}</a>
-        ${timeElement(c.created_at)}
-        <div class="thread-node--actions mt4">
-          <button type="button"
-                  class="thread-upvote${upvoted ? ' is-upvoted' : ''}"
-                  data-vote-target-type="comment"
-                  data-vote-target-id="${escapeHtml(String(c.id))}"
-                  data-vote-value="1"
-                  aria-pressed="${upvoted}">Upvote</button>
-        </div>
+    <li class="thread-node" data-comment-id="${escapeHtml(String(c.id))}" data-author="${escapeHtml(name)}">
+      ${commentShell}
+      <div class="thread-continue" data-expand-wrapper>
+        <button type="button" class="s-link s-link__muted" data-expand-thread
+                data-label-show="Show ${total} more ${total === 1 ? 'reply' : 'replies'} →"
+                data-label-hide="Hide replies">
+          Show ${total} more ${total === 1 ? 'reply' : 'replies'} →
+        </button>
       </div>
+      <ul class="thread-children thread-flattened" hidden>${flatHtml}</ul>
     </li>
   `;
 }
 
+/**
+ * Attach `_parentInfo` to each comment so renderComment can show
+ * "↳ @parentuser" without needing the whole tree object.
+ */
+function annotateParents(flatComments) {
+  const byId = new Map();
+  (flatComments || []).forEach((c) => byId.set(c.id, c));
+  return (flatComments || []).map((c) => {
+    const clone = { ...c };
+    if (c.parent_comment_id != null && byId.has(c.parent_comment_id)) {
+      const parent = byId.get(c.parent_comment_id);
+      clone._parentInfo = parent.author || null;
+    }
+    return clone;
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/* Comments block (list + add form)                                    */
+/* ------------------------------------------------------------------ */
+
 function commentsBlock(comments, targetType, targetId) {
-  const hasComments = Array.isArray(comments) && comments.length > 0;
+  const annotated = annotateParents(comments);
+  const tree = buildCommentTree(annotated);
+  const hasComments = tree.length > 0;
+
+  const listHtml = hasComments
+    ? `<ul class="comment-list" aria-label="Comments">${tree.map((c) => renderComment(c, 0)).join('')}</ul>`
+    : '';
+
   return `
-    ${hasComments ? `
-      <ul class="comment-list" aria-label="Comments">
-        ${comments.map(renderComment).join('')}
-      </ul>
-    ` : ''}
-    <div class="comment-add"
+    <div class="comment-section"
          data-comment-target-type="${escapeHtml(targetType)}"
          data-comment-target-id="${escapeHtml(String(targetId))}">
-      <a class="s-link" href="#" data-add-comment>Add a comment</a>
-      <form class="d-none d-flex fd-column g4 mt4" data-comment-form>
-        <textarea class="s-textarea s-textarea__sm" rows="2"
-                  placeholder="Add a comment…" maxlength="800"
-                  aria-label="Comment text"></textarea>
-        <div class="d-flex g4">
-          <button class="s-btn s-btn__sm" type="submit">Add</button>
-          <button class="s-btn s-btn__clear s-btn__sm" type="button" data-comment-cancel>Cancel</button>
-        </div>
-      </form>
+      ${listHtml}
+      <div class="comment-add">
+        <a class="s-link" href="#" data-add-comment>Add a comment</a>
+        <form class="d-none d-flex fd-column g4 mt4" data-comment-form>
+          <textarea class="s-textarea s-textarea__sm" rows="2"
+                    placeholder="Add a comment…" maxlength="800"
+                    aria-label="Comment text"></textarea>
+          <div class="d-flex g4">
+            <button class="s-btn s-btn__sm" type="submit">Add</button>
+            <button class="s-btn s-btn__clear s-btn__sm" type="button" data-comment-cancel>Cancel</button>
+          </div>
+        </form>
+      </div>
     </div>
   `;
 }
 
 /* ------------------------------------------------------------------ */
-/* Render                                                              */
+/* Post actions (Share/Follow removed, Edit author-only)               */
 /* ------------------------------------------------------------------ */
 
-export function renderQuestionPage(data, root = document.getElementById('question-root')) {
+function postActions(data, { currentUser = null } = {}) {
+  const isAuthor = currentUser &&
+    data.author &&
+    Number(currentUser.id) === Number(data.author.id);
+
+  const editLink = isAuthor
+    ? `<a class="s-link" href="./edit-question.html?id=${encodeURIComponent(data.id)}">Edit</a>`
+    : '';
+
+  const reportLink = !isAuthor ? `
+    <a class="s-btn s-btn__danger s-btn__xs"
+       href="${reportUrl('question', data.id)}"
+       data-report
+       data-report-type="question"
+       data-report-id="${escapeHtml(String(data.id))}"
+       title="Report this question">
+      <svg class="svg-icon" aria-hidden="true" width="14" height="14" viewBox="0 0 14 14">
+        <path d="M7 1 1 12h12L7 1Zm0 3.25.75 3.5h-1.5L7 4.25ZM7 10.5a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z"/>
+      </svg>
+      Report
+    </a>` : '';
+
+  return `
+    <div class="post-actions">
+      ${editLink}
+      ${reportLink}
+    </div>`;
+}
+
+/* ------------------------------------------------------------------ */
+/* Full-page render                                                    */
+/* ------------------------------------------------------------------ */
+
+export function renderQuestionPage(
+  data,
+  root = document.getElementById('question-root'),
+  { currentUser = null } = {}
+) {
   if (!root) throw new Error('renderQuestionPage: #question-root not found');
   if (!data) throw new Error('renderQuestionPage: no data provided');
   if (data.post_type === 'discussion') {
@@ -266,6 +536,9 @@ export function renderQuestionPage(data, root = document.getElementById('questio
   }
 
   const answers = Array.isArray(data.answers) ? data.answers : [];
+  const isQuestionAuthor = currentUser &&
+    data.author &&
+    Number(currentUser.id) === Number(data.author.id);
 
   root.innerHTML = `
     <div class="d-flex ai-start jc-space-between g16 mb8">
@@ -282,7 +555,7 @@ export function renderQuestionPage(data, root = document.getElementById('questio
     </div>
 
     <article class="post-layout" id="question-${escapeHtml(String(data.id))}">
-      ${voteCell(data.score, 'post', data.id, false, data.my_vote)}
+      ${voteCell(data.score, 'post', data.id, { myVote: data.my_vote })}
 
       <div class="post-content">
         <div class="s-prose" id="question-body"></div>
@@ -295,23 +568,7 @@ export function renderQuestionPage(data, root = document.getElementById('questio
         </div>
 
         <div class="post-footer">
-          <div class="post-actions">
-            <a class="s-link" href="#">Share</a>
-            <a class="s-link" href="./edit-question.html?id=${encodeURIComponent(data.id)}">Edit</a>
-            <a class="s-link" href="#">Follow</a>
-            <a class="s-link" href="#">Close</a>
-            <a class="s-btn s-btn__danger s-btn__xs"
-              href="${reportUrl('question', data.id)}"
-              data-report
-              data-report-type="question"
-              data-report-id="${escapeHtml(String(data.id))}"
-              title="Report this question">
-              <svg class="svg-icon" aria-hidden="true" width="14" height="14" viewBox="0 0 14 14">
-                <path d="M7 1 1 12h12L7 1Zm0 3.25.75 3.5h-1.5L7 4.25ZM7 10.5a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z"/>
-              </svg>
-              Report
-            </a>
-          </div>
+          ${postActions(data, { currentUser })}
           ${userCard(data.author, 'asked', data.created_at)}
         </div>
 
@@ -332,16 +589,17 @@ export function renderQuestionPage(data, root = document.getElementById('questio
 
       ${answers.map((a, i) => `
         <article class="post-layout answer" id="answer-${escapeHtml(String(a.id))}">
-          ${voteCell(a.score, 'answer', a.id, a.is_accepted === true, a.my_vote)}
+          ${voteCell(a.score, 'answer', a.id, {
+            accepted: a.is_accepted === true,
+            myVote: a.my_vote,
+            isQuestionAuthor
+          })}
 
           <div class="post-content">
             <div class="s-prose" id="answer-body-${i}"></div>
 
             <div class="post-footer">
               <div class="post-actions">
-                <a class="s-link" href="#">Share</a>
-                <a class="s-link" href="#">Edit</a>
-                <a class="s-link" href="#">Follow</a>
                 <a class="s-link s-link__danger"
                   href="${reportUrl('answer', a.id)}"
                   data-report
@@ -377,7 +635,7 @@ export function renderQuestionPage(data, root = document.getElementById('questio
 }
 
 /* ------------------------------------------------------------------ */
-/* Editor + vote + comment wiring                                      */
+/* Editor + wiring helpers                                             */
 /* ------------------------------------------------------------------ */
 
 export function initAnswerEditor({
@@ -444,8 +702,13 @@ function bindVoteDelegation(root, onRefetch) {
   return () => root.removeEventListener('click', onClick);
 }
 
+/* ------------------------------------------------------------------ */
+/* Comment forms (top-level add + per-comment reply)                   */
+/* ------------------------------------------------------------------ */
+
 function bindCommentForms(root, onRefetch) {
   const onClick = (e) => {
+    // Open the "Add a comment" form
     const addLink = e.target.closest('[data-add-comment]');
     if (addLink) {
       e.preventDefault();
@@ -457,6 +720,7 @@ function bindCommentForms(root, onRefetch) {
       return;
     }
 
+    // Cancel the "Add a comment" form
     const cancelBtn = e.target.closest('[data-comment-cancel]');
     if (cancelBtn) {
       const form = cancelBtn.closest('[data-comment-form]');
@@ -466,34 +730,97 @@ function bindCommentForms(root, onRefetch) {
       form.querySelector('textarea').value = '';
       return;
     }
+
+    // Toggle per-comment reply box
+    const replyBtn = e.target.closest('[data-reply]');
+    if (replyBtn) {
+      e.preventDefault();
+      const node = replyBtn.closest('.thread-node');
+      const box = node?.querySelector('.thread-reply-box');
+      if (!box) return;
+
+      if (box.hidden) {
+        box.hidden = false;
+        const ta = box.querySelector('textarea');
+        const parentAuthor = replyBtn.dataset.parentAuthor || '';
+        if (ta && parentAuthor && !ta.value.trim()) {
+          ta.value = '@' + parentAuthor + ' ';
+        }
+        ta?.focus();
+      } else {
+        box.hidden = true;
+      }
+      return;
+    }
+
+    // Cancel the reply form
+    const replyCancel = e.target.closest('[data-reply-cancel]');
+    if (replyCancel) {
+      const form = replyCancel.closest('[data-reply-form]');
+      const box = form?.closest('.thread-reply-box');
+      if (box) {
+        box.hidden = true;
+        const ta = box.querySelector('textarea');
+        if (ta) ta.value = '';
+      }
+      return;
+    }
+
+    // Expand / collapse a flattened thread
+    const expandBtn = e.target.closest('[data-expand-thread]');
+    if (expandBtn) {
+      e.preventDefault();
+      const wrapper = expandBtn.closest('[data-expand-wrapper]');
+      const flatList = wrapper?.nextElementSibling;
+      if (!flatList || !flatList.classList.contains('thread-flattened')) return;
+      const showLabel = expandBtn.dataset.labelShow || expandBtn.textContent;
+      const hideLabel = expandBtn.dataset.labelHide || 'Hide replies';
+      flatList.hidden = !flatList.hidden;
+      expandBtn.textContent = flatList.hidden ? showLabel : hideLabel;
+      return;
+    }
   };
 
   const onSubmit = async (e) => {
-    const form = e.target.closest('[data-comment-form]');
+    // Reply form (threaded)
+    const replyForm = e.target.closest('[data-reply-form]');
+    const commentForm = e.target.closest('[data-comment-form]');
+    const form = replyForm || commentForm;
     if (!form) return;
     e.preventDefault();
 
-    const block = form.closest('.comment-add');
-    const targetType = block.dataset.commentTargetType;
-    const targetId   = block.dataset.commentTargetId;
-    const textarea   = form.querySelector('textarea');
-    const body = (textarea.value || '').trim();
+    const section = form.closest('.comment-section');
+    if (!section) return;
+
+    const targetType = section.dataset.commentTargetType;
+    const targetId   = section.dataset.commentTargetId;
+
+    const ta = form.querySelector('textarea');
+    const body = (ta?.value || '').trim();
     if (!body) return;
 
+    let parentCommentId = null;
+    if (replyForm) {
+      const node = replyForm.closest('.thread-node');
+      parentCommentId = node ? Number(node.dataset.commentId) : null;
+    }
+
     const submitBtn = form.querySelector('button[type="submit"]');
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'Adding…';
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Posting…';
+    }
 
     try {
       const url = targetType === 'answer'
         ? API_BASE + '/api/answers/' + encodeURIComponent(targetId) + '/comments'
-        : API_BASE + '/api/posts/' + encodeURIComponent(targetId) + '/comments';
+        : API_BASE + '/api/posts/'   + encodeURIComponent(targetId) + '/comments';
 
       const res = await fetch(url, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ body })
+        body: JSON.stringify({ body, parent_comment_id: parentCommentId })
       });
 
       if (res.status === 401) {
@@ -506,14 +833,24 @@ function bindCommentForms(root, onRefetch) {
         throw new Error((err && (err.detail || err.message)) || ('HTTP ' + res.status));
       }
 
-      textarea.value = '';
+      if (ta) ta.value = '';
+      if (replyForm) {
+        const box = replyForm.closest('.thread-reply-box');
+        if (box) box.hidden = true;
+      } else {
+        form.classList.add('d-none');
+        section.querySelector('[data-add-comment]')?.classList.remove('d-none');
+      }
+
       if (typeof onRefetch === 'function') await onRefetch();
     } catch (err) {
       console.error('[comment]', err);
       alert('Could not add your comment. ' + (err.message || ''));
     } finally {
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Add';
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = replyForm ? 'Reply' : 'Add';
+      }
     }
   };
 
@@ -524,6 +861,59 @@ function bindCommentForms(root, onRefetch) {
     root.removeEventListener('submit', onSubmit);
   };
 }
+
+/* ------------------------------------------------------------------ */
+/* Accept-answer toggle                                                */
+/* ------------------------------------------------------------------ */
+
+function bindAcceptAnswer(root, { postId, onRefetch }) {
+  const onClick = async (e) => {
+    const btn = e.target.closest('[data-accept-answer]');
+    if (!btn || !root.contains(btn)) return;
+    e.preventDefault();
+
+    const answerId = Number(btn.dataset.answerId);
+    if (!answerId) return;
+    const wasAccepted = btn.dataset.accepted === 'true';
+
+    btn.disabled = true;
+
+    try {
+      const res = await fetch(
+        API_BASE + '/api/posts/' + encodeURIComponent(String(postId)) + '/accept-answer',
+        {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ answer_id: wasAccepted ? null : answerId })
+        }
+      );
+
+      if (res.status === 401) {
+        window.location.href = './login.html?next=' +
+          encodeURIComponent(location.pathname + location.search);
+        return;
+      }
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error((err && (err.detail || err.message)) || ('HTTP ' + res.status));
+      }
+
+      if (typeof onRefetch === 'function') await onRefetch();
+    } catch (err) {
+      console.error('[accept-answer]', err);
+      alert('Could not update the accepted answer. ' + (err.message || ''));
+      btn.disabled = false;
+    }
+  };
+
+  root.addEventListener('click', onClick);
+  return () => root.removeEventListener('click', onClick);
+}
+
+/* ------------------------------------------------------------------ */
+/* Answer submit                                                       */
+/* ------------------------------------------------------------------ */
 
 async function submitAnswer({ postId, textarea, onSuccess }) {
   const body = (textarea && textarea.value || '').trim();
@@ -558,7 +948,7 @@ async function submitAnswer({ postId, textarea, onSuccess }) {
   }
 }
 
-function wireAnswerSubmit({ postId, rootEl }) {
+function wireAnswerSubmit({ postId, rootEl, currentUser }) {
   const section = document.querySelector('section[aria-labelledby="your-answer-heading"]');
   if (!section) return () => {};
   const btn = section.querySelector('button.s-btn');
@@ -574,7 +964,7 @@ function wireAnswerSubmit({ postId, rootEl }) {
       onSuccess: async () => {
         try {
           const fresh = await loadPostDetail(postId);
-          renderQuestionPage(fresh, rootEl);
+          renderQuestionPage(fresh, rootEl, { currentUser });
         } catch (err) { console.error('[answer] refetch failed:', err); }
       }
     });
@@ -597,6 +987,8 @@ export async function init({ id, root, autoStartTicker = true } = {}) {
   let destroyVotes = null;
   let destroyComments = null;
   let destroySubmit = null;
+  let destroyAccept = null;
+  let currentUser = null;
 
   try {
     if (!rootEl) throw new Error('#question-root not found');
@@ -608,17 +1000,39 @@ export async function init({ id, root, autoStartTicker = true } = {}) {
     const postId = id != null ? String(id) : (urlId ? String(urlId) : null);
     if (!postId) throw new Error('No post selected — add ?id=<n> to the URL.');
 
-    const data = await loadPostDetail(postId);
-    renderQuestionPage(data, rootEl);
+    // Fetch post + current user in parallel so author-only controls
+    // render in a single paint.
+    const [data, me] = await Promise.all([
+      loadPostDetail(postId),
+      fetchCurrentUser()
+    ]);
+    currentUser = me;
+
+    renderQuestionPage(data, rootEl, { currentUser });
 
     const refetch = async () => {
-      const fresh = await loadPostDetail(postId);
-      renderQuestionPage(fresh, rootEl);
+      const [fresh, meFresh] = await Promise.all([
+        loadPostDetail(postId),
+        fetchCurrentUser()
+      ]);
+      currentUser = meFresh;
+      renderQuestionPage(fresh, rootEl, { currentUser });
+
+      // Rebind delegation on the fresh DOM
+      if (destroyVotes) destroyVotes();
+      destroyVotes = bindVoteDelegation(rootEl, refetch);
+
+      if (destroyComments) destroyComments();
+      destroyComments = bindCommentForms(rootEl, refetch);
+
+      if (destroyAccept) destroyAccept();
+      destroyAccept = bindAcceptAnswer(rootEl, { postId, onRefetch: refetch });
     };
 
     destroyVotes    = bindVoteDelegation(rootEl, refetch);
     destroyComments = bindCommentForms(rootEl, refetch);
-    destroySubmit   = wireAnswerSubmit({ postId, rootEl });
+    destroyAccept   = bindAcceptAnswer(rootEl, { postId, onRefetch: refetch });
+    destroySubmit   = wireAnswerSubmit({ postId, rootEl, currentUser });
 
     if (autoStartTicker) stopTicker = startTimeTicker(rootEl);
   } catch (err) {
@@ -640,6 +1054,7 @@ export async function init({ id, root, autoStartTicker = true } = {}) {
       if (destroyVotes)    destroyVotes();
       if (destroyComments) destroyComments();
       if (destroySubmit)   destroySubmit();
+      if (destroyAccept)   destroyAccept();
       if (destroyEditor)   destroyEditor();
     },
     editor: destroyEditor

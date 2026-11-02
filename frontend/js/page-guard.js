@@ -1,73 +1,51 @@
 /**
  * page-guard.js — frontend page-level role guard.
  *
- * Defence-in-depth companion to the backend middleware in
- * `backend/main.py`. That middleware blocks unauthorized HTML from
- * being served at all; this script exists for the cases where that
- * layer is bypassed, misconfigured, or serving stale HTML from the
- * browser cache — and it also improves UX by redirecting users whose
- * session has expired mid-navigation to login with a preserved
- * `?next=` path.
+ * ─────────────────────────────────────────────────────────────────────
+ * Root cause of the "stuck at login" loop (fixed here)
+ * ─────────────────────────────────────────────────────────────────────
+ *
+ * index.html declares:
+ *
+ *     <body data-requires-role="user">
+ *
+ * The previous version read that as literally "only users with role
+ * 'user' may view this page". A signed-in **admin** or **moderator**
+ * therefore failed the role check, and the fallback branch redirected
+ * them back to ./login.html — creating a loop:
+ *
+ *     login → /index.html → page-guard rejects (admin != user)
+ *           → /login.html → user sees login form again
+ *           → admin's header still shows logged-in…
+ *
+ * Two fixes here:
+ *
+ *   1. "user" now implies "user | moderator | admin" — the same
+ *      hierarchy the backend middleware in main.py already uses
+ *      (`_PAGE_ROLES["/"] = {"user", "moderator", "admin"}`). An
+ *      admin hitting a "user" page passes.
+ *
+ *   2. Role-mismatch redirects now go to ./questions.html (public
+ *      landing), NOT ./login.html. Login is only for guests. A
+ *      logged-in user who lacks access to /admin.html should land on
+ *      a useful page they *can* use, not get bounced back into the
+ *      auth flow that put them here in the first place.
+ *
+ * Guest path also reworked:
+ *   - Guest hitting an admin-only page (requires ⊆ {moderator,admin})
+ *     → ./login.html?next=<path>       (login is required)
+ *   - Guest hitting a user page like Home (requires includes "user")
+ *     → ./questions.html               (public landing; no login wall)
+ *   - This mirrors backend/main.py exactly, so the two layers agree.
  *
  * ─────────────────────────────────────────────────────────────────────
- * Usage — add `data-requires-role` to <body>:
+ * Usage
  * ─────────────────────────────────────────────────────────────────────
  *
  *   <body class="theme-light" data-requires-role="user">
  *   <body class="theme-light" data-requires-role="moderator,admin">
  *
- * Pages with NO `data-requires-role` attribute are public. Loading
- * this script on those pages is a no-op — it returns immediately
- * without issuing any fetch, so public pages keep their current
- * single-/me behavior (from site-header.js only).
- *
- * ─────────────────────────────────────────────────────────────────────
- * Behaviour matrix
- * ─────────────────────────────────────────────────────────────────────
- *
- *   Page requires        | Viewer              | Result
- *   ─────────────────────┼─────────────────────┼──────────────────────────
- *   (none)               | any                 | pass-through, no fetch
- *   user                 | guest               | → /login.html?next=<path>
- *   user                 | user                | pass-through
- *   user                 | moderator / admin   | pass-through
- *   moderator,admin      | guest               | → /login.html?next=<path>
- *   moderator,admin      | user                | → /index.html (home)
- *   moderator,admin      | moderator / admin   | pass-through
- *   any                  | banned              | → /login.html
- *   any                  | suspended (active)  | → /login.html
- *   any                  | expired suspension  | treated as active
- *   any                  | network error / 5xx | → /login.html?next=<path>
- *
- * ─────────────────────────────────────────────────────────────────────
- * Ordering
- * ─────────────────────────────────────────────────────────────────────
- * Load AFTER `theme-boot.js` (so the correct theme paints before any
- * redirect) and as a synchronous, non-module script at the top of
- * <body>. The fetch kicks off immediately; unauthorized users are
- * redirected within ~50-100 ms on localhost.
- *
- * ─────────────────────────────────────────────────────────────────────
- * Why a second `/me` fetch?
- * ─────────────────────────────────────────────────────────────────────
- * `site-header.js` also calls GET /api/auth/me. Coupling the two
- * would require a shared promise/global, which adds brittleness for a
- * marginal bandwidth win. The guard needs to answer "am I authorized
- * for THIS page?" independently and as early as possible, so it owns
- * its own request. The response is small, typically resolves in
- * <50 ms locally, and keeps the two modules decoupled.
- *
- * ─────────────────────────────────────────────────────────────────────
- * Fail-closed policy
- * ─────────────────────────────────────────────────────────────────────
- * Any non-2xx response (401, 403, 5xx) AND any network error cause a
- * redirect to login. Rationale: the backend middleware already let the
- * user in at HTML-delivery time, so a subsequent 401 or network blip
- * on a protected page almost always means "the session was revoked or
- * the environment is degraded" — redirecting to login is safe and
- * recoverable. Being conservative here never exposes data that wasn't
- * already exposed (the HTML shell has no sensitive content; all data
- * comes from APIs that are themselves role-guarded server-side).
+ * Pages without data-requires-role skip the fetch entirely (no-op).
  */
 (function () {
   'use strict';
@@ -75,8 +53,12 @@
   var API_BASE = (location.port === '8000' || location.port === '')
     ? '' : 'http://localhost:8000';
 
-  // Public page → nothing to guard. Skip the fetch entirely so public
-  // pages keep their current behavior (single /me from site-header.js).
+  // Public landing page — safe for any viewer (guest or logged-in).
+  // Used as the wrong-role fallback so we never redirect to a
+  // role-guarded page like /index.html.
+  var PUBLIC_LANDING = './questions.html';
+
+  // Pages without a data-requires-role attribute are public.
   var requiredAttr = document.body.getAttribute('data-requires-role');
   if (!requiredAttr) return;
 
@@ -87,6 +69,17 @@
 
   if (!required.length) return;
 
+  // Role hierarchy: "user" implies moderator and admin can also see it.
+  // Matches backend/main.py's _PAGE_ROLES["/"] = {user, moderator, admin}.
+  // "moderator,admin" stays as-is (admins are the only additional role,
+  // but the backend restricts /admin.html to {moderator, admin} exactly,
+  // so we don't need to expand that one).
+  var allowed = required.slice();
+  if (allowed.indexOf('user') !== -1) {
+    if (allowed.indexOf('moderator') === -1) allowed.push('moderator');
+    if (allowed.indexOf('admin') === -1) allowed.push('admin');
+  }
+
   /* ---------- redirect helpers ---------- */
 
   function redirectLogin() {
@@ -94,13 +87,18 @@
     window.location.replace('./login.html?next=' + next);
   }
 
-  function redirectHome() {
-    // "/" (index.html) is served to any logged-in user by the backend
-    // middleware, so redirecting here never loops for authorized roles.
-    // If somehow the user's role is excluded from "/" too (data
-    // corruption / unknown role), the backend middleware on "/" will
-    // in turn send them to /login.html — bounded, no infinite loop.
-    window.location.replace('./index.html');
+  function redirectPublic() {
+    window.location.replace(PUBLIC_LANDING);
+  }
+
+  /**
+   * Does this page *require* login? True only when the role set
+   * excludes "user" — meaning a guest has no way to access it at all.
+   * Matches the backend's `required_roles.issubset(_LOGIN_REQUIRED_ROLES)`
+   * check.
+   */
+  function requiresLogin() {
+    return required.every(function (r) { return r !== 'user'; });
   }
 
   /* ---------- core check ---------- */
@@ -112,8 +110,12 @@
     })
       .then(function (res) {
         if (!res.ok) {
-          // 401 → guest; 5xx → degraded. Both fail-closed to login.
-          redirectLogin();
+          // 401 / 403 / 5xx — treat as unauthenticated.
+          if (requiresLogin()) {
+            redirectLogin();
+          } else {
+            redirectPublic();
+          }
           return null;
         }
         return res.json();
@@ -121,8 +123,8 @@
       .then(function (me) {
         if (!me) return;   // already redirected above
 
-        // Banned / suspended — send to login (login page surfaces the
-        // specific reason on the next POST /api/auth/login attempt).
+        // Banned / suspended → send to login, where the error message
+        // explains the account state on the next login attempt.
         if (me.status === 'banned') {
           window.location.replace('./login.html');
           return;
@@ -138,28 +140,22 @@
           // Expired suspension → treated as active, fall through.
         }
 
-        // Role check — case-insensitive, matches the backend enum.
-        var role = String(me.role || '').toLowerCase();
-        if (required.indexOf(role) === -1) {
-          // Wrong role for this page. Send to home (accessible to any
-          // logged-in user). If we're already ON home, redirect to
-          // login instead — otherwise we'd loop.
-          var path = location.pathname.replace(/\/$/, '');
-          var isHome = path === '' ||
-                       path === '/' ||
-                       path === '/index.html' ||
-                       path === '/index';
-          if (isHome) {
-            window.location.replace('./login.html');
-          } else {
-            redirectHome();
-          }
+        var role = String(me.role || 'user').toLowerCase();
+        if (allowed.indexOf(role) === -1) {
+          // Role mismatch. Public landing page is safe for any viewer.
+          // NEVER redirect to /login.html here — the user IS logged in,
+          // just not authorized for this page. Sending them back into
+          // the auth flow causes the loop.
+          redirectPublic();
         }
-        // Authorized → no-op, page continues normally.
       })
       .catch(function () {
         // Network error — fail-closed to login (recoverable).
-        redirectLogin();
+        if (requiresLogin()) {
+          redirectLogin();
+        } else {
+          redirectPublic();
+        }
       });
   }
 

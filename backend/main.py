@@ -6,20 +6,40 @@
                                        (user / moderator / admin)
      - /admin, /admin.html           → moderator or admin only
 
-   Guest handling — as of this fix:
+   Guest handling (as of this fix):
      - Guest hits / or /index.html   → 302 to /questions.html
-       (public landing page; NO login wall for first-time visitors)
+       (public landing page; NO login wall for browsing the site)
      - Guest hits /admin.html        → 302 to /login.html?next=/admin.html
-       (login required — admin isn't a public page)
+       (login required — admin isn't a public page; preserve intent)
 
-   Logged-in handling:
-     - Valid cookie + role in required set → pass through
-     - Valid cookie + wrong role          → 302 to /questions.html
-       (safe public page — never redirects to / since / is itself
-        protected; avoids any chance of a redirect loop)
-     - Deleted / banned / suspended        → 302 to /login.html
+   Root cause of the "stuck at login" bug:
 
-   All other paths (API, uploads, public HTML) pass through unchanged.
+     The previous guest-routing branch used set intersection:
+
+         if required_roles & _LOGIN_REQUIRED_ROLES:
+             return _redirect_login(...)
+         return RedirectResponse(url=_PUBLIC_LANDING, ...)
+
+     For /index.html, required_roles = {"user","moderator","admin"} and
+     _LOGIN_REQUIRED_ROLES = {"moderator","admin"}. Their intersection
+     is {"moderator","admin"} — non-empty — so the condition was TRUTHY
+     for every guest hitting Home, redirecting them to login instead of
+     the public landing page.
+
+     Fixed with `.issubset(_LOGIN_REQUIRED_ROLES)`:
+
+       - /admin.html   requires {"moderator","admin"} → subset → login ✓
+       - /index.html   requires {"user","moderator","admin"} → NOT a
+                       subset (contains "user") → public landing ✓
+
+   Additional hardening:
+     - All redirects now carry `Cache-Control: no-store, must-revalidate`
+       so the browser NEVER caches a 302. A cached "guest → login"
+       redirect from earlier in the session would otherwise keep bouncing
+       the user back to login even after a successful sign-in.
+     - Logged-in users hitting an inaccessible page are redirected to
+       /questions.html (public). Never to /, which is itself protected.
+     - DB errors are logged to stderr for faster debugging.
 
    Frontend defence-in-depth lives in frontend/js/page-guard.js.
 """
@@ -90,21 +110,42 @@ _PAGE_ROLES: dict[str, set[str]] = {
 _PUBLIC_LANDING = "/questions.html"
 
 # Roles that imply "this page requires login to even attempt".
-# A guest hitting a page restricted to one of these roles is sent to
-# login (with `?next=` preserved), so they can authenticate and come
-# back. Pages that only require "user" (Home) instead send guests to
-# the public landing page — first-time visitors shouldn't hit a login
-# wall to view the site.
+# A guest hitting a page whose required_roles is a *subset* of this set
+# is sent to login (with `?next=` preserved) so they can authenticate
+# and come back. Pages that also allow "user" (Home) send guests to the
+# public landing page — first-time visitors shouldn't hit a login wall.
 _LOGIN_REQUIRED_ROLES = {"moderator", "admin"}
+
+
+def _no_cache_redirect(url: str) -> RedirectResponse:
+    """RedirectResponse with headers that prevent any browser caching.
+
+    A cached 302 is one of the most common causes of "stuck on login":
+    once the browser caches `GET / → 302 /login`, subsequent navigations
+    to `/` reuse the cached redirect without ever hitting the server,
+    so a fresh login never takes effect.
+    """
+    return RedirectResponse(
+        url=url,
+        status_code=302,
+        headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        },
+    )
 
 
 def _redirect_login(path: str, query: str) -> RedirectResponse:
     """Send the client to login, preserving the return path in `?next=`."""
     next_path = path + (("?" + query) if query else "")
-    return RedirectResponse(
-        url="/login.html?next=" + quote(next_path, safe=""),
-        status_code=302,
+    return _no_cache_redirect(
+        "/login.html?next=" + quote(next_path, safe="")
     )
+
+
+def _redirect_public() -> RedirectResponse:
+    return _no_cache_redirect(_PUBLIC_LANDING)
 
 
 @app.middleware("http")
@@ -127,13 +168,12 @@ async def page_role_guard(request: Request, call_next):
     # ── Guest ──────────────────────────────────────────────────────────
     # No cookie, expired cookie, or invalid signature.
     if uid is None:
-        # Admin pages are login-required. Preserve intent so the user
-        # returns there after authenticating.
-        if required_roles & _LOGIN_REQUIRED_ROLES:
+        # Admin/mod-only pages (required_roles is a subset of the
+        # login-required set) → login wall with `?next=` preserved.
+        if required_roles.issubset(_LOGIN_REQUIRED_ROLES):
             return _redirect_login(request.url.path, request.url.query)
-        # Home has a public alternative — send guests to Questions
-        # instead of forcing a login wall on first entry.
-        return RedirectResponse(url=_PUBLIC_LANDING, status_code=302)
+        # User-accessible pages (Home) → public landing, no login wall.
+        return _redirect_public()
 
     # ── Logged-in — resolve DB record ─────────────────────────────────
     # Fail-closed on DB errors: deny the protected page rather than
@@ -145,20 +185,21 @@ async def page_role_guard(request: Request, call_next):
         finally:
             db.close()
     except Exception as exc:  # noqa: BLE001
-        print(f"[page-guard] DB lookup failed: {exc}", file=sys.stderr)
-        return RedirectResponse(url="/login.html", status_code=302)
+        print(f"[page-guard] DB lookup failed for uid={uid}: {exc}",
+              file=sys.stderr)
+        return _redirect_login(request.url.path, request.url.query)
 
     # Deleted account or banned → force re-login. login.html surfaces
     # the ban message on the next POST /api/auth/login attempt.
     if user is None or user.status == "banned":
-        return RedirectResponse(url="/login.html", status_code=302)
+        return _redirect_login(request.url.path, request.url.query)
 
     # Active suspension → force re-login (login page rejects with
     # "suspended until …"). Expired suspensions fall through.
     if user.status == "suspended":
         until = user.suspended_until
         if until is not None and until > datetime.now(timezone.utc):
-            return RedirectResponse(url="/login.html", status_code=302)
+            return _redirect_login(request.url.path, request.url.query)
 
     # ── Role check ────────────────────────────────────────────────────
     if user.role not in required_roles:
@@ -166,7 +207,7 @@ async def page_role_guard(request: Request, call_next):
         # avoids ever redirecting to "/" (which is itself role-guarded)
         # and therefore can never produce a redirect loop, even if the
         # role map is edited in the future.
-        return RedirectResponse(url=_PUBLIC_LANDING, status_code=302)
+        return _redirect_public()
 
     return await call_next(request)
 

@@ -1,14 +1,21 @@
 /**
  * render-user-profile.js — public user profile (user-profile.html).
  *
- * Reads ?username=<name> from the URL, then loads in parallel:
- *   - GET /api/auth/me                                    (own → redirect)
- *   - GET /api/users/{username}                           (profile header)
- *   - GET /api/posts?author={u}&type=question&page_size=50
- *   - GET /api/posts?author={u}&type=discussion&page_size=50
- *   - GET /api/users/{username}/answers?page_size=50      (answers tab)
+ * Change in this revision:
+ *   - Author avatar + display name on every question / discussion card
+ *     are now clickable links to ./user-profile.html?username=<u>.
+ *     (On this page the author is always the profile user, so a click
+ *     simply reloads the same profile — consistent with the rest of
+ *     the app's clickable-author behavior.)
  *
- * If the viewer is the same user → redirect to ./my-content.html.
+ * Everything else unchanged from the previous version:
+ *   - Reads ?username=<name> from the URL, then loads in parallel:
+ *       /api/auth/me                                (own → redirect)
+ *       /api/users/{username}                       (profile header)
+ *       /api/posts?author={u}&type=question&page_size=50
+ *       /api/posts?author={u}&type=discussion&page_size=50
+ *       /api/users/{username}/answers?page_size=50
+ *   - Redirects to ./my-content.html when the viewer is the same user
  */
 (function () {
   'use strict';
@@ -99,6 +106,11 @@
   function makeTagUrl(name) {
     if (typeof window.tagUrl === 'function') return window.tagUrl(name);
     return './tag-detail.html?tag=' + encodeURIComponent(String(name || ''));
+  }
+
+  function userProfileUrl(username) {
+    if (!username) return '#';
+    return './user-profile.html?username=' + encodeURIComponent(username);
   }
 
   /* ---------------- Fetch ---------------- */
@@ -204,14 +216,15 @@
     var letter = name.trim().charAt(0).toUpperCase() || '?';
     var color  = colorFromString(author.username || author.id || '?');
     var rep    = formatCount(author.reputation);
+    var url    = userProfileUrl(author.username);
 
     return [
       '<div class="s-user-card">',
-        '<a href="#" class="s-avatar ' + escapeHtml(color) + '" aria-hidden="true" tabindex="-1">',
+        '<a href="' + url + '" class="s-avatar ' + escapeHtml(color) + '" aria-label="' + escapeHtml(name) + '\'s profile" tabindex="-1">',
           '<span class="s-avatar--letter">' + escapeHtml(letter) + '</span>',
         '</a>',
         '<div class="s-user-card--column">',
-          '<a class="s-user-card--username" href="#">' + escapeHtml(name) + '</a>',
+          '<a class="s-user-card--username" href="' + url + '">' + escapeHtml(name) + '</a>',
           '<div class="s-user-card--group">',
             '<span class="s-user-card--rep">' + escapeHtml(rep) + '</span>',
             '<span class="s-user-card--time">' + escapeHtml(action || 'asked') + ' ' + escapeHtml(formatRelativeTime(timeIso)) + '</span>',
@@ -311,7 +324,7 @@
             : '',
           '<div class="d-flex ai-center jc-space-between g8 fw-wrap mt8">',
             '<span class="fs-caption fc-black-400">answered ' + escapeHtml(formatRelativeTime(a.created_at)) + '</span>',
-            '<a class="s-link s-link__muted fs-caption" href="' + detailUrl + '">View question →</a>',
+            '<a class="s-link s-link__muted fs-caption" href="' + detailUrl + '">View post →</a>',
           '</div>',
         '</div>',
       '</div>'

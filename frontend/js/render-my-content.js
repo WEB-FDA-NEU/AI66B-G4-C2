@@ -3,24 +3,22 @@
  *
  * "My Content" page (my-content.html).
  *
- * Data flow:
- *   1. GET /api/auth/me                                   → current user
- *   2. Parallel (after #1):
- *        GET /api/users/{username}                         → answer_count
- *        GET /api/posts?mine=true&type=question&page_size=50
- *        GET /api/posts?mine=true&type=discussion&page_size=50
- *        GET /api/users/{username}/answers?page_size=50
+ * Change in this revision:
+ *   - Author avatar + display name in every question / discussion /
+ *     answer card are now clickable links to
+ *     ./user-profile.html?username=<u>. Previously both were
+ *     <a href="#"> placeholders.
  *
- * Tabs: Profile / Questions / Discussions / Answers.
- *   - Questions & Discussions: Edit / Delete actions.
- *       Edit   → ./edit-question.html?id=<id>
- *                (same page handles both post types; it swaps labels
- *                 and PATCHes the backend uniformly)
- *       Delete → confirm + DELETE /api/posts/{id} + local removal
+ * Everything else unchanged from the previous version:
+ *   - Loads current user via /api/auth/me, then in parallel:
+ *       /api/users/{u}                                  → answer_count
+ *       /api/posts?mine=true&type=question&page_size=50
+ *       /api/posts?mine=true&type=discussion&page_size=50
+ *       /api/users/{u}/answers?page_size=50
+ *   - Tabs: Profile / Questions / Discussions / Answers.
+ *   - Questions & Discussions: Edit → ./edit-question.html?id=<id>
+ *                              Delete → DELETE /api/posts/{id}
  *   - Answers: read-only list.
- *
- * On 401 from /api/auth/me (or any mine=true call), the page shows a
- * "log in" prompt instead of hard-redirecting.
  *
  * Classic script (loaded with <script src> not type=module).
  */
@@ -105,6 +103,11 @@
   function makeTagUrl(name) {
     if (typeof window.tagUrl === 'function') return window.tagUrl(name);
     return './tag-detail.html?tag=' + encodeURIComponent(String(name || ''));
+  }
+
+  function userProfileUrl(username) {
+    if (!username) return '#';
+    return './user-profile.html?username=' + encodeURIComponent(username);
   }
 
   /* ---------------- Profile header ---------------- */
@@ -200,14 +203,15 @@
     var letter = name.trim().charAt(0).toUpperCase() || '?';
     var color  = colorFromString(author.username || author.id || '?');
     var rep    = formatCount(author.reputation);
+    var url    = userProfileUrl(author.username);
 
     return [
       '<div class="s-user-card">',
-        '<a href="#" class="s-avatar ' + escapeHtml(color) + '" aria-hidden="true" tabindex="-1">',
+        '<a href="' + url + '" class="s-avatar ' + escapeHtml(color) + '" aria-label="' + escapeHtml(name) + '\'s profile" tabindex="-1">',
           '<span class="s-avatar--letter">' + escapeHtml(letter) + '</span>',
         '</a>',
         '<div class="s-user-card--column">',
-          '<a class="s-user-card--username" href="#">' + escapeHtml(name) + '</a>',
+          '<a class="s-user-card--username" href="' + url + '">' + escapeHtml(name) + '</a>',
           '<div class="s-user-card--group">',
             '<span class="s-user-card--rep">' + escapeHtml(rep) + '</span>',
             '<span class="s-user-card--time">' + escapeHtml(action || 'asked') + ' ' + escapeHtml(formatRelativeTime(timeIso)) + '</span>',
@@ -218,9 +222,9 @@
   }
 
   /**
-   * Edit + Delete actions. The same buttons are rendered for both
-   * questions and discussions — /edit-question.html?id=<n> handles
-   * both types transparently, and DELETE /api/posts/{id} is uniform.
+   * Edit + Delete actions. Both questions and discussions route
+   * through ./edit-question.html (which detects post_type and
+   * PATCHes the backend uniformly).
    */
   function renderActions(id, kind) {
     var editBtn = [

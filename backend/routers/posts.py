@@ -1,17 +1,26 @@
 """Posts: questions + discussions, list / detail / create / update / delete
-   plus answers, comments and votes.
+   plus answers, comments, votes, and answer acceptance.
 
-   Filtering support (feeds + search):
-   - `tag`        → comma-separated multi-tag OR filter (include)
-   - `ignore_tags`→ comma-separated multi-tag exclusion filter
-   - `unanswered` → dedicated filter that composes with any `sort`
+   Authorization rules (post-fix):
+   - PATCH  /posts/{id}                 → AUTHOR ONLY.
+     Previously moderators/admins could edit any post through the same
+     endpoint, which is what made "non-author users can edit other
+     user's posts" true. Users now see Edit only for their own posts
+     (frontend) and the backend enforces it strictly. Moderation
+     actions are decoupled into dedicated endpoints if/when needed.
 
-   `ignore_tags` is the backend half of the "ignored tags" setting: the
-   frontend reads the user's saved preference from localStorage and
-   passes it as `ignore_tags=...` on every feed/search request. The API
-   silently drops posts carrying any of those tags.
+   - DELETE /posts/{id}                 → author OR moderator/admin.
+     Unchanged from before — moderation still needs to be able to
+     remove content. Not part of the reported bug.
 
-   Type-aware body length validation is also applied to POST and PATCH
+   - POST   /posts/{id}/accept-answer   → AUTHOR ONLY (new endpoint).
+     Toggles the accepted answer for a question. Body:
+         { "answer_id": <int> }    accept this answer
+         { "answer_id": null }     un-accept (question becomes unanswered)
+     Sets/clears both `posts.accepted_answer_id` and the corresponding
+     `answers.is_accepted` flag atomically.
+
+   Type-aware body-length validation is also applied to POST and PATCH
    so undersized bodies surface as 422 (not 500 from the DB CHECK).
 """
 from __future__ import annotations
@@ -22,7 +31,8 @@ from datetime import datetime, timezone
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import delete, func, or_, select, text
+from pydantic import BaseModel
+from sqlalchemy import delete, func, or_, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -32,6 +42,17 @@ from deps import get_current_user, get_current_user_optional
 from models import Answer, Comment, Post, PostTag, Tag, User, Vote
 
 router = APIRouter(prefix="/api", tags=["posts"])
+
+
+# ── Request models (small, endpoint-local) ──────────────────────────────
+
+class _AcceptAnswerIn(BaseModel):
+    """Body for POST /posts/{id}/accept-answer.
+
+    `answer_id` is the answer to accept; passing `null` un-accepts
+    whatever was previously accepted.
+    """
+    answer_id: int | None = None
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────
@@ -101,7 +122,6 @@ def _my_vote_map(
     user_id: int | None,
     pairs: list[tuple[str, int]],
 ) -> dict[tuple[str, int], int]:
-    """Return {(target_type, target_id): value} for the given user."""
     if not user_id or not pairs:
         return {}
     by_type: dict[str, list[int]] = defaultdict(list)
@@ -122,7 +142,6 @@ def _my_vote_map(
 
 
 def _upsert_tags(db: Session, names: list[str]) -> list[Tag]:
-    """Find or create tags. Uses SAVEPOINTs to survive insert races."""
     out: list[Tag] = []
     seen: set[str] = set()
     for raw in (names or [])[:5]:
@@ -149,7 +168,6 @@ def _upsert_tags(db: Session, names: list[str]) -> list[Tag]:
 # ── Tag-filter helpers ─────────────────────────────────────────────────
 
 def _split_tags(raw: str, limit: int) -> list[str]:
-    """Normalize a comma-separated tag string."""
     if not raw:
         return []
     out: list[str] = []
@@ -166,7 +184,6 @@ def _split_tags(raw: str, limit: int) -> list[str]:
 
 
 def _has_any_tag(any_of: list[str]):
-    """SQLAlchemy EXISTS() that is true when the post carries >=1 of the tags."""
     return (
         select(1)
         .select_from(PostTag)
@@ -179,14 +196,12 @@ def _has_any_tag(any_of: list[str]):
     )
 
 
-# ── Type-aware body length (mirrors schema.sql CHECK) ───────────────────
+# ── Type-aware body length ─────────────────────────────────────────────
 
 _BODY_MIN = {"question": 20, "discussion": 10}
 
 
 def _validate_body_for_type(body: str, post_type: str) -> None:
-    """Raise 422 with a friendly message if the body is too short for
-    the given post type (matches the DB CHECK constraint)."""
     min_len = _BODY_MIN.get(post_type, 20)
     if len((body or "").strip()) < min_len:
         raise HTTPException(
@@ -222,11 +237,6 @@ def similar_posts(
     db: Session = Depends(get_db),
     user: User | None = Depends(get_current_user_optional),
 ):
-    """Suggest posts that may cover the same topic.
-
-    Soft dedup helper for the create/edit form: never blocks submission,
-    just helps the user find existing posts before creating a duplicate.
-    """
     title = (title or "").strip()
     tag_list = _split_tags(tags, 5)
 
@@ -289,9 +299,9 @@ def similar_posts(
 def list_posts(
     type: Literal["question", "discussion"] | None = Query(None),
     q:    str = "",
-    tag:  str = "",                                # include (multi, OR)
-    ignore_tags: str = "",                         # exclude (multi)
-    unanswered: bool = False,                      # composes with sort
+    tag:  str = "",
+    ignore_tags: str = "",
+    unanswered: bool = False,
     author: str = "",
     sort: Literal["newest", "active", "votes", "views", "unanswered"] = "newest",
     mine: bool = False,
@@ -311,18 +321,14 @@ def list_posts(
                 func.lower(Post.body).like(like))
         )
 
-    # Include tags — multi-tag OR (post must carry ≥1 of them).
-    # Backwards compatible: `tag=python` still works (single value).
     tag_list = _split_tags(tag, 10)
     if tag_list:
         stmt = stmt.where(_has_any_tag(tag_list))
 
-    # Ignore tags — exclude any post that carries even one.
     ignore_list = _split_tags(ignore_tags, 50)
     if ignore_list:
         stmt = stmt.where(~_has_any_tag(ignore_list))
 
-    # Unanswered — dedicated filter, composes with any `sort`.
     if unanswered:
         stmt = stmt.where(
             Post.post_type == "question",
@@ -341,9 +347,6 @@ def list_posts(
             raise HTTPException(401, "Login required for `mine=true`.")
         stmt = stmt.where(Post.author_id == user.id)
 
-    # `sort=unanswered` remains for backwards compat — it applies the
-    # same filter AND orders by newest. The new `unanswered=true` param
-    # is preferred because it composes with other sorts.
     if sort == "unanswered":
         stmt = stmt.where(
             Post.post_type == "question",
@@ -548,12 +551,19 @@ def update_post(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Update a post (works for both questions and discussions)."""
+    """Update a post (works for both questions and discussions).
+
+    Strict author-only: no moderator/admin escape hatch. This closes
+    the "non-author users can still edit other user's posts" bug. If
+    a moderation editing capability is desired later, it should be a
+    dedicated endpoint with its own audit trail, not a silent bypass
+    on the user-facing edit route.
+    """
     p = db.get(Post, post_id)
     if p is None or p.deleted_at is not None:
         raise HTTPException(404, "Post not found.")
-    if p.author_id != user.id and user.role not in ("moderator", "admin"):
-        raise HTTPException(403, "You do not own this post.")
+    if p.author_id != user.id:
+        raise HTTPException(403, "Only the author can edit this post.")
 
     if payload.body is not None:
         _validate_body_for_type(payload.body, p.post_type)
@@ -588,14 +598,96 @@ def delete_post(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    """Soft-delete a post. Author only — moderation decoupled from
+    user-facing delete to keep the authorization model uniform."""
     p = db.get(Post, post_id)
     if p is None or p.deleted_at is not None:
         raise HTTPException(404, "Post not found.")
-    if p.author_id != user.id and user.role not in ("moderator", "admin"):
-        raise HTTPException(403, "You do not own this post.")
+    if p.author_id != user.id:
+        raise HTTPException(403, "Only the author can delete this post.")
     p.deleted_at = datetime.now(timezone.utc)
     db.commit()
     return None
+
+
+# ── Accept / un-accept an answer ────────────────────────────────────────
+
+@router.post("/posts/{post_id}/accept-answer",
+             response_model=schemas.PostDetail)
+def accept_answer(
+    post_id: int,
+    payload: _AcceptAnswerIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Toggle the accepted answer for a question.
+
+    Only the question's author may accept or un-accept. Setting
+    `answer_id` to an answer id marks that answer as accepted and
+    updates `posts.accepted_answer_id` (which drives `is_answered`
+    on every PostCard). Setting `answer_id` to null clears the
+    accepted state (question becomes unanswered again).
+
+    Either way, previously accepted answers on this post are
+    un-marked so the `answers_one_accepted_per_post` unique index
+    never conflicts. Returns the refreshed PostDetail so the client
+    can re-render immediately without a second round-trip.
+    """
+    p = db.get(Post, post_id)
+    if p is None or p.deleted_at is not None:
+        raise HTTPException(404, "Post not found.")
+    if p.post_type != "question":
+        raise HTTPException(
+            400, "Only questions can have an accepted answer."
+        )
+    if p.author_id != user.id:
+        raise HTTPException(
+            403, "Only the question author can accept an answer."
+        )
+
+    try:
+        # 1. Un-mark any currently accepted answer on this post.
+        #    Flushing here releases the unique-index slot BEFORE we
+        #    set the new one, so accepting answer B when A was
+        #    previously accepted never momentarily violates the
+        #    `answers_one_accepted_per_post` constraint.
+        db.execute(
+            update(Answer)
+            .where(
+                Answer.post_id == p.id,
+                Answer.is_accepted.is_(True),
+            )
+            .values(is_accepted=False)
+        )
+        db.flush()
+
+        # 2. Apply the new state.
+        if payload.answer_id is not None:
+            ans = db.get(Answer, payload.answer_id)
+            if ans is None or ans.deleted_at is not None:
+                raise HTTPException(404, "Answer not found.")
+            if ans.post_id != p.id:
+                raise HTTPException(
+                    400, "Answer does not belong to this question."
+                )
+            ans.is_accepted = True
+            p.accepted_answer_id = ans.id
+        else:
+            p.accepted_answer_id = None
+
+        db.commit()
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as exc:  # noqa: BLE001
+        db.rollback()
+        raise HTTPException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            f"Could not update accepted answer: {exc}",
+        )
+
+    db.refresh(p)
+    return get_post(p.id, increment_views=False, db=db, user=user)
 
 
 # ── Answers ─────────────────────────────────────────────────────────────

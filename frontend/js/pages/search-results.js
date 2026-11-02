@@ -3,14 +3,18 @@
  *
  * Renders the /search_result.html page from the live backend.
  *
- *   - Single call: GET /api/posts?q=&sort=&page=&page_size=&ignore_tags=
- *     (no `type` param → backend returns BOTH questions and discussions)
+ * Change in this revision:
+ *   - Author avatar + display name in every search result card are now
+ *     clickable links to ./user-profile.html?username=<u>. Previously
+ *     both were `<a href="#">` placeholders.
+ *
+ * Everything else unchanged from the previous version:
+ *   - GET /api/posts?q=&sort=&page=&page_size=&ignore_tags=
  *   - Reads ?q=, ?tab=, ?page= from the URL
  *   - Applies the user's saved ignored tags from localStorage
  *     (key: t4r_ignored_tags:<uid> for signed-in users, t4r_ignored_tags
  *      for guests — same keys the settings page writes to). Ignored
- *      posts are silently dropped server-side, so search results respect
- *      the preference without any per-result post-filtering on the client.
+ *      posts are silently dropped server-side.
  *   - Sort nav refetches from the backend (server-side sort)
  *   - Pagination reads total/page/page_size from the response envelope
  *   - Advanced Search Tips toggle stays client-side
@@ -93,6 +97,11 @@ function makeTagUrl(name) {
   return './tag-detail.html?tag=' + encodeURIComponent(String(name || ''));
 }
 
+function userProfileUrl(username) {
+  if (!username) return '#';
+  return './user-profile.html?username=' + encodeURIComponent(username);
+}
+
 function colorFromString(str) {
   const palette = [
     'bg-orange-300', 'bg-blue-300', 'bg-purple-300', 'bg-green-300',
@@ -142,14 +151,15 @@ function renderAuthorCard(author, timeIso, action) {
   const letter = name.trim().charAt(0).toUpperCase() || '?';
   const color  = colorFromString(author.username || author.id || '?');
   const rep    = formatCount(author.reputation);
+  const url    = userProfileUrl(author.username);
 
   return `
     <div class="s-user-card">
-      <a href="#" class="s-avatar ${escapeHtml(color)}" aria-hidden="true" tabindex="-1">
+      <a href="${url}" class="s-avatar ${escapeHtml(color)}" aria-label="${escapeHtml(name)}'s profile" tabindex="-1">
         <span class="s-avatar--letter">${escapeHtml(letter)}</span>
       </a>
       <div class="s-user-card--column">
-        <a class="s-user-card--username" href="#">${escapeHtml(name)}</a>
+        <a class="s-user-card--username" href="${url}">${escapeHtml(name)}</a>
         <div class="s-user-card--group">
           <span class="s-user-card--rep">${escapeHtml(rep)}</span>
           <span class="s-user-card--time">${escapeHtml(action || 'asked')} ${escapeHtml(formatRelativeTime(timeIso))}</span>
@@ -488,8 +498,6 @@ function init() {
   bindAdvancedTips();
   bindSortNav();
 
-  // Resolve the user (for the per-user ignore-tags localStorage key),
-  // then load the feed with those filters applied.
   fetchMe().then((user) => {
     state.uid = user && user.id != null ? user.id : null;
     state.ignoreTags = readIgnoredTags();

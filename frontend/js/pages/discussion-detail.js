@@ -2,22 +2,29 @@
  *
  * Data source: GET /api/posts/{id}  (post_type="discussion")
  *
- * Behaviour:
- *   - Backend returns comments as a FLAT list with parent_comment_id.
- *     We build a tree client-side.
- *   - Reply boxes auto-prefill "@username " for the replied-to author.
- *   - Thread hierarchy capped at 3 visual levels; deeper replies show a
- *     "Continue this thread" link (still functional — it just opens the
- *     full sub-thread; the "stub" here only logs).
- *   - Each comment has a single Upvote action (POST /api/votes).
- *   - Post-level vote buttons also POST /api/votes.
+ * Changes in this revision (fix bundle):
+ *   - Share / Follow removed from post-actions.
+ *   - Bookmark button removed from the vote cell.
+ *   - Every author (OP, reply authors) is a clickable link to
+ *     ./user-profile.html?username=<u>.
+ *   - New comment UI (matches question-page.js):
+ *       [avatar] [name] [rep]                        [timestamp]
+ *       [↳ @parentuser] body text
+ *       [▲ N] [Reply]
+ *     Upvote is an icon+counter that turns green when the viewer has
+ *     upvoted. Reply pre-fills "@username " and the rendered reply
+ *     shows a clickable "↳ @parentuser" link.
+ *   - Comment threads nest up to 3 levels. At depth 3+ all descendants
+ *     are flattened into an expandable list ("Show N more replies →").
+ *   - /api/auth/me is fetched in parallel with the post so owner-only
+ *     Edit/Delete controls render in a single paint.
+ *
+ * Behaviour preserved:
+ *   - Reply POSTs to /api/posts/{id}/comments with optional parent_comment_id.
+ *   - Post-level vote buttons POST to /api/votes.
  *   - The OP body is markdown-rendered; comments are plain text.
- *   - "Post Reply" (main) and per-comment replies POST to
- *     /api/posts/{id}/comments with optional parent_comment_id.
- *   - If the current user is the discussion's author, the post-actions
- *     row shows Edit + Delete:
- *       Edit   → ./edit-question.html?id=<id>  (same page edits both types)
- *       Delete → DELETE /api/posts/{id}, then redirect to ./my-content.html
+ *   - Owner sees Edit → ./edit-question.html?id=<id>
+ *             Delete → DELETE /api/posts/{id} → ./my-content.html
  */
 
 import { renderMarkdown } from '../markdown-renderer.js';
@@ -37,14 +44,52 @@ const API_BASE = (location.port === '8000' || location.port === '')
   ? '' : 'http://localhost:8000';
 
 /* ------------------------------------------------------------------ */
-/* Comment tree                                                        */
+/* Small helpers                                                       */
 /* ------------------------------------------------------------------ */
+
+function userProfileUrl(username) {
+  if (!username) return '#';
+  return `./user-profile.html?username=${encodeURIComponent(username)}`;
+}
+
+function avatarColorFor(seed) {
+  const palette = [
+    'bg-orange-300', 'bg-blue-300', 'bg-purple-300', 'bg-green-300',
+    'bg-pink-300', 'bg-yellow-300', 'bg-red-300', 'bg-blue-300'
+  ];
+  const s = String(seed || '?');
+  let hash = 0;
+  for (let i = 0; i < s.length; i++) { hash = ((hash << 5) - hash) + s.charCodeAt(i); hash |= 0; }
+  return palette[Math.abs(hash) % palette.length];
+}
+
+function commentAuthorName(c) {
+  const a = c.author || {};
+  return a.display_name || a.username || 'anonymous';
+}
+
+/* ------------------------------------------------------------------ */
+/* Comment tree + parent annotation                                    */
+/* ------------------------------------------------------------------ */
+
+function annotateParents(flat) {
+  const byId = new Map();
+  (flat || []).forEach((c) => byId.set(c.id, c));
+  return (flat || []).map((c) => {
+    const clone = { ...c };
+    if (c.parent_comment_id != null && byId.has(c.parent_comment_id)) {
+      const parent = byId.get(c.parent_comment_id);
+      clone._parentInfo = parent.author || null;
+    }
+    return clone;
+  });
+}
 
 function buildCommentTree(flat) {
   const byId = new Map();
   const roots = [];
 
-  flat.forEach((c) => {
+  (flat || []).forEach((c) => {
     byId.set(c.id, { ...c, replies: [] });
   });
   byId.forEach((c) => {
@@ -66,71 +111,134 @@ function countReplies(list) {
   return n;
 }
 
-function commentAuthorName(c) {
-  const a = c.author || {};
-  return a.display_name || a.username || 'anonymous';
+function flattenSubtree(list) {
+  const out = [];
+  const walk = (arr) => {
+    for (const c of arr || []) {
+      out.push(c);
+      if (Array.isArray(c.replies) && c.replies.length) walk(c.replies);
+    }
+  };
+  walk(list);
+  return out;
 }
 
-function renderComment(c, depth = 0) {
-  const hasReplies = Array.isArray(c.replies) && c.replies.length > 0;
-  const canRenderChildren = hasReplies && (depth + 1 < MAX_DEPTH);
-  const hiddenCount = hasReplies && !canRenderChildren ? countReplies(c.replies) : 0;
+/* ------------------------------------------------------------------ */
+/* Comment rendering                                                   */
+/* ------------------------------------------------------------------ */
+
+function renderComment(c, depth = 0, { forceFlat = false } = {}) {
+  const author = c.author || {};
+  const name = commentAuthorName(c);
+  const letter = name.trim().charAt(0).toUpperCase() || '?';
+  const color = avatarColorFor(author.username || author.id || '?');
+  const rep = formatCount(author.reputation);
   const myVote = c.my_vote == null ? null : Number(c.my_vote);
   const upvoted = myVote === 1;
+  const score = Number(c.score) || 0;
+  const profileUrl = userProfileUrl(author.username);
 
-  const repliesHtml = canRenderChildren
-    ? `<ul class="thread-children">${c.replies.map(r => renderComment(r, depth + 1)).join('')}</ul>`
-    : (hiddenCount > 0
-        ? `<div class="thread-continue">
-             <a href="#" class="s-link s-link__muted" data-continue>
-               Continue this thread (${hiddenCount} ${hiddenCount === 1 ? 'reply' : 'replies'}) →
-             </a>
-           </div>`
-        : '');
+  // "↳ @parentuser" indicator inside the body for replies
+  let replyToHtml = '';
+  if (c.parent_comment_id != null && c._parentInfo) {
+    const p = c._parentInfo;
+    const pUrl = userProfileUrl(p.username);
+    const pName = p.display_name || p.username || 'anonymous';
+    replyToHtml = `<a class="s-link s-link__muted" href="${pUrl}">↳ @${escapeHtml(pName)}</a> `;
+  }
 
-  const authorName = commentAuthorName(c);
-  const authorRep  = formatCount(c.author && c.author.reputation);
-
-  return `
-    <li class="thread-node" data-comment-id="${escapeHtml(String(c.id))}" data-author="${escapeHtml(authorName)}">
-      <div class="thread-node--head">
-        <span class="thread-node--score">${escapeHtml(String(c.score ?? 0))}</span>
-        <a class="thread-node--author" href="#">${escapeHtml(authorName)}</a>
-        <span class="thread-node--rep">${escapeHtml(authorRep)}</span>
-        <time class="thread-node--time"
-              datetime="${escapeHtml(c.created_at)}"
-              data-iso="${escapeHtml(c.created_at)}"
-              title="${escapeHtml(formatAbsolute(c.created_at))}">${escapeHtml(timeAgo(c.created_at))}</time>
-      </div>
-      <div class="thread-node--body">${escapeHtml(c.body)}</div>
-      <div class="thread-node--actions">
-        <button type="button"
-                class="thread-upvote${upvoted ? ' is-upvoted' : ''}"
-                data-vote-target-type="comment"
-                data-vote-target-id="${escapeHtml(String(c.id))}"
-                data-vote-value="1"
-                aria-pressed="${upvoted}">Upvote</button>
-        <button type="button" data-reply>Reply</button>
-      </div>
-      <div class="thread-reply-box" hidden>
-        <label class="v-visible-sr" for="reply-${escapeHtml(String(c.id))}">Reply to ${escapeHtml(authorName)}</label>
+  const commentShell = `
+    <div class="thread-node--head">
+      <a href="${profileUrl}" class="s-avatar s-avatar__24 ${escapeHtml(color)}" aria-label="${escapeHtml(name)}'s profile">
+        <span class="s-avatar--letter">${escapeHtml(letter)}</span>
+      </a>
+      <a href="${profileUrl}" class="thread-node--author">${escapeHtml(name)}</a>
+      <span class="thread-node--rep">${escapeHtml(rep)}</span>
+      <time class="thread-node--time"
+            datetime="${escapeHtml(c.created_at)}"
+            data-iso="${escapeHtml(c.created_at)}"
+            title="${escapeHtml(formatAbsolute(c.created_at))}">${escapeHtml(timeAgo(c.created_at))}</time>
+    </div>
+    <div class="thread-node--body">${replyToHtml}${escapeHtml(c.body)}</div>
+    <div class="thread-node--actions">
+      <button type="button"
+              class="thread-upvote${upvoted ? ' is-upvoted' : ''}"
+              data-vote-target-type="comment"
+              data-vote-target-id="${escapeHtml(String(c.id))}"
+              data-vote-value="1"
+              aria-pressed="${upvoted}"
+              aria-label="Upvote">
+        <svg viewBox="0 0 18 18" width="12" height="12" aria-hidden="true"><path d="M1 12h16L9 4 1 12Z" fill="currentColor"/></svg>
+        <span>${escapeHtml(String(score))}</span>
+      </button>
+      <button type="button" data-reply
+              data-parent-id="${escapeHtml(String(c.id))}"
+              data-parent-author="${escapeHtml(author.username || '')}">Reply</button>
+    </div>
+    <div class="thread-reply-box" hidden>
+      <form class="d-flex fd-column g4" data-reply-form>
+        <label class="v-visible-sr" for="reply-${escapeHtml(String(c.id))}">Reply to ${escapeHtml(name)}</label>
         <textarea id="reply-${escapeHtml(String(c.id))}"
                   class="s-textarea s-textarea__sm"
-                  rows="3"
-                  placeholder="Reply to ${escapeHtml(authorName)}…"></textarea>
-        <div class="d-flex g8 mt4">
-          <button type="button" class="s-btn s-btn__sm" data-reply-cancel>Cancel</button>
-          <button type="button" class="s-btn s-btn__sm" data-reply-submit
-                  data-parent-id="${escapeHtml(String(c.id))}">Reply</button>
+                  rows="2"
+                  maxlength="800"
+                  placeholder="Reply to @${escapeHtml(name)}…"></textarea>
+        <div class="d-flex g4">
+          <button class="s-btn s-btn__sm" type="submit">Reply</button>
+          <button class="s-btn s-btn__clear s-btn__sm" type="button" data-reply-cancel>Cancel</button>
         </div>
+      </form>
+    </div>
+  `;
+
+  const hasReplies = Array.isArray(c.replies) && c.replies.length > 0;
+  const childDepth = depth + 1;
+
+  // Flat-only render — used inside an expanded flattened list, or when
+  // there are no children to nest.
+  if (forceFlat || !hasReplies) {
+    return `<li class="thread-node" data-comment-id="${escapeHtml(String(c.id))}" data-author="${escapeHtml(name)}">${commentShell}</li>`;
+  }
+
+  // Nested view (depth 0 and 1)
+  if (childDepth < MAX_DEPTH) {
+    const childrenHtml = c.replies
+      .map((r) => renderComment(r, childDepth))
+      .join('');
+    return `
+      <li class="thread-node" data-comment-id="${escapeHtml(String(c.id))}" data-author="${escapeHtml(name)}">
+        ${commentShell}
+        <ul class="thread-children">${childrenHtml}</ul>
+      </li>
+    `;
+  }
+
+  // Depth 2 with replies → flatten everything below into an expandable
+  // list. No further nesting — matches "after 3 hierarchical replies,
+  // user's comments become flattened and expandable".
+  const total = countReplies(c.replies);
+  const flat = flattenSubtree(c.replies);
+  const flatHtml = flat
+    .map((r) => renderComment(r, childDepth, { forceFlat: true }))
+    .join('');
+
+  return `
+    <li class="thread-node" data-comment-id="${escapeHtml(String(c.id))}" data-author="${escapeHtml(name)}">
+      ${commentShell}
+      <div class="thread-continue" data-expand-wrapper>
+        <button type="button" class="s-link s-link__muted" data-expand-thread
+                data-label-show="Show ${total} more ${total === 1 ? 'reply' : 'replies'} →"
+                data-label-hide="Hide replies">
+          Show ${total} more ${total === 1 ? 'reply' : 'replies'} →
+        </button>
       </div>
-      ${repliesHtml}
+      <ul class="thread-children thread-flattened" hidden>${flatHtml}</ul>
     </li>
   `;
 }
 
 /* ------------------------------------------------------------------ */
-/* OP rendering                                                        */
+/* OP rendering helpers                                                */
 /* ------------------------------------------------------------------ */
 
 function voteCell(score, targetType, targetId, myVote) {
@@ -139,6 +247,7 @@ function voteCell(score, targetType, targetId, myVote) {
   const countClass = myVote === 1 ? ' fc-green-500'
                    : myVote === -1 ? ' fc-red-500'
                    : '';
+  // Bookmark button removed.
   return `
     <div class="vote-cell">
       <div class="s-vote">
@@ -160,11 +269,6 @@ function voteCell(score, targetType, targetId, myVote) {
           <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M1 6h16L9 14 1 6Z"/></svg>
         </button>
       </div>
-      <button class="post-side-btn" type="button" aria-label="Bookmark">
-        <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
-          <path d="M3 2h12v15l-6-4-6 4V2Zm2 2v9.5l4-2.7 4 2.7V4H5Z"/>
-        </svg>
-      </button>
     </div>
   `;
 }
@@ -173,15 +277,17 @@ function userCard(user, action, iso) {
   user = user || {};
   const name   = user.display_name || user.username || 'anonymous';
   const letter = name.trim().charAt(0).toUpperCase() || '?';
+  const color  = avatarColorFor(user.username || user.id || '?');
   const rep    = formatCount(user.reputation);
+  const url    = userProfileUrl(user.username);
 
   return `
     <div class="s-user-card">
-      <a href="#" class="s-avatar" aria-hidden="true" tabindex="-1">
+      <a href="${url}" class="s-avatar ${escapeHtml(color)}" aria-hidden="true" tabindex="-1">
         <span class="s-avatar--letter">${escapeHtml(letter)}</span>
       </a>
       <div class="s-user-card--column">
-        <a class="s-user-card--username" href="#">${escapeHtml(name)}</a>
+        <a class="s-user-card--username" href="${url}">${escapeHtml(name)}</a>
         <div class="s-user-card--group">
           <span class="s-user-card--rep">${escapeHtml(rep)}</span>
           <span class="s-user-card--time">${escapeHtml(action)}
@@ -195,10 +301,8 @@ function userCard(user, action, iso) {
 }
 
 /**
- * Render the post-actions row.
- *  - Share / Follow always visible
- *  - Edit / Delete only when `isOwner`
- *  - Report is hidden for the author (matches Stack Overflow)
+ * Post-actions row. Share / Follow removed.
+ * Edit / Delete only for the author. Report only for non-authors.
  */
 function postActions(data, isOwner) {
   const reportLink = isOwner ? '' : `
@@ -229,16 +333,18 @@ function postActions(data, isOwner) {
 
   return `
     <div class="post-actions">
-      <a class="s-link" href="#">Share</a>
-      <a class="s-link" href="#">Follow</a>
       ${ownerActions}
       ${reportLink}
     </div>`;
 }
 
+/* ------------------------------------------------------------------ */
+/* Full-page render                                                    */
+/* ------------------------------------------------------------------ */
+
 function renderDiscussionPage(data, root, { isOwner = false } = {}) {
-  const flatComments = Array.isArray(data.comments) ? data.comments : [];
-  const tree = buildCommentTree(flatComments);
+  const flat = annotateParents(data.comments || []);
+  const tree = buildCommentTree(flat);
   const totalReplies = Number(data.reply_count) || countReplies(tree);
 
   root.innerHTML = `
@@ -403,16 +509,17 @@ function bindVoteDelegation(root, onRefetch) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Reply box + submit                                                  */
+/* Thread interactions                                                 */
 /* ------------------------------------------------------------------ */
 
 function bindThreadInteractions(tree, { postId, onRefetch }) {
   if (!tree) return () => {};
 
-  const onClick = async (event) => {
-    /* ---- Open reply box, prefilling @username ---- */
+  const onClick = (event) => {
+    // Open / close per-comment reply box
     const replyBtn = event.target.closest('[data-reply]');
     if (replyBtn && tree.contains(replyBtn)) {
+      event.preventDefault();
       const node = replyBtn.closest('.thread-node');
       const box  = node && node.querySelector('.thread-reply-box');
       if (!box) return;
@@ -420,9 +527,9 @@ function bindThreadInteractions(tree, { postId, onRefetch }) {
       if (box.hidden) {
         box.hidden = false;
         const textarea = box.querySelector('textarea');
-        const author = node.dataset.author || '';
-        if (textarea && author && !textarea.value.trim()) {
-          textarea.value = '@' + author + ' ';
+        const parentAuthor = replyBtn.dataset.parentAuthor || '';
+        if (textarea && parentAuthor && !textarea.value.trim()) {
+          textarea.value = '@' + parentAuthor + ' ';
           textarea.setSelectionRange(textarea.value.length, textarea.value.length);
         }
         if (textarea) textarea.focus();
@@ -432,7 +539,7 @@ function bindThreadInteractions(tree, { postId, onRefetch }) {
       return;
     }
 
-    /* ---- Cancel ---- */
+    // Cancel a reply form
     const cancelBtn = event.target.closest('[data-reply-cancel]');
     if (cancelBtn) {
       const box = cancelBtn.closest('.thread-reply-box');
@@ -444,74 +551,87 @@ function bindThreadInteractions(tree, { postId, onRefetch }) {
       return;
     }
 
-    /* ---- Submit (threaded) ---- */
-    const submitBtn = event.target.closest('[data-reply-submit]');
-    if (submitBtn) {
-      const box = submitBtn.closest('.thread-reply-box');
-      const ta = box && box.querySelector('textarea');
-      if (!ta) return;
-      const body = ta.value.trim();
-      if (!body) return;
-
-      const parentId = Number(submitBtn.dataset.parentId) || null;
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'Posting…';
-
-      try {
-        const res = await fetch(
-          API_BASE + '/api/posts/' + encodeURIComponent(String(postId)) + '/comments',
-          {
-            method: 'POST',
-            credentials: 'include',
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json'
-            },
-            body: JSON.stringify({
-              body,
-              parent_comment_id: parentId
-            })
-          }
-        );
-
-        if (res.status === 401) {
-          window.location.href = './login.html?next=' +
-            encodeURIComponent(location.pathname + location.search);
-          return;
-        }
-        if (!res.ok) {
-          const err = await res.json().catch(() => null);
-          throw new Error((err && (err.detail || err.message)) || ('HTTP ' + res.status));
-        }
-
-        ta.value = '';
-        box.hidden = true;
-        if (typeof onRefetch === 'function') await onRefetch();
-      } catch (err) {
-        console.error('[reply]', err);
-        alert('Could not post your reply. ' + (err.message || ''));
-      } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Reply';
-      }
-      return;
-    }
-
-    /* ---- Continue thread (stub — shows the deeper thread in console) ---- */
-    const cont = event.target.closest('[data-continue]');
-    if (cont) {
+    // Expand / collapse a flattened thread (past depth 3)
+    const expandBtn = event.target.closest('[data-expand-thread]');
+    if (expandBtn) {
       event.preventDefault();
-      console.info('Continue thread clicked (deeper replies exist; expand in future build)');
+      const wrapper = expandBtn.closest('[data-expand-wrapper]');
+      const flatList = wrapper && wrapper.nextElementSibling;
+      if (!flatList || !flatList.classList.contains('thread-flattened')) return;
+      const showLabel = expandBtn.dataset.labelShow || expandBtn.textContent;
+      const hideLabel = expandBtn.dataset.labelHide || 'Hide replies';
+      flatList.hidden = !flatList.hidden;
+      expandBtn.textContent = flatList.hidden ? showLabel : hideLabel;
       return;
     }
   };
 
+  const onSubmit = async (event) => {
+    const form = event.target.closest('[data-reply-form]');
+    if (!form) return;
+    event.preventDefault();
+
+    const box = form.closest('.thread-reply-box');
+    const node = form.closest('.thread-node');
+    const ta = form.querySelector('textarea');
+    const body = (ta?.value || '').trim();
+    if (!body || !node) return;
+
+    const parentId = Number(node.dataset.commentId) || null;
+    const submitBtn = form.querySelector('button[type="submit"]');
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Posting…';
+    }
+
+    try {
+      const res = await fetch(
+        API_BASE + '/api/posts/' + encodeURIComponent(String(postId)) + '/comments',
+        {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({ body, parent_comment_id: parentId })
+        }
+      );
+
+      if (res.status === 401) {
+        window.location.href = './login.html?next=' +
+          encodeURIComponent(location.pathname + location.search);
+        return;
+      }
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error((err && (err.detail || err.message)) || ('HTTP ' + res.status));
+      }
+
+      if (ta) ta.value = '';
+      if (box) box.hidden = true;
+      if (typeof onRefetch === 'function') await onRefetch();
+    } catch (err) {
+      console.error('[reply]', err);
+      alert('Could not post your reply. ' + (err.message || ''));
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Reply';
+      }
+    }
+  };
+
   tree.addEventListener('click', onClick);
-  return () => tree.removeEventListener('click', onClick);
+  tree.addEventListener('submit', onSubmit);
+  return () => {
+    tree.removeEventListener('click', onClick);
+    tree.removeEventListener('submit', onSubmit);
+  };
 }
 
 /* ------------------------------------------------------------------ */
-/* Main "Post Reply" form                                              */
+/* Main "Post Reply" form (top-level reply to the discussion)          */
 /* ------------------------------------------------------------------ */
 
 function wireMainReply({ postId, onRefetch }) {
@@ -570,7 +690,7 @@ function wireMainReply({ postId, onRefetch }) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Current user (best-effort — never blocks the page)                  */
+/* Current user (parallel with the post)                               */
 /* ------------------------------------------------------------------ */
 
 async function fetchCurrentUser() {
@@ -621,8 +741,8 @@ function isOwnerOf(post, user) {
   let destroyDelete = null;
 
   try {
-    // Fetch the post and the current user in parallel — /api/auth/me
-    // never blocks the page (falls back to null on 401/network error).
+    // Parallel fetch: post + current user, so owner-only controls
+    // render in a single paint.
     const [data, currentUser] = await Promise.all([
       loadPostDetail(urlId),
       fetchCurrentUser()
@@ -634,26 +754,27 @@ function isOwnerOf(post, user) {
 
     const isOwner = isOwnerOf(data, currentUser);
 
-    // Recursive render helper that keeps `isOwner` in scope.
-    const paint = (fresh) => {
-      renderDiscussionPage(fresh, root, { isOwner });
+    const paint = (fresh, freshUser) => {
+      const ownerNow = isOwnerOf(fresh, freshUser);
+      renderDiscussionPage(fresh, root, { isOwner: ownerNow });
     };
 
-    paint(data);
+    paint(data, currentUser);
 
     const refetch = async () => {
-      const fresh = await loadPostDetail(urlId);
-      paint(fresh);
+      const [fresh, freshUser] = await Promise.all([
+        loadPostDetail(urlId),
+        fetchCurrentUser()
+      ]);
+      paint(fresh, freshUser);
 
-      // Rebind thread delegation to the fresh tree.
+      // Rebind delegation to the fresh DOM
       if (destroyThread) destroyThread();
       destroyThread = bindThreadInteractions(document.getElementById('thread-tree'), {
         postId: fresh.id,
         onRefetch: refetch
       });
 
-      // Rebind delete to the fresh DOM (id stays the same, but the
-      // element is a new node).
       if (destroyDelete) destroyDelete();
       destroyDelete = bindDeleteAction(root, {
         postId: fresh.id,

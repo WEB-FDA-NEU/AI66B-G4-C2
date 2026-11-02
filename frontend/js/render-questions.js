@@ -1,7 +1,12 @@
 /* render-questions.js
  * Question feed for questions.html AND the home page (index.html).
  *
- * Wires:
+ * Change in this revision:
+ *   - Author avatar + display name are now clickable links to
+ *     ./user-profile.html?username=<u>. Previously both were <a href="#">
+ *     placeholders that did nothing.
+ *
+ * Everything else unchanged from the previous version:
  *   - sort nav          (Trending / Newest / Most upvotes / Most views)
  *   - Custom Filters    (Unanswered checkbox, Include tags, Ignore tags)
  *   - pagination
@@ -105,6 +110,11 @@
     return './tag-detail.html?tag=' + encodeURIComponent(String(name || ''));
   }
 
+  function userProfileUrl(username) {
+    if (!username) return '#';
+    return './user-profile.html?username=' + encodeURIComponent(username);
+  }
+
   function questionHref(id) { return './question-detail.html?id=' + encodeURIComponent(id); }
 
   function normalizeTag(raw) {
@@ -180,7 +190,6 @@
     var t = normalizeTag(raw);
     if (!t) return false;
     if (state.ignoreTags.indexOf(t) !== -1) return false;
-    // If it's currently included, drop from include so we don't AND/AND
     removeIncludeTag(t);
     state.ignoreTags.push(t);
     writeIgnoredTags(state.ignoreTags);
@@ -196,7 +205,6 @@
   }
 
   function wireCustomFilters() {
-    // Unanswered
     var unansweredBox = document.querySelector('.widget .s-checkbox input[type="checkbox"]');
     if (unansweredBox) {
       unansweredBox.checked = state.unanswered;
@@ -216,11 +224,9 @@
     var ignoreChips  = ignoreSection  && ignoreSection.querySelector('.d-flex.fw-wrap.g4');
     var ignoreInput  = ignoreSection  && ignoreSection.querySelector('input.s-input__sm');
 
-    // Paint initial chips from state (replaces the hardcoded placeholders)
     renderChips(includeChips, state.includeTags, 'include');
     renderChips(ignoreChips,  state.ignoreTags,  'ignored');
 
-    // Include tag add
     if (includeInput) {
       var onIncludeKey = function (e) {
         if (e.key !== 'Enter' && e.key !== ',') return;
@@ -250,7 +256,6 @@
       });
     }
 
-    // Ignore tag add
     if (ignoreInput) {
       var onIgnoreKey = function (e) {
         if (e.key !== 'Enter' && e.key !== ',') return;
@@ -282,7 +287,6 @@
       });
     }
 
-    // Chip dismiss (both sections handled by delegation)
     if (includeChips) {
       includeChips.addEventListener('click', function (e) {
         var btn = e.target.closest('.s-tag--dismiss');
@@ -314,7 +318,7 @@
     }
   }
 
-  /* ---------- author card ---------- */
+  /* ---------- author card (avatar + name clickable) ---------- */
 
   function renderAuthorCard(author, timeIso) {
     author = author || {};
@@ -322,14 +326,15 @@
     var letter = name.trim().charAt(0).toUpperCase() || '?';
     var color  = colorFromString(author.username || author.id || '?');
     var rep    = formatCount(author.reputation);
+    var url    = userProfileUrl(author.username);
 
     return [
       '<div class="s-user-card">',
-        '<a href="#" class="s-avatar ' + escapeHtml(color) + '" aria-hidden="true" tabindex="-1">',
+        '<a href="' + url + '" class="s-avatar ' + escapeHtml(color) + '" aria-label="' + escapeHtml(name) + '\'s profile" tabindex="-1">',
           '<span class="s-avatar--letter">' + escapeHtml(letter) + '</span>',
         '</a>',
         '<div class="s-user-card--column">',
-          '<a class="s-user-card--username" href="#">' + escapeHtml(name) + '</a>',
+          '<a class="s-user-card--username" href="' + url + '">' + escapeHtml(name) + '</a>',
           '<div class="s-user-card--group">',
             '<span class="s-user-card--rep">' + escapeHtml(rep) + '</span>',
             '<span class="s-user-card--time">asked ' + escapeHtml(formatRelativeTime(timeIso)) + '</span>',
@@ -510,7 +515,6 @@
     var label = String(params.get('sort') || 'trending').toLowerCase();
     if (SORT_MAP[label]) { state.sortLabel = label; state.sort = SORT_MAP[label]; }
 
-    // Include tags from URL (?tag=a,b or ?tag=a&tag=b)
     var tagValues = params.getAll('tag');
     if (tagValues.length) {
       state.includeTags = [];
@@ -613,7 +617,6 @@
   function init() {
     readUrlState();
 
-    // Sidebar must be wired BEFORE load so ignore-tags come from localStorage.
     fetchMe().then(function (user) {
       state.uid = user && user.id != null ? user.id : null;
       state.ignoreTags = readIgnoredTags();

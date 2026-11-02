@@ -15,27 +15,16 @@
 
 <!--
   data-requires-role="user":
-    - Guests (no valid cookie) are redirected to /login.html?next=/ by
-      the backend middleware in backend/main.py, and again by
-      page-guard.js as defence-in-depth.
+    - Guests are redirected to /questions.html by the backend middleware
+      in backend/main.py (and again by page-guard.js as defence-in-depth).
     - Any logged-in user (user / moderator / admin) may view Home.
 -->
 <body class="home-page" data-requires-role="user">
 
-  <!--
-    Pre-paint theme bootstrap. Must be the FIRST child of <body>.
-    Runs synchronously (not a module, not deferred) so it applies
-    `theme-dark` / `theme-light` on <body> BEFORE the browser paints
-    the first frame — eliminating the light→dark flash on navigation.
-  -->
+  <!-- Pre-paint theme bootstrap. Must be first child of <body>. -->
   <script src="./js/theme-boot.js"></script>
 
-  <!--
-    Page-level role guard. Runs synchronously after theme-boot so the
-    correct theme is already painted while the /me fetch is in flight.
-    Guests are redirected to login; logged-in users pass through.
-    Defence-in-depth companion to the backend middleware.
-  -->
+  <!-- Page-level role guard. Defence-in-depth companion to the backend. -->
   <script src="./js/page-guard.js"></script>
 
   <a href="#main" class="v-visible-sr">Skip to main content</a>
@@ -52,13 +41,16 @@
     <!-- MAIN CONTENT -->
     <main id="main" class="question-feed fl-grow1" role="main">
 
-      <!-- Greeting card -->
+      <!--
+        Greeting card. The h1 carries `data-greeting` — home-greeting.js
+        swaps the text to "Welcome <display_name> to Tech4Rum!" once
+        /api/auth/me resolves. The neutral default below is what
+        renders before the fetch resolves and if the fetch fails.
+      -->
       <section class="widget p16 mb24">
         <div class="d-flex jc-space-between ai-center g16 fw-wrap">
           <div class="fl-grow1">
-            <h1 class="fs-title fw-bold mb0">
-              Welcome Bùi Đụt to Tech4Rum!
-            </h1>
+            <h1 class="fs-title fw-bold mb0" data-greeting>Welcome to Tech4Rum!</h1>
           </div>
         </div>
       </section>
@@ -101,6 +93,11 @@
   <!-- Feed renderers — same scripts used by questions.html and discussions.html -->
   <script src="./js/render-questions.js" defer></script>
   <script src="./js/pages/discussions.js" defer></script>
+
+  <!-- Dynamic greeting — swaps "Welcome to Tech4Rum!" with the logged-in
+       user's display_name once /api/auth/me resolves. Independent of the
+       feeds above; no shared state. -->
+  <script src="./js/home-greeting.js" defer></script>
 
   <script type="module" src="./js/components/site-header.js" defer></script>
   <script type="module" src="./js/components/site-footer.js" defer></script>

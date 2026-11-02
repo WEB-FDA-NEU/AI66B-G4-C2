@@ -1,6 +1,11 @@
 /* discussions.js — feed loader for discussions.html + index.html
  *
- * Wires:
+ * Change in this revision:
+ *   - Author avatar + display name are now clickable links to
+ *     ./user-profile.html?username=<u>. Previously both were
+ *     <a href="#"> placeholders that did nothing.
+ *
+ * Everything else unchanged from the previous version:
  *   - sort nav          (Trending / Newest / Most upvotes / Most views /
  *                        Most replies)
  *   - Custom Filters    (Include tags, Ignore tags — no Unanswered box,
@@ -109,6 +114,11 @@
     return './tag-detail.html?tag=' + encodeURIComponent(String(name || ''));
   }
 
+  function userProfileUrl(username) {
+    if (!username) return '#';
+    return './user-profile.html?username=' + encodeURIComponent(username);
+  }
+
   function normalizeTag(raw) {
     var t = String(raw == null ? '' : raw).trim().toLowerCase();
     if (!t) return null;
@@ -205,7 +215,6 @@
     var ignoreChips  = ignoreSection  && ignoreSection.querySelector('.d-flex.fw-wrap.g4');
     var ignoreInput  = ignoreSection  && ignoreSection.querySelector('input.s-input__sm');
 
-    // Paint initial chips from state (replaces the hardcoded placeholders)
     renderChips(includeChips, state.includeTags, 'include');
     renderChips(ignoreChips,  state.ignoreTags,  'ignored');
 
@@ -283,7 +292,7 @@
     }
   }
 
-  /* ---------- discussion card ---------- */
+  /* ---------- discussion card (author clickable) ---------- */
 
   function renderDiscussion(d) {
     var votes   = Number(d.score) || 0;
@@ -300,6 +309,7 @@
     var letter = name.trim().charAt(0).toUpperCase() || '?';
     var color  = colorFromString(author.username || author.id || '?');
     var rep    = formatCount(author.reputation);
+    var url    = userProfileUrl(author.username);
 
     return [
       '<div class="s-post-summary" data-discussion-id="' + escapeHtml(d.id) + '">',
@@ -317,11 +327,11 @@
           '<div class="d-flex ai-center jc-space-between g8 fw-wrap mt8">',
             '<div class="s-post-summary--tags mt0">' + tagsHtml + '</div>',
             '<div class="s-user-card">',
-              '<a href="#" class="s-avatar ' + escapeHtml(color) + '" aria-hidden="true" tabindex="-1">',
+              '<a href="' + url + '" class="s-avatar ' + escapeHtml(color) + '" aria-label="' + escapeHtml(name) + '\'s profile" tabindex="-1">',
                 '<span class="s-avatar--letter">' + escapeHtml(letter) + '</span>',
               '</a>',
               '<div class="s-user-card--column">',
-                '<a class="s-user-card--username" href="#">' + escapeHtml(name) + '</a>',
+                '<a class="s-user-card--username" href="' + url + '">' + escapeHtml(name) + '</a>',
                 '<div class="s-user-card--group">',
                   '<span class="s-user-card--rep">' + escapeHtml(rep) + '</span>',
                   '<span class="s-user-card--time">posted ' + escapeHtml(formatRelativeTime(d.created_at)) + '</span>',
@@ -372,9 +382,8 @@
       clearBtn.addEventListener('click', function () {
         state.includeTags = [];
         state.page = 1;
-        var incChips = (findFilterSection('Include tags') || {}).querySelector
-          ? findFilterSection('Include tags').querySelector('.d-flex.fw-wrap.g4')
-          : null;
+        var incSection = findFilterSection('Include tags');
+        var incChips = incSection && incSection.querySelector('.d-flex.fw-wrap.g4');
         renderChips(incChips, state.includeTags, 'include');
         updateUrl();
         load();
