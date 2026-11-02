@@ -2,6 +2,7 @@
    plus answers, comments and votes."""
 from __future__ import annotations
 
+import re
 from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Literal
@@ -133,6 +134,106 @@ def _upsert_tags(db: Session, names: list[str]) -> list[Tag]:
         if tag is not None:
             out.append(tag)
     return out
+
+
+# ── Similar post suggestion (soft dedup) ────────────────────────────────
+
+_SIMILAR_STOPWORDS = {
+    "the", "a", "an", "is", "are", "was", "were", "to", "of", "for", "in",
+    "on", "at", "by", "with", "and", "or", "but", "do", "does", "did",
+    "how", "why", "what", "when", "where", "which", "who", "this", "that",
+    "it", "my", "i", "you", "we", "they", "be", "been", "being",
+    "have", "has", "had", "can", "could", "should", "would", "will",
+    "not", "no", "so", "if", "then", "than", "as", "into", "about",
+    "without", "from", "just", "only", "also", "very",
+}
+
+_WORD_RE = re.compile(r"[A-Za-z][A-Za-z0-9_+#.-]{2,}")
+
+
+@router.get("/posts/similar", response_model=list[schemas.PostCard])
+def similar_posts(
+    title: str = "",
+    tags: str = "",
+    exclude_id: int | None = Query(None),
+    limit: int = Query(5, ge=1, le=20),
+    db: Session = Depends(get_db),
+    user: User | None = Depends(get_current_user_optional),
+):
+    """Suggest posts that may cover the same topic.
+
+    Soft dedup helper for the create/edit form: never blocks submission,
+    just helps the user find existing posts before creating a duplicate.
+    Matches on meaningful title words (≥3 chars, stopwords stripped, up to
+    8 tokens) OR on any of the supplied tags, then ranks by score.
+    """
+    title = (title or "").strip()
+    tag_list = [
+        t.strip().lower() for t in (tags or "").split(",") if t.strip()
+    ][:5]
+
+    # Extract meaningful title words, preserving first-seen order.
+    words: list[str] = []
+    seen: set[str] = set()
+    for m in _WORD_RE.finditer(title):
+        w = m.group(0).lower()
+        if w in _SIMILAR_STOPWORDS or w in seen:
+            continue
+        seen.add(w)
+        words.append(w)
+        if len(words) >= 8:
+            break
+
+    if not words and not tag_list:
+        return []
+
+    stmt = select(Post).where(Post.deleted_at.is_(None))
+    if exclude_id:
+        stmt = stmt.where(Post.id != exclude_id)
+
+    conditions = []
+    if words:
+        conditions.append(
+            or_(*[func.lower(Post.title).like(f"%{w}%") for w in words])
+        )
+    if tag_list:
+        tag_exists = (
+            select(1)
+            .select_from(PostTag)
+            .join(Tag, Tag.id == PostTag.tag_id)
+            .where(
+                PostTag.post_id == Post.id,
+                func.lower(Tag.name).in_(tag_list),
+            )
+            .exists()
+        )
+        conditions.append(tag_exists)
+
+    stmt = (
+        stmt.where(or_(*conditions))
+        .order_by(Post.score.desc(), Post.updated_at.desc())
+        .limit(limit)
+    )
+
+    posts = db.scalars(stmt).all()
+    if not posts:
+        return []
+
+    authors = _load_authors(db, {p.author_id for p in posts})
+    tags_by_post = _load_tags_for(db, [p.id for p in posts])
+    my_votes = _my_vote_map(
+        db, user.id if user else None, [("post", p.id) for p in posts]
+    )
+
+    return [
+        _card(
+            p,
+            authors[p.author_id],
+            tags_by_post[p.id],
+            my_votes.get(("post", p.id)),
+        )
+        for p in posts
+    ]
 
 
 # ── List ────────────────────────────────────────────────────────────────

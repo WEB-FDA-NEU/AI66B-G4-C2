@@ -55,7 +55,7 @@
     <!-- ---------- MAIN ---------- -->
     <main id="main" class="fl-grow1" style="min-width: 0;">
 
-      <form class="s-form-group" onsubmit="return false">
+      <form id="post-form" class="s-form-group" data-post-type="discussion">
 
         <!-- ===== Title ===== -->
         <div class="s-form-group">
@@ -120,9 +120,19 @@
             Add up to 5 tags to help people find your discussion. Press <kbd>Enter</kbd> or <kbd>,</kbd> to add.
           </div>
 
-          <div class="tag-editor" id="tag-editor">
-            <input id="tag-input" type="text" placeholder="e.g. devops" autocomplete="off"
-                   aria-label="Add a tag">
+          <div class="ps-relative">
+            <div class="tag-editor" id="tag-editor">
+              <input id="tag-input" type="text" placeholder="e.g. devops" autocomplete="off"
+                     aria-label="Add a tag">
+            </div>
+
+            <!-- Tag autocomplete popover (filled by bindTagSuggestions) -->
+            <div id="tag-suggestions"
+                 class="ps-absolute t100 l0 r0 mt4 z-popover bg-white bc-medium ba bar-md bs-md p8 d-none"
+                 role="listbox"
+                 aria-label="Tag suggestions">
+              <ul id="tag-suggestions-list" class="s-menu"></ul>
+            </div>
           </div>
 
           <div class="s-input-message fc-black-400">
@@ -130,9 +140,25 @@
           </div>
         </div>
 
+        <!-- ===== Similar posts (soft dedup, filled by post-similar.js) ===== -->
+        <div id="similar-questions-block"
+             class="similar-questions"
+             role="status"
+             aria-live="polite"
+             hidden>
+          <h4>
+            <svg class="svg-icon va-text-bottom mr4" aria-hidden="true"
+                 width="14" height="14" viewBox="0 0 14 14">
+              <path d="M7 1a6 6 0 1 1 0 12A6 6 0 0 1 7 1Zm0 1.2a4.8 4.8 0 1 0 0 9.6 4.8 4.8 0 0 0 0-9.6ZM6.4 8.6h1.2V10H6.4V8.6Zm0-4.6h1.2v3.6H6.4V4Z"/>
+            </svg>
+            <span data-similar-heading>Discussions that may already cover this topic</span>
+          </h4>
+          <ul id="similar-questions-list"></ul>
+        </div>
+
         <!-- ===== Actions ===== -->
         <div class="d-flex ai-center g8 fw-wrap mt8">
-          <button type="button" class="s-btn" id="post-discussion-btn">Post discussion</button>
+          <button type="button" class="s-btn" id="post-discussion-btn" data-post-submit>Post discussion</button>
           <button type="button" class="s-btn s-btn__clear">Save as draft</button>
           <span class="fl-grow1"></span>
           <button type="button" class="s-btn s-btn__link s-btn__link__danger">Discard draft</button>
@@ -229,19 +255,8 @@
   <script type="module" src="./js/components/site-footer.js"></script>
   <script type="module" src="./js/components/site-sidebar.js"></script>
 
-  <!-- Reuse the ask-question editor: IDs match, so no new module is needed -->
-  <script type="module">
-    import { initAskQuestionEditor } from './js/ask-question-editor.js';
-    initAskQuestionEditor();
-
-    /* Static submit — the demo build has no backend. */
-    const postBtn = document.getElementById('post-discussion-btn');
-    if (postBtn) {
-      postBtn.addEventListener('click', () => {
-        window.alert('Posting is not available in this demo build.');
-      });
-    }
-  </script>
+  <!-- Page bootstrap: editor + similar + submit (POST /api/posts) -->
+  <script type="module" src="./js/post-form.js"></script>
 
 </body>
 </html>

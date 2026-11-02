@@ -14,6 +14,10 @@
  *   - The OP body is markdown-rendered; comments are plain text.
  *   - "Post Reply" (main) and per-comment replies POST to
  *     /api/posts/{id}/comments with optional parent_comment_id.
+ *   - If the current user is the discussion's author, the post-actions
+ *     row shows Edit + Delete:
+ *       Edit   → ./edit-question.html?id=<id>  (same page edits both types)
+ *       Delete → DELETE /api/posts/{id}, then redirect to ./my-content.html
  */
 
 import { renderMarkdown } from '../markdown-renderer.js';
@@ -190,7 +194,49 @@ function userCard(user, action, iso) {
   `;
 }
 
-function renderDiscussionPage(data, root) {
+/**
+ * Render the post-actions row.
+ *  - Share / Follow always visible
+ *  - Edit / Delete only when `isOwner`
+ *  - Report is hidden for the author (matches Stack Overflow)
+ */
+function postActions(data, isOwner) {
+  const reportLink = isOwner ? '' : `
+    <a class="s-btn s-btn__danger s-btn__xs"
+       href="${reportUrl('discussion', data.id)}"
+       data-report
+       data-report-type="discussion"
+       data-report-id="${escapeHtml(String(data.id))}"
+       title="Report this discussion">
+      <svg class="svg-icon" aria-hidden="true" width="14" height="14" viewBox="0 0 14 14">
+        <path d="M7 1 1 12h12L7 1Zm0 3.25.75 3.5h-1.5L7 4.25ZM7 10.5a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z"/>
+      </svg>
+      Report
+    </a>`;
+
+  const ownerActions = isOwner ? `
+    <a class="s-link" href="./edit-question.html?id=${encodeURIComponent(data.id)}" data-edit>Edit</a>
+    <button class="s-btn s-btn__danger s-btn__xs" type="button"
+            data-delete-post
+            data-post-id="${escapeHtml(String(data.id))}"
+            data-post-type="discussion"
+            title="Delete this discussion">
+      <svg class="svg-icon" aria-hidden="true" width="14" height="14" viewBox="0 0 14 14">
+        <path d="M5 2h4V1a1 1 0 0 0-1-1H6a1 1 0 0 0-1 1v1Zm-3 1v1h1v9a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4h1V3H2Zm3 3h1v6H5V6Zm3 0h1v6H8V6Z"/>
+      </svg>
+      Delete
+    </button>` : '';
+
+  return `
+    <div class="post-actions">
+      <a class="s-link" href="#">Share</a>
+      <a class="s-link" href="#">Follow</a>
+      ${ownerActions}
+      ${reportLink}
+    </div>`;
+}
+
+function renderDiscussionPage(data, root, { isOwner = false } = {}) {
   const flatComments = Array.isArray(data.comments) ? data.comments : [];
   const tree = buildCommentTree(flatComments);
   const totalReplies = Number(data.reply_count) || countReplies(tree);
@@ -221,21 +267,7 @@ function renderDiscussionPage(data, root) {
         </div>
 
         <div class="post-footer">
-          <div class="post-actions">
-            <a class="s-link" href="#">Share</a>
-            <a class="s-link" href="#">Follow</a>
-            <a class="s-btn s-btn__danger s-btn__xs"
-               href="${reportUrl('discussion', data.id)}"
-               data-report
-               data-report-type="discussion"
-               data-report-id="${escapeHtml(String(data.id))}"
-               title="Report this discussion">
-              <svg class="svg-icon" aria-hidden="true" width="14" height="14" viewBox="0 0 14 14">
-                <path d="M7 1 1 12h12L7 1Zm0 3.25.75 3.5h-1.5L7 4.25ZM7 10.5a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z"/>
-              </svg>
-              Report
-            </a>
-          </div>
+          ${postActions(data, isOwner)}
           ${userCard(data.author, 'posted', data.created_at)}
         </div>
       </div>
@@ -264,6 +296,59 @@ function renderDiscussionPage(data, root) {
   }
 
   try { document.title = `${data.title} — Tech4Rum`; } catch (_) {}
+}
+
+/* ------------------------------------------------------------------ */
+/* Delete handler (post-level, owner only)                             */
+/* ------------------------------------------------------------------ */
+
+function bindDeleteAction(root, { postId, postType, onDeleted }) {
+  const onClick = async (e) => {
+    const btn = e.target.closest('[data-delete-post]');
+    if (!btn || !root.contains(btn)) return;
+    e.preventDefault();
+
+    const noun = postType === 'discussion' ? 'discussion' : 'question';
+    const confirmed = window.confirm(
+      `Delete this ${noun}?\n\n` +
+      `It will be soft-deleted and removed from your content list. ` +
+      `A moderator can restore it within 30 days.`
+    );
+    if (!confirmed) return;
+
+    btn.disabled = true;
+    const originalLabel = btn.textContent;
+    btn.textContent = 'Deleting…';
+
+    try {
+      const res = await fetch(
+        API_BASE + '/api/posts/' + encodeURIComponent(String(postId)),
+        { method: 'DELETE', credentials: 'include' }
+      );
+
+      if (res.status === 401) {
+        window.location.href = './login.html?next=' +
+          encodeURIComponent(location.pathname + location.search);
+        return;
+      }
+      if (res.status === 403) {
+        throw new Error('You do not have permission to delete this post.');
+      }
+      if (!res.ok && res.status !== 204) {
+        throw new Error('HTTP ' + res.status);
+      }
+
+      if (typeof onDeleted === 'function') onDeleted();
+    } catch (err) {
+      console.error('[discussion-detail] delete failed:', err);
+      alert('Could not delete: ' + (err.message || 'unknown error'));
+      btn.disabled = false;
+      btn.textContent = originalLabel;
+    }
+  };
+
+  root.addEventListener('click', onClick);
+  return () => root.removeEventListener('click', onClick);
 }
 
 /* ------------------------------------------------------------------ */
@@ -485,6 +570,29 @@ function wireMainReply({ postId, onRefetch }) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Current user (best-effort — never blocks the page)                  */
+/* ------------------------------------------------------------------ */
+
+async function fetchCurrentUser() {
+  try {
+    const res = await fetch(API_BASE + '/api/auth/me', {
+      credentials: 'include',
+      headers: { Accept: 'application/json' }
+    });
+    if (!res.ok) return null;
+    return res.json();
+  } catch (_) {
+    return null;
+  }
+}
+
+function isOwnerOf(post, user) {
+  if (!post || !user) return false;
+  const authorId = post.author && post.author.id;
+  return authorId != null && Number(authorId) === Number(user.id);
+}
+
+/* ------------------------------------------------------------------ */
 /* Bootstrap                                                           */
 /* ------------------------------------------------------------------ */
 
@@ -510,24 +618,49 @@ function wireMainReply({ postId, onRefetch }) {
   let destroyVotes = null;
   let destroyThread = null;
   let destroyMainReply = null;
+  let destroyDelete = null;
 
   try {
-    const data = await loadPostDetail(urlId);
+    // Fetch the post and the current user in parallel — /api/auth/me
+    // never blocks the page (falls back to null on 401/network error).
+    const [data, currentUser] = await Promise.all([
+      loadPostDetail(urlId),
+      fetchCurrentUser()
+    ]);
 
     if (data.post_type !== 'discussion') {
       throw new Error('This post is not a discussion.');
     }
 
-    renderDiscussionPage(data, root);
+    const isOwner = isOwnerOf(data, currentUser);
+
+    // Recursive render helper that keeps `isOwner` in scope.
+    const paint = (fresh) => {
+      renderDiscussionPage(fresh, root, { isOwner });
+    };
+
+    paint(data);
 
     const refetch = async () => {
       const fresh = await loadPostDetail(urlId);
-      renderDiscussionPage(fresh, root);
-      // Re-bind thread delegation to the fresh tree
+      paint(fresh);
+
+      // Rebind thread delegation to the fresh tree.
       if (destroyThread) destroyThread();
       destroyThread = bindThreadInteractions(document.getElementById('thread-tree'), {
         postId: fresh.id,
         onRefetch: refetch
+      });
+
+      // Rebind delete to the fresh DOM (id stays the same, but the
+      // element is a new node).
+      if (destroyDelete) destroyDelete();
+      destroyDelete = bindDeleteAction(root, {
+        postId: fresh.id,
+        postType: 'discussion',
+        onDeleted: () => {
+          window.location.href = './my-content.html';
+        }
       });
     };
 
@@ -539,6 +672,14 @@ function wireMainReply({ postId, onRefetch }) {
     });
 
     destroyMainReply = wireMainReply({ postId: data.id, onRefetch: refetch });
+
+    destroyDelete = bindDeleteAction(root, {
+      postId: data.id,
+      postType: 'discussion',
+      onDeleted: () => {
+        window.location.href = './my-content.html';
+      }
+    });
 
     stopTicker = startTimeTicker(document);
   } catch (err) {
@@ -555,5 +696,6 @@ function wireMainReply({ postId, onRefetch }) {
     if (destroyVotes) destroyVotes();
     if (destroyThread) destroyThread();
     if (destroyMainReply) destroyMainReply();
+    if (destroyDelete) destroyDelete();
   }, { once: true });
 })();

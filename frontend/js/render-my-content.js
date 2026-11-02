@@ -9,19 +9,18 @@
  *        GET /api/users/{username}                         → answer_count
  *        GET /api/posts?mine=true&type=question&page_size=50
  *        GET /api/posts?mine=true&type=discussion&page_size=50
+ *        GET /api/users/{username}/answers?page_size=50
  *
  * Tabs: Profile / Questions / Discussions / Answers.
  *   - Questions & Discussions: Edit / Delete actions.
- *       Edit   → ./edit-question.html?id=<id> (questions only)
- *       Delete → confirm + local removal
- *                (TODO: wire to DELETE /api/posts/{id})
- *   - Answers: backend has no "list answers by author" endpoint yet →
- *     the tab shows a graceful "coming soon" empty state, but the
- *     count in the stat box uses /api/users/{username}.answer_count.
+ *       Edit   → ./edit-question.html?id=<id>
+ *                (same page handles both post types; it swaps labels
+ *                 and PATCHes the backend uniformly)
+ *       Delete → confirm + DELETE /api/posts/{id} + local removal
+ *   - Answers: read-only list.
  *
- * On 401 from /api/auth/me (or either mine=true call), the page shows a
- * "log in" prompt instead of hard-redirecting (the site-header renders
- * its own auth chip).
+ * On 401 from /api/auth/me (or any mine=true call), the page shows a
+ * "log in" prompt instead of hard-redirecting.
  *
  * Classic script (loaded with <script src> not type=module).
  */
@@ -48,7 +47,7 @@
     tab: 'profile',
     questions: [],
     discussions: [],
-    answers: [],                          // placeholder — no backend yet
+    answers: [],
     totals: { questions: 0, discussions: 0, answers: 0 }
   };
 
@@ -108,7 +107,7 @@
     return './tag-detail.html?tag=' + encodeURIComponent(String(name || ''));
   }
 
-  /* ---------------- Profile header (letter avatar) ---------------- */
+  /* ---------------- Profile header ---------------- */
 
   function renderProfileHeader(user) {
     var displayName = user.display_name || user.username || '?';
@@ -218,18 +217,21 @@
     ].join('');
   }
 
+  /**
+   * Edit + Delete actions. The same buttons are rendered for both
+   * questions and discussions — /edit-question.html?id=<n> handles
+   * both types transparently, and DELETE /api/posts/{id} is uniform.
+   */
   function renderActions(id, kind) {
-    var editBtn = kind === 'question'
-      ? [
-          '<button class="s-btn s-btn__xs"',
-          '        type="button"',
-          '        data-action="edit"',
-          '        data-kind="' + escapeHtml(kind) + '"',
-          '        data-id="' + escapeHtml(String(id)) + '">',
-            'Edit',
-          '</button>'
-        ].join('')
-      : '';
+    var editBtn = [
+      '<button class="s-btn s-btn__xs"',
+      '        type="button"',
+      '        data-action="edit"',
+      '        data-kind="' + escapeHtml(kind) + '"',
+      '        data-id="' + escapeHtml(String(id)) + '">',
+        'Edit',
+      '</button>'
+    ].join('');
 
     var deleteBtn = [
       '<button class="s-btn s-btn__xs s-btn__danger"',
@@ -356,7 +358,7 @@
             : '',
           '<div class="d-flex ai-center jc-space-between g8 fw-wrap mt8">',
             '<span class="fs-caption fc-black-400">answered ' + escapeHtml(formatRelativeTime(a.created_at)) + '</span>',
-            '<a class="s-link s-link__muted fs-caption" href="' + detailUrl + '">View question →</a>',
+            '<a class="s-link s-link__muted fs-caption" href="' + detailUrl + '">View post →</a>',
           '</div>',
         '</div>',
       '</div>'
@@ -418,14 +420,13 @@
 
   /* ---------------- Edit / Delete ---------------- */
 
+  /**
+   * Both questions and discussions route through ./edit-question.html.
+   * That page loads the post via /api/posts/{id}, detects its
+   * `post_type`, swaps its hero labels accordingly, and submits a
+   * PATCH /api/posts/{id} — no separate edit-discussion page needed.
+   */
   function onEdit(kind, id) {
-    if (kind === 'discussion') {
-      window.alert(
-        'Editing discussions is not supported in this build.\n' +
-        'Would open: ./create-discussion.html?id=' + id
-      );
-      return;
-    }
     window.location.href = './edit-question.html?id=' + encodeURIComponent(id);
   }
 
@@ -433,7 +434,8 @@
     var noun = kind === 'discussion' ? 'discussion' : 'question';
     var msg =
       'Delete this ' + noun + '?\n\n' +
-      'It will be soft-deleted and removed from your content list.';
+      'It will be soft-deleted and removed from your content list. ' +
+      'A moderator can restore it within 30 days.';
 
     if (!window.confirm(msg)) return;
 

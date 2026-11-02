@@ -57,7 +57,7 @@
     <!-- ---------- MAIN ---------- -->
     <main id="main" class="fl-grow1" style="min-width: 0;">
 
-      <form class="s-form-group" onsubmit="return false">
+      <form id="post-form" class="s-form-group" data-post-type="question">
 
         <!-- ===== Title ===== -->
         <div class="s-form-group">
@@ -70,30 +70,6 @@
                  maxlength="150" autocomplete="off" required>
           <div class="s-input-message fc-black-400">
             <span id="title-count" class="fw-bold">0</span> / 150 characters
-          </div>
-
-          <div class="similar-questions" role="status">
-            <h4>
-              <svg class="svg-icon va-text-bottom mr4" aria-hidden="true"
-                   width="14" height="14" viewBox="0 0 14 14">
-                <path d="M7 1a6 6 0 1 1 0 12A6 6 0 0 1 7 1Zm0 1.2a4.8 4.8 0 1 0 0 9.6 4.8 4.8 0 0 0 0-9.6ZM6.4 8.6h1.2V10H6.4V8.6Zm0-4.6h1.2v3.6H6.4V4Z"/>
-              </svg>
-              Questions that may already have your answer
-            </h4>
-            <ul>
-              <li>
-                <a href="#">React StrictMode double-invokes effects — how do I avoid duplicate fetches?</a>
-                <span class="fc-black-400">· 12 answers</span>
-              </li>
-              <li>
-                <a href="#">Is double rendering in React 18 development mode a bug?</a>
-                <span class="fc-black-400">· 4 answers</span>
-              </li>
-              <li>
-                <a href="#">Why is my useEffect running twice on mount?</a>
-                <span class="fc-black-400">· 9 answers</span>
-              </li>
-            </ul>
           </div>
         </div>
 
@@ -146,30 +122,56 @@
             Add up to 5 tags to describe what your question is about. Press <kbd>Enter</kbd> or <kbd>,</kbd> to add.
           </div>
 
-          <div class="tag-editor" id="tag-editor">
-            <span class="s-tag" data-tag="reactjs">
-              reactjs
-              <button type="button" class="s-tag--dismiss" aria-label="Remove tag reactjs">
-                <svg viewBox="0 0 14 14" aria-hidden="true">
-                  <path d="M7 5.586 11.293 1.293l1.414 1.414L8.414 7l4.293 4.293-1.414 1.414L7 8.414l-4.293 4.293-1.414-1.414L5.586 7 1.293 2.707l1.414-1.414L7 5.586Z"/>
-                </svg>
-              </button>
-            </span>
-            <span class="s-tag" data-tag="javascript">
-              javascript
-              <button type="button" class="s-tag--dismiss" aria-label="Remove tag javascript">
-                <svg viewBox="0 0 14 14" aria-hidden="true">
-                  <path d="M7 5.586 11.293 1.293l1.414 1.414L8.414 7l4.293 4.293-1.414 1.414L7 8.414l-4.293 4.293-1.414-1.414L5.586 7 1.293 2.707l1.414-1.414L7 5.586Z"/>
-                </svg>
-              </button>
-            </span>
-            <input id="tag-input" type="text" placeholder="e.g. rust" autocomplete="off"
-                   aria-label="Add a tag">
+          <div class="ps-relative">
+            <div class="tag-editor" id="tag-editor">
+              <span class="s-tag" data-tag="reactjs">
+                reactjs
+                <button type="button" class="s-tag--dismiss" aria-label="Remove tag reactjs">
+                  <svg viewBox="0 0 14 14" aria-hidden="true">
+                    <path d="M7 5.586 11.293 1.293l1.414 1.414L8.414 7l4.293 4.293-1.414 1.414L7 8.414l-4.293 4.293-1.414-1.414L5.586 7 1.293 2.707l1.414-1.414L7 5.586Z"/>
+                  </svg>
+                </button>
+              </span>
+              <span class="s-tag" data-tag="javascript">
+                javascript
+                <button type="button" class="s-tag--dismiss" aria-label="Remove tag javascript">
+                  <svg viewBox="0 0 14 14" aria-hidden="true">
+                    <path d="M7 5.586 11.293 1.293l1.414 1.414L8.414 7l4.293 4.293-1.414 1.414L7 8.414l-4.293 4.293-1.414-1.414L5.586 7 1.293 2.707l1.414-1.414L7 5.586Z"/>
+                  </svg>
+                </button>
+              </span>
+              <input id="tag-input" type="text" placeholder="e.g. rust" autocomplete="off"
+                     aria-label="Add a tag">
+            </div>
+
+            <!-- Tag autocomplete popover (filled by bindTagSuggestions) -->
+            <div id="tag-suggestions"
+                 class="ps-absolute t100 l0 r0 mt4 z-popover bg-white bc-medium ba bar-md bs-md p8 d-none"
+                 role="listbox"
+                 aria-label="Tag suggestions">
+              <ul id="tag-suggestions-list" class="s-menu"></ul>
+            </div>
           </div>
 
           <div class="s-input-message fc-black-400">
             <span id="tag-count" class="fw-bold">2</span> / 5 tags
           </div>
+        </div>
+
+        <!-- ===== Similar posts (soft dedup, filled by post-similar.js) ===== -->
+        <div id="similar-questions-block"
+             class="similar-questions"
+             role="status"
+             aria-live="polite"
+             hidden>
+          <h4>
+            <svg class="svg-icon va-text-bottom mr4" aria-hidden="true"
+                 width="14" height="14" viewBox="0 0 14 14">
+              <path d="M7 1a6 6 0 1 1 0 12A6 6 0 0 1 7 1Zm0 1.2a4.8 4.8 0 1 0 0 9.6 4.8 4.8 0 0 0 0-9.6ZM6.4 8.6h1.2V10H6.4V8.6Zm0-4.6h1.2v3.6H6.4V4Z"/>
+            </svg>
+            <span data-similar-heading>Questions that may already have your answer</span>
+          </h4>
+          <ul id="similar-questions-list"></ul>
         </div>
 
         <!-- ===== Extras ===== -->
@@ -187,7 +189,7 @@
 
         <!-- ===== Actions ===== -->
         <div class="d-flex ai-center g8 fw-wrap mt8">
-          <button type="button" class="s-btn" id="post-question-btn">Post your question</button>
+          <button type="button" class="s-btn" id="post-question-btn" data-post-submit>Post your question</button>
           <button type="button" class="s-btn s-btn__clear">Save as draft</button>
           <span class="fl-grow1"></span>
           <button type="button" class="s-btn s-btn__link s-btn__link__danger">Discard draft</button>
@@ -283,19 +285,8 @@
   <script type="module" src="./js/components/site-footer.js"></script>
   <script type="module" src="./js/components/site-sidebar.js"></script>
 
-  <!-- Page logic — ask-question-editor.js is an ES module -->
-  <script type="module">
-    import { initAskQuestionEditor } from './js/ask-question-editor.js';
-    initAskQuestionEditor();
-
-    /* Static submit — the demo build has no backend. */
-    const postBtn = document.getElementById('post-question-btn');
-    if (postBtn) {
-      postBtn.addEventListener('click', () => {
-        window.alert('Posting is not available in this demo build.');
-      });
-    }
-  </script>
+  <!-- Page bootstrap: editor + similar + submit (POST /api/posts) -->
+  <script type="module" src="./js/post-form.js"></script>
 
 </body>
 </html>
