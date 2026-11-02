@@ -1,5 +1,19 @@
 """Posts: questions + discussions, list / detail / create / update / delete
-   plus answers, comments and votes."""
+   plus answers, comments and votes.
+
+   Filtering support (feeds + search):
+   - `tag`        → comma-separated multi-tag OR filter (include)
+   - `ignore_tags`→ comma-separated multi-tag exclusion filter
+   - `unanswered` → dedicated filter that composes with any `sort`
+
+   `ignore_tags` is the backend half of the "ignored tags" setting: the
+   frontend reads the user's saved preference from localStorage and
+   passes it as `ignore_tags=...` on every feed/search request. The API
+   silently drops posts carrying any of those tags.
+
+   Type-aware body length validation is also applied to POST and PATCH
+   so undersized bodies surface as 422 (not 500 from the DB CHECK).
+"""
 from __future__ import annotations
 
 import re
@@ -76,7 +90,7 @@ def _card(p: Post, a: User, tags: list[Tag], my_vote: int | None = None) -> dict
         "reply_count":  p.reply_count,
         "view_count":   p.view_count,
         "is_answered":  p.accepted_answer_id is not None,
-        "my_vote":      my_vote,                # ← NEW
+        "my_vote":      my_vote,
         "created_at":   p.created_at,
         "updated_at":   p.updated_at,
     }
@@ -87,11 +101,7 @@ def _my_vote_map(
     user_id: int | None,
     pairs: list[tuple[str, int]],
 ) -> dict[tuple[str, int], int]:
-    """Return {(target_type, target_id): value} for the given user.
-
-    Empty map when anonymous or when there are no pairs to look up — so
-    the route doesn't issue extra queries for guest requests.
-    """
+    """Return {(target_type, target_id): value} for the given user."""
     if not user_id or not pairs:
         return {}
     by_type: dict[str, list[int]] = defaultdict(list)
@@ -136,6 +146,58 @@ def _upsert_tags(db: Session, names: list[str]) -> list[Tag]:
     return out
 
 
+# ── Tag-filter helpers ─────────────────────────────────────────────────
+
+def _split_tags(raw: str, limit: int) -> list[str]:
+    """Normalize a comma-separated tag string."""
+    if not raw:
+        return []
+    out: list[str] = []
+    seen: set[str] = set()
+    for t in raw.split(","):
+        name = t.strip().lower()
+        if not name or name in seen:
+            continue
+        seen.add(name)
+        out.append(name)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _has_any_tag(any_of: list[str]):
+    """SQLAlchemy EXISTS() that is true when the post carries >=1 of the tags."""
+    return (
+        select(1)
+        .select_from(PostTag)
+        .join(Tag, Tag.id == PostTag.tag_id)
+        .where(
+            PostTag.post_id == Post.id,
+            func.lower(Tag.name).in_(any_of),
+        )
+        .exists()
+    )
+
+
+# ── Type-aware body length (mirrors schema.sql CHECK) ───────────────────
+
+_BODY_MIN = {"question": 20, "discussion": 10}
+
+
+def _validate_body_for_type(body: str, post_type: str) -> None:
+    """Raise 422 with a friendly message if the body is too short for
+    the given post type (matches the DB CHECK constraint)."""
+    min_len = _BODY_MIN.get(post_type, 20)
+    if len((body or "").strip()) < min_len:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"Body must be at least {min_len} characters "
+                f"for a {post_type}."
+            ),
+        )
+
+
 # ── Similar post suggestion (soft dedup) ────────────────────────────────
 
 _SIMILAR_STOPWORDS = {
@@ -164,15 +226,10 @@ def similar_posts(
 
     Soft dedup helper for the create/edit form: never blocks submission,
     just helps the user find existing posts before creating a duplicate.
-    Matches on meaningful title words (≥3 chars, stopwords stripped, up to
-    8 tokens) OR on any of the supplied tags, then ranks by score.
     """
     title = (title or "").strip()
-    tag_list = [
-        t.strip().lower() for t in (tags or "").split(",") if t.strip()
-    ][:5]
+    tag_list = _split_tags(tags, 5)
 
-    # Extract meaningful title words, preserving first-seen order.
     words: list[str] = []
     seen: set[str] = set()
     for m in _WORD_RE.finditer(title):
@@ -197,17 +254,7 @@ def similar_posts(
             or_(*[func.lower(Post.title).like(f"%{w}%") for w in words])
         )
     if tag_list:
-        tag_exists = (
-            select(1)
-            .select_from(PostTag)
-            .join(Tag, Tag.id == PostTag.tag_id)
-            .where(
-                PostTag.post_id == Post.id,
-                func.lower(Tag.name).in_(tag_list),
-            )
-            .exists()
-        )
-        conditions.append(tag_exists)
+        conditions.append(_has_any_tag(tag_list))
 
     stmt = (
         stmt.where(or_(*conditions))
@@ -242,8 +289,10 @@ def similar_posts(
 def list_posts(
     type: Literal["question", "discussion"] | None = Query(None),
     q:    str = "",
-    tag:  str = "",
-    author: str = "",                                # ← NEW
+    tag:  str = "",                                # include (multi, OR)
+    ignore_tags: str = "",                         # exclude (multi)
+    unanswered: bool = False,                      # composes with sort
+    author: str = "",
     sort: Literal["newest", "active", "votes", "views", "unanswered"] = "newest",
     mine: bool = False,
     page:      int = Query(1, ge=1),
@@ -261,13 +310,26 @@ def list_posts(
             or_(func.lower(Post.title).like(like),
                 func.lower(Post.body).like(like))
         )
-    if tag:
-        stmt = (stmt
-                .join(PostTag, PostTag.post_id == Post.id)
-                .join(Tag, Tag.id == PostTag.tag_id)
-                .where(func.lower(Tag.name) == tag.lower()))
+
+    # Include tags — multi-tag OR (post must carry ≥1 of them).
+    # Backwards compatible: `tag=python` still works (single value).
+    tag_list = _split_tags(tag, 10)
+    if tag_list:
+        stmt = stmt.where(_has_any_tag(tag_list))
+
+    # Ignore tags — exclude any post that carries even one.
+    ignore_list = _split_tags(ignore_tags, 50)
+    if ignore_list:
+        stmt = stmt.where(~_has_any_tag(ignore_list))
+
+    # Unanswered — dedicated filter, composes with any `sort`.
+    if unanswered:
+        stmt = stmt.where(
+            Post.post_type == "question",
+            Post.answer_count == 0,
+        )
+
     if author:
-        # Resolve once so we don't JOIN per row.
         author_user = db.scalar(
             select(User).where(func.lower(User.username) == author.lower())
         )
@@ -278,8 +340,15 @@ def list_posts(
         if user is None:
             raise HTTPException(401, "Login required for `mine=true`.")
         stmt = stmt.where(Post.author_id == user.id)
+
+    # `sort=unanswered` remains for backwards compat — it applies the
+    # same filter AND orders by newest. The new `unanswered=true` param
+    # is preferred because it composes with other sorts.
     if sort == "unanswered":
-        stmt = stmt.where(Post.answer_count == 0).where(Post.post_type == "question")
+        stmt = stmt.where(
+            Post.post_type == "question",
+            Post.answer_count == 0,
+        )
 
     order = {
         "newest":     Post.created_at.desc(),
@@ -319,7 +388,7 @@ def get_post(
     post_id: int,
     increment_views: bool = Query(True, include_in_schema=False),
     db: Session = Depends(get_db),
-    user: User | None = Depends(get_current_user_optional),   # ← NEW
+    user: User | None = Depends(get_current_user_optional),
 ):
     p = db.get(Post, post_id)
     if p is None or p.deleted_at is not None:
@@ -341,7 +410,6 @@ def get_post(
     card = _card(p, authors[p.author_id], tags_by_post[p.id])
     card["body"] = p.body
 
-    # Top-level comments on the post
     comments = db.scalars(
         select(Comment)
         .where(Comment.post_id == p.id, Comment.answer_id.is_(None),
@@ -349,7 +417,6 @@ def get_post(
         .order_by(Comment.created_at.asc())
     ).all()
 
-    # Answers + their comments (questions only)
     answers = []
     if p.post_type == "question":
         ans_rows = db.scalars(
@@ -414,7 +481,6 @@ def get_post(
         for c in comments
     ]
 
-    # ── NEW: inject my_vote on the post, every answer, every comment ──
     target_pairs: list[tuple[str, int]] = [("post", p.id)]
     for a in answers:
         target_pairs.append(("answer", a["id"]))
@@ -447,6 +513,8 @@ def create_post(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    _validate_body_for_type(payload.body, payload.post_type)
+
     post = Post(
         post_type=payload.post_type,
         title=payload.title.strip(),
@@ -454,12 +522,19 @@ def create_post(
         author_id=user.id,
     )
     db.add(post)
-    db.flush()
 
-    for tag in _upsert_tags(db, payload.tags):
-        db.add(PostTag(post_id=post.id, tag_id=tag.id))
+    try:
+        db.flush()
+        for tag in _upsert_tags(db, payload.tags):
+            db.add(PostTag(post_id=post.id, tag_id=tag.id))
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            f"Could not create post: {exc.orig or exc}",
+        )
 
-    db.commit()
     db.refresh(post)
     return get_post(post.id, increment_views=False, db=db, user=user)
 
@@ -473,11 +548,15 @@ def update_post(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    """Update a post (works for both questions and discussions)."""
     p = db.get(Post, post_id)
     if p is None or p.deleted_at is not None:
         raise HTTPException(404, "Post not found.")
     if p.author_id != user.id and user.role not in ("moderator", "admin"):
         raise HTTPException(403, "You do not own this post.")
+
+    if payload.body is not None:
+        _validate_body_for_type(payload.body, p.post_type)
 
     if payload.title is not None:
         p.title = payload.title.strip()
@@ -489,7 +568,16 @@ def update_post(
             db.add(PostTag(post_id=p.id, tag_id=tag.id))
 
     p.updated_at = datetime.now(timezone.utc)
-    db.commit()
+
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            f"Could not update post: {exc.orig or exc}",
+        )
+
     db.refresh(p)
     return get_post(p.id, increment_views=False, db=db, user=user)
 

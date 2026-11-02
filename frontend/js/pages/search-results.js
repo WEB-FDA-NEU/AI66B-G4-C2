@@ -2,9 +2,15 @@
  * search-results.js
  *
  * Renders the /search_result.html page from the live backend.
- *   - Single call: GET /api/posts?q=&sort=&page=&page_size=
+ *
+ *   - Single call: GET /api/posts?q=&sort=&page=&page_size=&ignore_tags=
  *     (no `type` param → backend returns BOTH questions and discussions)
  *   - Reads ?q=, ?tab=, ?page= from the URL
+ *   - Applies the user's saved ignored tags from localStorage
+ *     (key: t4r_ignored_tags:<uid> for signed-in users, t4r_ignored_tags
+ *      for guests — same keys the settings page writes to). Ignored
+ *      posts are silently dropped server-side, so search results respect
+ *      the preference without any per-result post-filtering on the client.
  *   - Sort nav refetches from the backend (server-side sort)
  *   - Pagination reads total/page/page_size from the response envelope
  *   - Advanced Search Tips toggle stays client-side
@@ -28,13 +34,18 @@ const SORT_MAP = {
   'newest':    'newest'
 };
 
+const IGNORE_KEY_GUEST = 't4r_ignored_tags';
+const IGNORE_KEY_USER  = (uid) => `t4r_ignored_tags:${uid}`;
+
 const API_BASE = (location.port === '8000' || location.port === '')
   ? '' : 'http://localhost:8000';
 
 const state = {
   query: '',
   sort: 'relevance',
-  page: 1
+  page: 1,
+  uid: null,
+  ignoreTags: []
 };
 
 /* ------------------------------------------------------------------ */
@@ -91,6 +102,27 @@ function colorFromString(str) {
   let hash = 0;
   for (let i = 0; i < s.length; i++) { hash = ((hash << 5) - hash) + s.charCodeAt(i); hash |= 0; }
   return palette[Math.abs(hash) % palette.length];
+}
+
+/* ------------------------------------------------------------------ */
+/* Ignored tags (shared with settings.js + feed pages)                */
+/* ------------------------------------------------------------------ */
+
+function ignoreKey() {
+  return state.uid != null ? IGNORE_KEY_USER(state.uid) : IGNORE_KEY_GUEST;
+}
+
+function readIgnoredTags() {
+  try {
+    const raw = localStorage.getItem(ignoreKey());
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr)
+      ? arr.filter((t) => typeof t === 'string' && t)
+      : [];
+  } catch (_) {
+    return [];
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -226,9 +258,21 @@ function renderLoading(listEl) {
 
 function renderEmpty(listEl) {
   listEl.removeAttribute('aria-busy');
+  const hasIgnored = state.ignoreTags.length > 0;
+  const hasQuery   = !!state.query;
+
+  let hint = '';
+  if (hasQuery && hasIgnored) {
+    hint = ` — some matches may be hidden by your <a class="s-link" href="./settings.html#personalization">ignored tags</a>.`;
+  } else if (hasIgnored) {
+    hint = ` You have ignored tags configured (<a class="s-link" href="./settings.html#personalization">manage</a>).`;
+  }
+
   listEl.innerHTML = `
     <div class="p24 ta-center fc-black-400">
-      No results match <strong>${escapeHtml(state.query || '(empty)')}</strong>.
+      ${hasQuery
+        ? `No results match <strong>${escapeHtml(state.query)}</strong>.${hint}`
+        : `Enter a search term to find questions and discussions.${hint}`}
     </div>`;
 }
 
@@ -347,7 +391,6 @@ function bindSortNav() {
     const tab = a.dataset.sort;
     if (!SORT_MAP[tab]) return;
 
-    // Clone + rebind so repeated calls don't stack listeners.
     const fresh = a.cloneNode(true);
     a.parentNode.replaceChild(fresh, a);
 
@@ -378,6 +421,7 @@ function load() {
   params.set('sort', SORT_MAP[state.sort] || 'votes');
   params.set('page', String(state.page));
   params.set('page_size', String(PAGE_SIZE));
+  if (state.ignoreTags.length) params.set('ignore_tags', state.ignoreTags.join(','));
 
   const url = API_BASE + '/api/posts?' + params.toString();
 
@@ -400,9 +444,10 @@ function load() {
 
       const countEl = document.querySelector('[data-result-count]');
       if (countEl) {
+        const filtered = state.ignoreTags.length > 0 ? ' (ignored tags excluded)' : '';
         countEl.textContent = total === 0
           ? 'No results'
-          : `${total.toLocaleString()} ${plural(total, 'result')}`;
+          : `${total.toLocaleString()} ${plural(total, 'result')}${filtered}`;
       }
 
       renderPagination(totalPages);
@@ -414,6 +459,18 @@ function load() {
       const countEl = document.querySelector('[data-result-count]');
       if (countEl) countEl.textContent = '';
     });
+}
+
+/* ------------------------------------------------------------------ */
+/* Auth (uid for ignore-tags key)                                      */
+/* ------------------------------------------------------------------ */
+
+function fetchMe() {
+  return fetch(API_BASE + '/api/auth/me', {
+    credentials: 'include',
+    headers: { Accept: 'application/json' }
+  }).then((r) => (r.ok ? r.json() : null))
+    .catch(() => null);
 }
 
 /* ------------------------------------------------------------------ */
@@ -430,7 +487,14 @@ function init() {
   readUrlState();
   bindAdvancedTips();
   bindSortNav();
-  load();
+
+  // Resolve the user (for the per-user ignore-tags localStorage key),
+  // then load the feed with those filters applied.
+  fetchMe().then((user) => {
+    state.uid = user && user.id != null ? user.id : null;
+    state.ignoreTags = readIgnoredTags();
+    load();
+  });
 }
 
 if (document.readyState === 'loading') {

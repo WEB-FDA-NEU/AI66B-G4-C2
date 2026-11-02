@@ -8,11 +8,21 @@
 //    - Logout calls POST /api/auth/logout then reloads home.
 //
 //  Theme flow:
-//    - Before /me resolves, applies the guest theme (default: light).
+//    - Before /me resolves, applies the guest theme via _applyStoredTheme(null).
+//      Because theme-boot.js has already run pre-paint and applied the same
+//      class, this call is idempotent — a defense-in-depth re-apply that
+//      also covers any page that forgot to load theme-boot.js.
 //    - After /me resolves, applies the per-user theme stored under
 //      localStorage key `t4r_theme:<user.id>` — so each account keeps
 //      its own Light/Dark preference across pages, sessions, and
 //      username changes.
+//    - **NEW:** After /me resolves, mirrors the final resolved theme to
+//      the device-wide key `t4r_theme`. This is what theme-boot.js reads
+//      on the next page load to paint the correct theme before the first
+//      frame. The mirror is only written when we know the real user
+//      (userId != null); the pre-/me guest guess must NOT overwrite it,
+//      because that guess is a placeholder for "the last confirmed
+//      theme on this device", not a decision.
 //
 //  No localStorage for auth. No `is-logged-in` attribute dependency
 //  (still tolerated in HTML for backward compat, ignored here).
@@ -25,8 +35,8 @@ const API_BASE = (typeof location !== 'undefined' &&
   ? ''
   : 'http://localhost:8000';
 
-const THEME_GUEST_KEY = 't4r_theme';
-const THEME_USER_KEY  = (uid) => `t4r_theme:${uid}`;
+const THEME_GUEST_KEY = 't4r_theme';        // device-wide mirror (read by theme-boot.js)
+const THEME_USER_KEY  = (uid) => `t4r_theme:${uid}`;  // per-user source of truth
 
 const TEMPLATE = /* html */ `
 <header class="site-header">
@@ -115,9 +125,11 @@ class SiteHeader extends HTMLElement {
     this.innerHTML = TEMPLATE;
     this.classList.add('d-block', 'ps-sticky', 't0', 'z-nav');
 
-    // 1. Apply the guest theme immediately — before /me resolves.
-    //    This avoids a flash of the wrong palette and resets any
-    //    leftover theme from a previous session on this browser.
+    // 1. Re-apply the guest theme immediately. Idempotent with
+    //    theme-boot.js (which already painted the correct class
+    //    before the first frame) — this call covers pages that
+    //    forgot to load theme-boot.js, and resets any leftover
+    //    theme from a previous session in this browser.
     this._applyStoredTheme(null);
 
     // 2. Swap logo on theme change (both guest and user states).
@@ -141,11 +153,21 @@ class SiteHeader extends HTMLElement {
   /**
    * Apply the correct theme class on <body>.
    *
-   * - Called with `null` in connectedCallback → uses the guest key
+   * - Called with `null` in connectedCallback → uses the device mirror
    *   (`t4r_theme`), defaulting to light. That way a signed-out visitor
-   *   never inherits the previous user's dark mode.
+   *   never inherits the previous *user's* dark mode from another
+   *   account — though it does keep "last theme used on this device"
+   *   so navigation doesn't flash. The mirror is corrected as soon as
+   *   /me resolves with a real user.
+   *
    * - Called with a `userId` after /me resolves → uses the per-user key
-   *   `t4r_theme:<id>`, falling back to the guest key, then light.
+   *   `t4r_theme:<id>`, falling back to the device mirror, then light.
+   *   **And then mirrors the resolved value back to the device key**
+   *   so theme-boot.js's next pre-paint read paints the right thing.
+   *
+   * Never writes the mirror when called with `userId == null`: that
+   * call is the pre-/me guess and must not overwrite the last
+   * confirmed theme.
    */
   _applyStoredTheme(userId) {
     let pref = null;
@@ -161,6 +183,17 @@ class SiteHeader extends HTMLElement {
     const dark = pref === 'dark';
     document.body.classList.toggle('theme-dark', dark);
     document.body.classList.toggle('theme-light', !dark);
+
+    // Mirror the confirmed theme for the next page's pre-paint boot
+    // script. Only do this when we know the real user — otherwise
+    // we'd be overwriting the mirror with the pre-/me guess.
+    if (userId != null) {
+      try {
+        localStorage.setItem(THEME_GUEST_KEY, dark ? 'dark' : 'light');
+      } catch (_) {
+        // localStorage disabled — boot script will fall back to light.
+      }
+    }
   }
 
   async _loadCurrentUser() {
@@ -182,13 +215,14 @@ class SiteHeader extends HTMLElement {
         slot.innerHTML = authUserHtml(user);
         this.setAttribute('is-logged-in', 'true');
         this._wireLogout();
-        // Apply the user's own stored theme now that we know who they are.
+        // Apply the user's own stored theme now that we know who they
+        // are, and mirror it to the device key for the next page.
         this._applyStoredTheme(user.id);
       } else {
         this.setAttribute('is-logged-in', 'false');
       }
     } catch (_) {
-      // Network error — stay as guest, keep guest theme.
+      // Network error — stay as guest, keep the guest theme.
       this.setAttribute('is-logged-in', 'false');
     }
   }

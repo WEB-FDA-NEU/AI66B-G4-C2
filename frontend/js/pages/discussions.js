@@ -1,4 +1,22 @@
-/* discussions.js — feed loader for discussions.html + index.html */
+/* discussions.js — feed loader for discussions.html + index.html
+ *
+ * Wires:
+ *   - sort nav          (Trending / Newest / Most upvotes / Most views /
+ *                        Most replies)
+ *   - Custom Filters    (Include tags, Ignore tags — no Unanswered box,
+ *                        since discussions have no answers)
+ *   - pagination
+ *   - ignored-tags      (persisted to localStorage under the same key
+ *                        settings.js uses, so the two surfaces stay in
+ *                        sync across questions / discussions / search)
+ *
+ * Backend contract used:
+ *   GET /api/posts?type=discussion
+ *     & sort=<newest|active|votes|views>
+ *     & tag=<t1,t2,...>          include (multi, OR)
+ *     & ignore_tags=<t1,t2,...>  exclude (multi)
+ *     & page=<n>&page_size=<n>
+ */
 
 (function () {
   'use strict';
@@ -19,12 +37,26 @@
     'most replies': 'active'
   };
 
+  var TAG_PATTERN = /^[a-z0-9][a-z0-9+.#-]*$/i;
+  var TAG_MAX_LENGTH = 35;
+  var MAX_INCLUDE = 10;
+
+  var IGNORE_KEY_GUEST = 't4r_ignored_tags';
+  var IGNORE_KEY_USER  = function (uid) { return 't4r_ignored_tags:' + uid; };
+
   var listEl = document.getElementById(LIST_ID);
   if (!listEl) return;
 
-  var state = { page: 1, sort: 'active', sortLabel: 'trending' };
+  var state = {
+    page: 1,
+    sort: 'active',
+    sortLabel: 'trending',
+    includeTags: [],
+    ignoreTags: [],
+    uid: null
+  };
 
-  /* ---------- helpers ---------- */
+  /* ---------- tiny helpers ---------- */
 
   function escapeHtml(v) {
     return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
@@ -75,6 +107,180 @@
       return window.tagUrl(name);
     }
     return './tag-detail.html?tag=' + encodeURIComponent(String(name || ''));
+  }
+
+  function normalizeTag(raw) {
+    var t = String(raw == null ? '' : raw).trim().toLowerCase();
+    if (!t) return null;
+    if (t.length > TAG_MAX_LENGTH) return null;
+    if (!TAG_PATTERN.test(t)) return null;
+    return t;
+  }
+
+  /* ---------- ignore-tags persistence (shared with settings.js) ---------- */
+
+  function ignoreKey() {
+    return state.uid ? IGNORE_KEY_USER(state.uid) : IGNORE_KEY_GUEST;
+  }
+
+  function readIgnoredTags() {
+    try {
+      var raw = localStorage.getItem(ignoreKey());
+      if (!raw) return [];
+      var arr = JSON.parse(raw);
+      return Array.isArray(arr)
+        ? arr.filter(function (t) { return typeof t === 'string' && t; })
+        : [];
+    } catch (_) { return []; }
+  }
+
+  function writeIgnoredTags(tags) {
+    try { localStorage.setItem(ignoreKey(), JSON.stringify(tags)); } catch (_) {}
+  }
+
+  /* ---------- Custom Filters sidebar ---------- */
+
+  function findFilterSection(labelText) {
+    var labels = document.querySelectorAll('.widget .s-label__sm');
+    for (var i = 0; i < labels.length; i++) {
+      if ((labels[i].textContent || '').trim().toLowerCase() === labelText.toLowerCase()) {
+        return labels[i].closest('.d-flex.fd-column.g6');
+      }
+    }
+    return null;
+  }
+
+  function renderChips(container, tags, variant) {
+    if (!container) return;
+    var ignoredClass = variant === 'ignored' ? ' s-tag__ignored' : '';
+    container.innerHTML = (tags || []).map(function (tag) {
+      return '<span class="s-tag' + ignoredClass + '" data-tag="' + escapeHtml(tag) + '">'
+        + escapeHtml(tag)
+        + '<button type="button" class="s-tag--dismiss" aria-label="Remove tag ' + escapeHtml(tag) + '">×</button>'
+        + '</span>';
+    }).join('');
+  }
+
+  function addIncludeTag(raw) {
+    var t = normalizeTag(raw);
+    if (!t) return false;
+    if (state.includeTags.indexOf(t) !== -1) return false;
+    if (state.includeTags.length >= MAX_INCLUDE) return false;
+    if (state.ignoreTags.indexOf(t) !== -1) return false; // conflicting
+    state.includeTags.push(t);
+    return true;
+  }
+
+  function removeIncludeTag(t) {
+    var i = state.includeTags.indexOf(t);
+    if (i === -1) return false;
+    state.includeTags.splice(i, 1);
+    return true;
+  }
+
+  function addIgnoreTag(raw) {
+    var t = normalizeTag(raw);
+    if (!t) return false;
+    if (state.ignoreTags.indexOf(t) !== -1) return false;
+    removeIncludeTag(t);
+    state.ignoreTags.push(t);
+    writeIgnoredTags(state.ignoreTags);
+    return true;
+  }
+
+  function removeIgnoreTag(t) {
+    var i = state.ignoreTags.indexOf(t);
+    if (i === -1) return false;
+    state.ignoreTags.splice(i, 1);
+    writeIgnoredTags(state.ignoreTags);
+    return true;
+  }
+
+  function wireCustomFilters() {
+    var includeSection = findFilterSection('Include tags');
+    var ignoreSection  = findFilterSection('Ignore tags');
+
+    var includeChips = includeSection && includeSection.querySelector('.d-flex.fw-wrap.g4');
+    var includeInput = includeSection && includeSection.querySelector('input.s-input__sm');
+    var ignoreChips  = ignoreSection  && ignoreSection.querySelector('.d-flex.fw-wrap.g4');
+    var ignoreInput  = ignoreSection  && ignoreSection.querySelector('input.s-input__sm');
+
+    // Paint initial chips from state (replaces the hardcoded placeholders)
+    renderChips(includeChips, state.includeTags, 'include');
+    renderChips(ignoreChips,  state.ignoreTags,  'ignored');
+
+    if (includeInput) {
+      var commitInclude = function () {
+        if (!includeInput.value.trim()) return;
+        if (addIncludeTag(includeInput.value)) {
+          includeInput.value = '';
+          renderChips(includeChips, state.includeTags, 'include');
+          state.page = 1;
+          updateUrl();
+          load();
+        } else {
+          includeInput.value = '';
+        }
+      };
+      includeInput.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter' && e.key !== ',') return;
+        e.preventDefault();
+        commitInclude();
+      });
+      includeInput.addEventListener('blur', commitInclude);
+    }
+
+    if (ignoreInput) {
+      var commitIgnore = function () {
+        if (!ignoreInput.value.trim()) return;
+        if (addIgnoreTag(ignoreInput.value)) {
+          ignoreInput.value = '';
+          renderChips(includeChips, state.includeTags, 'include');
+          renderChips(ignoreChips,  state.ignoreTags,  'ignored');
+          state.page = 1;
+          updateUrl();
+          load();
+        } else {
+          ignoreInput.value = '';
+        }
+      };
+      ignoreInput.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter' && e.key !== ',') return;
+        e.preventDefault();
+        commitIgnore();
+      });
+      ignoreInput.addEventListener('blur', commitIgnore);
+    }
+
+    if (includeChips) {
+      includeChips.addEventListener('click', function (e) {
+        var btn = e.target.closest('.s-tag--dismiss');
+        if (!btn) return;
+        var chip = btn.closest('.s-tag');
+        if (!chip) return;
+        if (removeIncludeTag(chip.dataset.tag)) {
+          renderChips(includeChips, state.includeTags, 'include');
+          state.page = 1;
+          updateUrl();
+          load();
+        }
+      });
+    }
+
+    if (ignoreChips) {
+      ignoreChips.addEventListener('click', function (e) {
+        var btn = e.target.closest('.s-tag--dismiss');
+        if (!btn) return;
+        var chip = btn.closest('.s-tag');
+        if (!chip) return;
+        if (removeIgnoreTag(chip.dataset.tag)) {
+          renderChips(ignoreChips, state.ignoreTags, 'ignored');
+          state.page = 1;
+          updateUrl();
+          load();
+        }
+      });
+    }
   }
 
   /* ---------- discussion card ---------- */
@@ -148,12 +354,32 @@
   }
 
   function renderEmpty() {
+    var hasFilters = state.includeTags.length > 0;
     listEl.innerHTML = [
       '<div class="s-empty-state py48">',
-        '<div class="s-empty-state--title">No discussions yet</div>',
-        '<p>Be the first to start one.</p>',
+        '<div class="s-empty-state--title">No discussions match</div>',
+        '<p>' + (hasFilters
+          ? 'Try removing the include-tag filter, or start a new discussion.'
+          : 'Be the first to start one.') + '</p>',
+        hasFilters
+          ? '<button class="s-btn s-btn__clear" type="button" id="clear-discuss-filters">Clear filters</button>'
+          : '<a class="s-btn" href="./create-discussion.html">Start a discussion</a>',
       '</div>'
     ].join('');
+
+    var clearBtn = document.getElementById('clear-discuss-filters');
+    if (clearBtn) {
+      clearBtn.addEventListener('click', function () {
+        state.includeTags = [];
+        state.page = 1;
+        var incChips = (findFilterSection('Include tags') || {}).querySelector
+          ? findFilterSection('Include tags').querySelector('.d-flex.fw-wrap.g4')
+          : null;
+        renderChips(incChips, state.includeTags, 'include');
+        updateUrl();
+        load();
+      });
+    }
   }
 
   function renderError(err) {
@@ -167,7 +393,10 @@
 
   function updateCount(total) {
     var el = document.querySelector('[data-discussion-count]');
-    if (el) el.textContent = total.toLocaleString() + ' ' + plural(total, 'discussion');
+    if (!el) return;
+    var label = total.toLocaleString() + ' ' + plural(total, 'discussion');
+    var filtered = state.includeTags.length > 0 || state.ignoreTags.length > 0;
+    el.textContent = filtered ? label + ' (filtered)' : label;
   }
 
   /* ---------- pagination ---------- */
@@ -223,6 +452,19 @@
     state.page = Math.max(1, Number(params.get('page') || 1));
     var label = String(params.get('sort') || 'trending').toLowerCase();
     if (SORT_MAP[label]) { state.sortLabel = label; state.sort = SORT_MAP[label]; }
+
+    var tagValues = params.getAll('tag');
+    if (tagValues.length) {
+      state.includeTags = [];
+      tagValues.forEach(function (raw) {
+        String(raw).split(',').forEach(function (t) {
+          var n = normalizeTag(t);
+          if (n && state.includeTags.indexOf(n) === -1 && state.includeTags.length < MAX_INCLUDE) {
+            state.includeTags.push(n);
+          }
+        });
+      });
+    }
   }
 
   function updateUrl() {
@@ -230,6 +472,8 @@
     params.set('sort', state.sortLabel);
     if (state.page > 1) params.set('page', String(state.page));
     else params.delete('page');
+    if (state.includeTags.length) params.set('tag', state.includeTags.join(','));
+    else params.delete('tag');
     var qs = params.toString();
     history.replaceState(null, '', location.pathname + (qs ? '?' + qs : ''));
   }
@@ -263,11 +507,16 @@
 
   function load() {
     renderLoading();
-    var url = API_BASE + '/api/posts'
-      + '?type=discussion'
-      + '&sort=' + encodeURIComponent(state.sort)
-      + '&page=' + state.page
-      + '&page_size=' + PAGE_SIZE;
+
+    var params = new URLSearchParams();
+    params.set('type', 'discussion');
+    params.set('sort', state.sort);
+    params.set('page', String(state.page));
+    params.set('page_size', String(PAGE_SIZE));
+    if (state.includeTags.length) params.set('tag', state.includeTags.join(','));
+    if (state.ignoreTags.length)  params.set('ignore_tags', state.ignoreTags.join(','));
+
+    var url = API_BASE + '/api/posts?' + params.toString();
 
     fetch(url, { credentials: 'include', headers: { Accept: 'application/json' } })
       .then(function (res) {
@@ -286,9 +535,34 @@
       .catch(renderError);
   }
 
+  /* ---------- auth (uid for ignore-tags key) ---------- */
+
+  function fetchMe() {
+    return fetch(API_BASE + '/api/auth/me', {
+      credentials: 'include',
+      headers: { Accept: 'application/json' }
+    }).then(function (r) { return r.ok ? r.json() : null; })
+      .catch(function () { return null; });
+  }
+
   /* ---------- bootstrap ---------- */
 
-  readUrlState();
-  wireSortNav();
-  load();
+  function init() {
+    readUrlState();
+
+    fetchMe().then(function (user) {
+      state.uid = user && user.id != null ? user.id : null;
+      state.ignoreTags = readIgnoredTags();
+
+      wireCustomFilters();
+      wireSortNav();
+      load();
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init, { once: true });
+  } else {
+    init();
+  }
 })();

@@ -15,6 +15,14 @@
 
 <body class="home-page">
 
+  <!--
+    Pre-paint theme bootstrap. Must be the FIRST child of <body>.
+    Runs synchronously (not a module, not deferred) so it applies
+    `theme-dark` / `theme-light` on <body> BEFORE the browser paints
+    the first frame — eliminating the light→dark flash on navigation.
+  -->
+  <script src="./js/theme-boot.js"></script>
+
   <a href="#main" class="v-visible-sr">Skip to main content</a>
 
   <!-- SITE HEADER — rendered by ./js/components/site-header.js -->
@@ -30,12 +38,14 @@
     <main id="main" class="question-feed fl-grow1" role="main">
 
       <!-- Greeting card -->
-      <section class="s-card p16 mb24">
+      <section class="widget p16 mb24">
         <div class="d-flex jc-space-between ai-center g16 fw-wrap">
           <div class="fl-grow1">
             <h1 class="fs-title fw-bold mb0">
               Welcome Bùi Đụt to Tech4Rum!
             </h1>
+          </div>
+        </div>
       </section>
 
       <!-- Recommended questions -->
@@ -43,11 +53,11 @@
         <header class="d-flex fd-column mb16">
           <div class="fs-title fw-bold">Interesting posts for you</div>
           <div class="fs-body1 fc-black-400">
-          Let's solve the troubles you have!!
+            Let's solve the troubles you have!!
           </div>
         </header>
 
-        <!-- Populated by ./js/render-questions.js from ./mock/question-list.json -->
+        <!-- Populated by ./js/render-questions.js from /api/posts?type=question -->
         <div id="question-list" class="question-list"></div>
       </section>
 
@@ -60,7 +70,7 @@
           </div>
         </header>
 
-        <!-- Populated by ./js/pages/discussions.js from ./mock/discussion-list.json -->
+        <!-- Populated by ./js/pages/discussions.js from /api/posts?type=discussion -->
         <div id="discussion-list" class="discussion-list"></div>
       </section>
 
