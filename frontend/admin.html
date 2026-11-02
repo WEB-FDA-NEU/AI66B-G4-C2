@@ -13,9 +13,33 @@
   <link rel="stylesheet" href="./css/extra.css">
 </head>
 
-<body class="theme-light">
+<!--
+  data-requires-role="moderator,admin":
+    - Guests are redirected to /login.html?next=/admin.html by the
+      backend middleware in backend/main.py, and again by
+      page-guard.js as defence-in-depth.
+    - Regular users ("user") are redirected to /index.html.
+    - Moderators and admins pass through.
+    - The check is repeated at three layers: (1) backend middleware
+      blocks the HTML from being served, (2) page-guard.js redirects
+      on stale-cache / misconfig edge cases, (3) admin API routes
+      enforce role server-side on every data call.
+-->
+<body class="theme-light" data-requires-role="moderator,admin">
 
+  <!--
+    Pre-paint theme bootstrap. Must be the FIRST child of <body>.
+    Runs synchronously so `theme-dark` / `theme-light` is applied
+    BEFORE the first frame — eliminates the light→dark flash.
+  -->
   <script src="./js/theme-boot.js"></script>
+
+  <!--
+    Page-level role guard. Runs synchronously after theme-boot so the
+    correct theme is already painted while the /me fetch is in flight.
+    Guests → login; regular users → home; moderators/admins → pass.
+  -->
+  <script src="./js/page-guard.js"></script>
 
   <a href="#main" class="v-visible-sr">Skip to main content</a>
 
@@ -137,7 +161,7 @@
           </div>
 
           <nav class="s-navigation s-navigation__sm" data-filter-nav="users" aria-label="User filters">
-            <button class="s-navigation--item is-selected" type="button" data-filter="all">All</button>
+            <button class="s-navigation__item is-selected" type="button" data-filter="all">All</button>
             <button class="s-navigation--item" type="button" data-filter="suspended">Suspended</button>
             <button class="s-navigation--item" type="button" data-filter="banned">Banned</button>
             <button class="s-navigation--item" type="button" data-filter="staff">Staff</button>

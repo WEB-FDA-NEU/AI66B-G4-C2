@@ -13,7 +13,14 @@
   <link rel="stylesheet" href="./css/extra.css">
 </head>
 
-<body class="home-page">
+<!--
+  data-requires-role="user":
+    - Guests (no valid cookie) are redirected to /login.html?next=/ by
+      the backend middleware in backend/main.py, and again by
+      page-guard.js as defence-in-depth.
+    - Any logged-in user (user / moderator / admin) may view Home.
+-->
+<body class="home-page" data-requires-role="user">
 
   <!--
     Pre-paint theme bootstrap. Must be the FIRST child of <body>.
@@ -22,6 +29,14 @@
     the first frame — eliminating the light→dark flash on navigation.
   -->
   <script src="./js/theme-boot.js"></script>
+
+  <!--
+    Page-level role guard. Runs synchronously after theme-boot so the
+    correct theme is already painted while the /me fetch is in flight.
+    Guests are redirected to login; logged-in users pass through.
+    Defence-in-depth companion to the backend middleware.
+  -->
+  <script src="./js/page-guard.js"></script>
 
   <a href="#main" class="v-visible-sr">Skip to main content</a>
 
