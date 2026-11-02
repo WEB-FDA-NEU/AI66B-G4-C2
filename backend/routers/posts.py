@@ -1,27 +1,19 @@
 """Posts: questions + discussions, list / detail / create / update / delete
-   plus answers, comments, votes, and answer acceptance.
+   plus answers, comments and votes.
 
-   Authorization rules (post-fix):
-   - PATCH  /posts/{id}                 → AUTHOR ONLY.
-     Previously moderators/admins could edit any post through the same
-     endpoint, which is what made "non-author users can edit other
-     user's posts" true. Users now see Edit only for their own posts
-     (frontend) and the backend enforces it strictly. Moderation
-     actions are decoupled into dedicated endpoints if/when needed.
+   New in this revision:
+     GET /api/answers/{answer_id}    → context for the report page
+                                       (author, excerpt, parent post info)
+     GET /api/comments/{comment_id}  → context for the report page
+                                       (author, excerpt, parent post info)
 
-   - DELETE /posts/{id}                 → author OR moderator/admin.
-     Unchanged from before — moderation still needs to be able to
-     remove content. Not part of the reported bug.
+   These lightweight lookups let `report-form.js` populate the
+   "You are reporting a … by @author" card without loading the
+   entire parent post. When the target is a question or discussion,
+   report-form.js fetches `GET /api/posts/{id}` directly instead.
 
-   - POST   /posts/{id}/accept-answer   → AUTHOR ONLY (new endpoint).
-     Toggles the accepted answer for a question. Body:
-         { "answer_id": <int> }    accept this answer
-         { "answer_id": null }     un-accept (question becomes unanswered)
-     Sets/clears both `posts.accepted_answer_id` and the corresponding
-     `answers.is_accepted` flag atomically.
-
-   Type-aware body-length validation is also applied to POST and PATCH
-   so undersized bodies surface as 422 (not 500 from the DB CHECK).
+   Type-aware body length validation is applied to POST and PATCH so
+   undersized bodies surface as 422 (not 500 from the DB CHECK).
 """
 from __future__ import annotations
 
@@ -47,11 +39,6 @@ router = APIRouter(prefix="/api", tags=["posts"])
 # ── Request models (small, endpoint-local) ──────────────────────────────
 
 class _AcceptAnswerIn(BaseModel):
-    """Body for POST /posts/{id}/accept-answer.
-
-    `answer_id` is the answer to accept; passing `null` un-accepts
-    whatever was previously accepted.
-    """
     answer_id: int | None = None
 
 
@@ -65,7 +52,6 @@ def _author(u: User) -> dict:
 
 
 def _excerpt(body: str, length: int = 220) -> str:
-    """Trim body to a word-boundary excerpt with an ellipsis."""
     text_body = (body or "").strip()
     if len(text_body) <= length:
         return text_body
@@ -507,6 +493,91 @@ def get_post(
     return card
 
 
+# ── Lookup endpoints for the report page ───────────────────────────────
+
+@router.get("/answers/{answer_id}")
+def get_answer_context(
+    answer_id: int,
+    db: Session = Depends(get_db),
+):
+    """Return the minimal context the report page needs for an answer.
+
+    The report page shows:
+      · author display name
+      · excerpt of the answer body
+      · the parent post's title and a link to it
+      · when the answer was created
+
+    This lightweight lookup avoids loading the entire parent post
+    detail (with all answers + comments) just to fill in a card.
+    """
+    a = db.get(Answer, answer_id)
+    if a is None or a.deleted_at is not None:
+        raise HTTPException(404, "Answer not found.")
+
+    p = db.get(Post, a.post_id)
+    if p is None or p.deleted_at is not None:
+        raise HTTPException(404, "Parent post not found.")
+
+    author = db.get(User, a.author_id)
+
+    return {
+        "id":           a.id,
+        "body_excerpt": _excerpt(a.body, 180),
+        "created_at":   a.created_at,
+        "author":       _author(author) if author else {
+            "id": 0, "username": "anonymous",
+            "display_name": "anonymous", "reputation": 0,
+        },
+        "post_id":      p.id,
+        "post_title":   p.title,
+        "post_type":    p.post_type,
+    }
+
+
+@router.get("/comments/{comment_id}")
+def get_comment_context(
+    comment_id: int,
+    db: Session = Depends(get_db),
+):
+    """Return the minimal context the report page needs for a comment.
+
+    Comments attach to either a post (post_id) or an answer (answer_id).
+    We resolve both cases here so the report form doesn't need to know.
+    """
+    c = db.get(Comment, comment_id)
+    if c is None or c.deleted_at is not None:
+        raise HTTPException(404, "Comment not found.")
+
+    # Determine parent content
+    post = None
+    if c.post_id is not None:
+        post = db.get(Post, c.post_id)
+    elif c.answer_id is not None:
+        ans = db.get(Answer, c.answer_id)
+        if ans is not None and ans.deleted_at is None:
+            post = db.get(Post, ans.post_id)
+
+    if post is None or post.deleted_at is not None:
+        raise HTTPException(404, "Parent content not found.")
+
+    author = db.get(User, c.author_id)
+
+    return {
+        "id":           c.id,
+        "body_excerpt": _excerpt(c.body, 180),
+        "created_at":   c.created_at,
+        "author":       _author(author) if author else {
+            "id": 0, "username": "anonymous",
+            "display_name": "anonymous", "reputation": 0,
+        },
+        "post_id":      post.id,
+        "post_title":   post.title,
+        "post_type":    post.post_type,
+        "answer_id":    c.answer_id,
+    }
+
+
 # ── Create ──────────────────────────────────────────────────────────────
 
 @router.post("/posts", response_model=schemas.PostDetail,
@@ -551,14 +622,7 @@ def update_post(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Update a post (works for both questions and discussions).
-
-    Strict author-only: no moderator/admin escape hatch. This closes
-    the "non-author users can still edit other user's posts" bug. If
-    a moderation editing capability is desired later, it should be a
-    dedicated endpoint with its own audit trail, not a silent bypass
-    on the user-facing edit route.
-    """
+    """Update a post (works for both questions and discussions)."""
     p = db.get(Post, post_id)
     if p is None or p.deleted_at is not None:
         raise HTTPException(404, "Post not found.")
@@ -598,8 +662,6 @@ def delete_post(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Soft-delete a post. Author only — moderation decoupled from
-    user-facing delete to keep the authorization model uniform."""
     p = db.get(Post, post_id)
     if p is None or p.deleted_at is not None:
         raise HTTPException(404, "Post not found.")
@@ -620,19 +682,6 @@ def accept_answer(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Toggle the accepted answer for a question.
-
-    Only the question's author may accept or un-accept. Setting
-    `answer_id` to an answer id marks that answer as accepted and
-    updates `posts.accepted_answer_id` (which drives `is_answered`
-    on every PostCard). Setting `answer_id` to null clears the
-    accepted state (question becomes unanswered again).
-
-    Either way, previously accepted answers on this post are
-    un-marked so the `answers_one_accepted_per_post` unique index
-    never conflicts. Returns the refreshed PostDetail so the client
-    can re-render immediately without a second round-trip.
-    """
     p = db.get(Post, post_id)
     if p is None or p.deleted_at is not None:
         raise HTTPException(404, "Post not found.")
@@ -646,11 +695,6 @@ def accept_answer(
         )
 
     try:
-        # 1. Un-mark any currently accepted answer on this post.
-        #    Flushing here releases the unique-index slot BEFORE we
-        #    set the new one, so accepting answer B when A was
-        #    previously accepted never momentarily violates the
-        #    `answers_one_accepted_per_post` constraint.
         db.execute(
             update(Answer)
             .where(
@@ -661,7 +705,6 @@ def accept_answer(
         )
         db.flush()
 
-        # 2. Apply the new state.
         if payload.answer_id is not None:
             ans = db.get(Answer, payload.answer_id)
             if ans is None or ans.deleted_at is not None:
@@ -813,7 +856,7 @@ def vote(
                     target_id=payload.target_id,
                     value=payload.value))
     elif existing.value == payload.value:
-        db.delete(existing)   # toggle off
+        db.delete(existing)
     else:
         existing.value = payload.value
     db.commit()

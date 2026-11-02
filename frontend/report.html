@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Report this post — Tech4Rum</title>
+  <title>Report content — Tech4Rum</title>
 
   <link rel="stylesheet" href="./css/reset.css">
   <link rel="stylesheet" href="./css/tokens.css">
@@ -15,6 +15,7 @@
 
 <body class="theme-light">
 
+  <!-- Pre-paint theme bootstrap. Must be first child of <body>. -->
   <script src="./js/theme-boot.js"></script>
 
   <a href="#main" class="v-visible-sr">Skip to main content</a>
@@ -35,34 +36,38 @@
       <nav class="breadcrumb" aria-label="Breadcrumb">
         <a href="./questions.html">Questions</a>
         <span class="breadcrumb-sep">›</span>
-        <a href="./question-detail.html">Why does React re-render my component twice inside StrictMode?</a>
+        <a href="#" id="breadcrumb-target">Loading…</a>
         <span class="breadcrumb-sep">›</span>
         <span aria-current="page">Report</span>
       </nav>
 
-      <h1 class="fs-headline1 fw-normal mb16">Report this post</h1>
+      <h1 class="fs-headline1 fw-normal mb16">Report this content</h1>
 
       <!-- ============ REPORT FORM ============ -->
       <form id="report-form" class="edit-form" novalidate>
 
-        <!-- Reported post context -->
+        <!--
+          Reported post context.
+          Populated by report-form.js after it fetches the target via
+          GET /api/posts/{id} (or the parent post for answers/comments).
+          All hardcoded placeholders replaced with stable IDs so JS can
+          fill them without touching layout.
+        -->
         <div class="context-card">
           <div class="context-card--header">
             <svg class="svg-icon" aria-hidden="true" width="14" height="14" viewBox="0 0 14 14">
               <path d="M7 1a6 6 0 1 0 0 12A6 6 0 0 0 7 1Zm0 2.5a.75.75 0 1 1 0 1.5.75.75 0 0 1 0-1.5ZM7.75 10.5h-1.5V6h1.5v4.5Z"/>
             </svg>
-            You are reporting a post by
-            <a href="#" class="fw-bold">@mira_k</a>
-            <span aria-hidden="true">·</span>
-            <span>asked 4 minutes ago</span>
+            You are reporting a <span id="report-target-kind">post</span> by
+            <a href="#" class="fw-bold" id="report-target-author" target="_blank" rel="noopener">Loading…</a>
+            <span aria-hidden="true" id="report-target-sep">·</span>
+            <span id="report-target-time">Loading…</span>
           </div>
-          <a class="context-card--title" href="./question-detail.html">
-            Why does React re-render my component twice inside StrictMode?
+          <a class="context-card--title" href="#" id="report-target-title" target="_blank" rel="noopener">
+            Loading…
           </a>
-          <div class="context-card--excerpt">
-            I have a small counter component and every time I click the button the
-            <code>console.log</code> inside the render body fires twice. I understand that
-            React StrictMode intentionally double-invokes render in development…
+          <div class="context-card--excerpt" id="report-target-excerpt">
+            Loading…
           </div>
         </div>
 
@@ -72,7 +77,7 @@
         <!-- Reason picker -->
         <fieldset class="s-form-group mb24" data-reason-group>
           <legend class="s-label" id="reason-legend">
-            Why are you reporting this post?
+            Why are you reporting this content?
             <span class="s-required-symbol" aria-hidden="true">*</span>
           </legend>
           <p class="s-description mb8">
@@ -81,7 +86,7 @@
 
           <div class="reason-list" role="radiogroup" aria-labelledby="reason-legend">
 
-            <label class="reason-card" data-types="question discussion">
+            <label class="reason-card" data-types="question discussion answer comment">
               <input type="radio" name="reason" value="spam">
               <span class="reason-card--body">
                 <span class="reason-card--title">Spam or advertising</span>
@@ -89,7 +94,7 @@
               </span>
             </label>
 
-            <label class="reason-card" data-types="question discussion">
+            <label class="reason-card" data-types="question discussion answer comment">
               <input type="radio" name="reason" value="abuse">
               <span class="reason-card--body">
                 <span class="reason-card--title">Rude or abusive</span>
@@ -105,7 +110,7 @@
               </span>
             </label>
 
-            <label class="reason-card" data-types="question discussion">
+            <label class="reason-card" data-types="discussion">
               <input type="radio" name="reason" value="off-topic-discussion">
               <span class="reason-card--body">
                 <span class="reason-card--title">Off-topic</span>
@@ -121,7 +126,7 @@
               </span>
             </label>
 
-            <label class="reason-card" data-types="question discussion">
+            <label class="reason-card" data-types="question discussion answer comment">
               <input type="radio" name="reason" value="plagiarism">
               <span class="reason-card--body">
                 <span class="reason-card--title">Plagiarism or copyright</span>
@@ -129,7 +134,7 @@
               </span>
             </label>
 
-            <label class="reason-card" data-types="question discussion">
+            <label class="reason-card" data-types="question discussion answer comment">
               <input type="radio" name="reason" value="other">
               <span class="reason-card--body">
                 <span class="reason-card--title">Something else</span>
@@ -195,13 +200,12 @@
         </span>
         <h2>Thanks — your report is in the queue</h2>
         <p>
-          A moderator will review the post and take action if it violates our
+          A moderator will review the content and take action if it violates our
           <a class="s-link" href="#">community guidelines</a>. You'll get a
           notification once a decision has been made.
         </p>
         <div class="d-flex ai-center jc-center g8">
           <a class="s-btn" href="./questions.html">Back to questions</a>
-          <a class="s-btn s-btn__clear" href="#">View my reports</a>
         </div>
       </section>
 
@@ -231,8 +235,8 @@
         <div class="widget-body">
           <ol class="step-list">
             <li>Your report goes into a moderator queue.</li>
-            <li>A moderator reviews the post and its context.</li>
-            <li>Action is taken if the post breaks the guidelines — edit, lock, or delete.</li>
+            <li>A moderator reviews the content and its context.</li>
+            <li>Action is taken if the content breaks the guidelines — edit, lock, or delete.</li>
             <li>You're notified of the outcome in your inbox.</li>
           </ol>
         </div>
@@ -243,7 +247,7 @@
         <div class="widget-header">Urgent cases</div>
         <div class="widget-body">
           <p class="mb8">
-            If the post contains an immediate threat or child-safety concern, don't
+            If the content contains an immediate threat or child-safety concern, don't
             wait for a moderator queue.
           </p>
           <a class="s-link" href="#">Contact us directly →</a>

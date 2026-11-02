@@ -3,7 +3,10 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, Integer, String, Text, func, Boolean, ForeignKey, SmallInteger, text
+from sqlalchemy import (
+    BigInteger, DateTime, Integer, String, Text, func,
+    Boolean, ForeignKey, SmallInteger, text
+)
 from sqlalchemy.dialects.postgresql import ENUM as PgEnum, TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -40,7 +43,7 @@ class User(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
-    
+
 
 class Tag(Base):
     __tablename__ = "tags"
@@ -116,4 +119,58 @@ class Vote(Base):
     )
     target_id:   Mapped[int] = mapped_column(BigInteger)
     value:       Mapped[int] = mapped_column(SmallInteger)
+    created_at:  Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+# ── NEW MODELS FOR REPORT FEATURE ─────────────────────────────────────────
+
+class Report(Base):
+    """User-submitted report about a post, answer, or comment.
+
+    Matches the `reports` table in schema.sql. `target_type` uses the
+    `report_target` enum, `status` uses `report_status`.
+    """
+    __tablename__ = "reports"
+    id:                  Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    reporter_id:         Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"))
+    target_type:         Mapped[str] = mapped_column(
+        PgEnum("post", "answer", "comment", name="report_target", create_type=False)
+    )
+    target_id:           Mapped[int] = mapped_column(BigInteger)
+    reason:              Mapped[str] = mapped_column(Text)
+    details:             Mapped[str] = mapped_column(Text, default="")
+    status:              Mapped[str] = mapped_column(
+        PgEnum("pending", "reviewed", "dismissed", name="report_status", create_type=False),
+        default="pending",
+    )
+    resolved_at:         Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    resolved_by_user_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("users.id"), nullable=True)
+    created_at:          Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class PostMark(Base):
+    """Moderator-applied mark (violated, off-topic, etc.) on a post.
+
+    Matches the `post_marks` table in schema.sql.
+    """
+    __tablename__ = "post_marks"
+    id:                 Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    post_id:            Mapped[int] = mapped_column(BigInteger, ForeignKey("posts.id"))
+    mark_type:          Mapped[str] = mapped_column(
+        PgEnum("duplicated", "violated", "off_topic", "spam", name="mark_type", create_type=False)
+    )
+    marked_by_user_id:  Mapped[int | None] = mapped_column(BigInteger, ForeignKey("users.id"), nullable=True)
+    notes:              Mapped[str] = mapped_column(Text, default="")
+    created_at:         Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Follow(Base):
+    """User-to-user follow relationship.
+
+    Matches the `follows` table in schema.sql. Not used by the current
+    feature set, but included so the ORM mirrors the schema completely.
+    """
+    __tablename__ = "follows"
+    follower_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), primary_key=True)
+    followed_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), primary_key=True)
     created_at:  Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

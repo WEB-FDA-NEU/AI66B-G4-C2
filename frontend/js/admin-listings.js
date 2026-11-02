@@ -4,7 +4,26 @@
 //  Each renderer receives (data, tbodyEl, filterKey) and replaces
 //  the tbody's innerHTML with rows filtered accordingly.
 //
-//  Data shape per row is documented in ./mock/*.json.
+//  Change in this revision:
+//   - Action buttons now carry `data-action`, `data-row-id`, and
+//     `data-row-type` so admin.js can delegate clicks and dispatch
+//     the corresponding backend call without any extra plumbing:
+//
+//       [Review]      → data-action="review"   data-row-type="report"
+//       [Dismiss]     → data-action="dismiss"  data-row-type="report"
+//       [Re-open]     → data-action="re-open"  data-row-type="report"
+//
+//   - The action key ("review", "dismiss", "re-open") is derived
+//     from the button's label, so the backend can keep returning
+//     plain `{label, tone}` objects without a schema change.
+//
+//   - Marked posts / Users actions keep working the same way (row
+//     IDs and types are attached but admin.js currently only wires
+//     the Reports tab — those tabs remain mock until their backend
+//     routes exist).
+//
+//  Data shape per row is documented in ./mock/*.json for the mock
+//  tabs, and in backend/routers/reports.py for the live Reports tab.
 // ============================================================
 
 /* ---------- Primitives ---------- */
@@ -42,14 +61,42 @@ function toneOrText(label, tone) {
   return tone ? badge(label, tone) : escapeHtml(label);
 }
 
-function actionButton({ label, tone }) {
+/**
+ * Render a single action button.
+ *
+ * `action` is a lowercase slug (e.g. "review", "dismiss", "re-open")
+ * derived from the label. `rowId` / `rowType` are attached as data
+ * attributes so admin.js can delegate clicks and dispatch the
+ * matching backend call without needing to close over per-row state.
+ */
+function actionButton({ label, tone, action, rowId, rowType }) {
   const cls = `s-btn s-btn__xs s-btn__${tone || 'clear'}`;
-  return `<button class="${cls}" type="button">${escapeHtml(label)}</button>`;
+  const attrs = [
+    `class="${cls}"`,
+    'type="button"',
+    action ? `data-action="${escapeHtml(action)}"` : '',
+    rowId != null ? `data-row-id="${escapeHtml(String(rowId))}"` : '',
+    rowType ? `data-row-type="${escapeHtml(rowType)}"` : ''
+  ].filter(Boolean).join(' ');
+  return `<button ${attrs}>${escapeHtml(label)}</button>`;
 }
 
-function actionsCell(actions) {
+/**
+ * Render the actions cell for a row.
+ *
+ * `actions` is the raw array from the backend / mock — each element
+ * is `{label, tone}`. `rowId` / `rowType` are injected into every
+ * button so admin.js can act on them.
+ */
+function actionsCell(actions, { rowId, rowType } = {}) {
   const list = Array.isArray(actions) ? actions : [];
-  return `<div class="d-flex g4">${list.map(actionButton).join('')}</div>`;
+  return `<div class="d-flex g4">${list.map((a) => actionButton({
+    label:   a.label,
+    tone:    a.tone,
+    action:  String(a.label || '').toLowerCase().replace(/\s+/g, '-'),
+    rowId,
+    rowType
+  })).join('')}</div>`;
 }
 
 function emptyRow(colspan, message = 'No results match this filter.') {
@@ -69,10 +116,12 @@ export function renderReports(data, tbody, filter = 'pending') {
   const predicate = REPORT_PREDICATES[filter] || REPORT_PREDICATES.all;
   const rows = (data || []).filter(predicate);
 
-  const typeBadge = (type) =>
-    type === 'discussion'
-      ? '<span class="discussion-badge">Discussion</span>'
-      : '<span class="question-badge">Question</span>';
+  const typeBadge = (type) => {
+    if (type === 'discussion') return '<span class="discussion-badge">Discussion</span>';
+    if (type === 'answer')     return '<span class="s-badge s-badge__info">Answer</span>';
+    if (type === 'comment')    return '<span class="s-badge s-badge__tonal">Comment</span>';
+    return '<span class="question-badge">Question</span>';
+  };
 
   tbody.innerHTML = rows.length
     ? rows.map((r) => `
@@ -84,7 +133,7 @@ export function renderReports(data, tbody, filter = 'pending') {
           <td>${escapeHtml(r.reporter)}</td>
           <td>${timeEl(r.reportedAt)}</td>
           <td>${badge(r.status, r.statusTone)}</td>
-          <td>${actionsCell(r.actions)}</td>
+          <td>${actionsCell(r.actions, { rowId: r.id, rowType: 'report' })}</td>
         </tr>
       `).join('')
     : emptyRow(8);
@@ -118,7 +167,7 @@ export function renderMarkedPosts(data, tbody, filter = 'all') {
             <td>${toneOrText(p.markedBy, p.markedByTone)}</td>
             <td>${timeEl(p.markedAt)}</td>
             <td>${scoreCell}</td>
-            <td>${actionsCell(p.actions)}</td>
+            <td>${actionsCell(p.actions, { rowId: p.id, rowType: 'marked' })}</td>
           </tr>
         `;
       }).join('')
@@ -169,7 +218,7 @@ export function renderAdminUsers(data, tbody, filter = 'all') {
           <td>${timeEl(u.joinedAt)}</td>
           <td>${toneOrText(u.role, u.roleTone)}</td>
           <td>${badge(u.status, u.statusTone)}</td>
-          <td>${actionsCell(u.actions)}</td>
+          <td>${actionsCell(u.actions, { rowId: u.id, rowType: 'user' })}</td>
         </tr>
       `).join('')
     : emptyRow(7);

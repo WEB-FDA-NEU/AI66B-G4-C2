@@ -6,40 +6,26 @@
                                        (user / moderator / admin)
      - /admin, /admin.html           → moderator or admin only
 
-   Guest handling (as of this fix):
+   Guest handling:
      - Guest hits / or /index.html   → 302 to /questions.html
        (public landing page; NO login wall for browsing the site)
      - Guest hits /admin.html        → 302 to /login.html?next=/admin.html
        (login required — admin isn't a public page; preserve intent)
 
-   Root cause of the "stuck at login" bug:
+   Logged-in handling:
+     - Valid cookie + role in required set → pass through
+     - Valid cookie + wrong role          → 302 to /questions.html
+       (safe public page — never redirects to / since / is itself
+        protected; avoids any chance of a redirect loop)
+     - Deleted / banned / suspended        → 302 to /login.html
 
-     The previous guest-routing branch used set intersection:
+   Every redirect is sent with Cache-Control: no-store so the browser
+   never caches a 302. Without this, once a browser cached an early
+   "guest → login" redirect, subsequent navigations kept bouncing the
+   user back to login even after authenticating. That was the root
+   cause of the "stuck at login" bug.
 
-         if required_roles & _LOGIN_REQUIRED_ROLES:
-             return _redirect_login(...)
-         return RedirectResponse(url=_PUBLIC_LANDING, ...)
-
-     For /index.html, required_roles = {"user","moderator","admin"} and
-     _LOGIN_REQUIRED_ROLES = {"moderator","admin"}. Their intersection
-     is {"moderator","admin"} — non-empty — so the condition was TRUTHY
-     for every guest hitting Home, redirecting them to login instead of
-     the public landing page.
-
-     Fixed with `.issubset(_LOGIN_REQUIRED_ROLES)`:
-
-       - /admin.html   requires {"moderator","admin"} → subset → login ✓
-       - /index.html   requires {"user","moderator","admin"} → NOT a
-                       subset (contains "user") → public landing ✓
-
-   Additional hardening:
-     - All redirects now carry `Cache-Control: no-store, must-revalidate`
-       so the browser NEVER caches a 302. A cached "guest → login"
-       redirect from earlier in the session would otherwise keep bouncing
-       the user back to login even after a successful sign-in.
-     - Logged-in users hitting an inaccessible page are redirected to
-       /questions.html (public). Never to /, which is itself protected.
-     - DB errors are logged to stderr for faster debugging.
+   All other paths (API, uploads, public HTML) pass through unchanged.
 
    Frontend defence-in-depth lives in frontend/js/page-guard.js.
 """
@@ -58,7 +44,7 @@ from fastapi.staticfiles import StaticFiles
 
 from db import SessionLocal
 from models import User
-from routers import auth, posts, tags, users
+from routers import auth, posts, reports, tags, users
 from security import COOKIE_NAME, decode_token
 
 app = FastAPI(
@@ -217,6 +203,7 @@ app.include_router(auth.router)
 app.include_router(posts.router)
 app.include_router(tags.router)
 app.include_router(users.router)
+app.include_router(reports.router)   # ← NEW: report submission + admin listing
 
 
 @app.get("/api/health", tags=["ops"])
