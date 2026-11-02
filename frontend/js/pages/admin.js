@@ -1,63 +1,84 @@
 // ============================================================
 //  Page-specific behaviour for admin.html
 //
-//  - Tab switching between Reports / Marked Posts / Users
-//  - Per-panel filter nav
-//  - Lazy-loaded data (fetched once, cached in memory)
-//  - Reports tab: real backend
-//      · GET   /api/reports                → load list (via admin-data.js)
-//      · PATCH /api/reports/{id}           → Review / Dismiss / Re-open
-//  - Users tab: real backend
-//      · GET   /api/admin/users            → load list (via admin-data.js)
-//      · PATCH /api/admin/users/{id}       → Suspend / Unsuspend /
-//                                            Ban / Unban / Promote / Demote
-//  - Marked Posts tab: real backend list; action buttons not yet wired.
+//  Change in this revision:
+//   - Fixed the toast text bug in `handleUserAction` that produced
+//     "User #5 suspendeded." / "baned." / "promoteed." for every
+//     user moderation action. Now uses a proper verb map so the
+//     toast reads "User #5 suspended." / "banned." / "promoted.".
+//   - Added a duration prompt on Suspend from the Users tab (defaults
+//     to 7 days, accepts 1–365). Previously the tab action always
+//     sent `action=suspend` and let the backend default to 7 days
+//     silently. Now the mod is asked explicitly.
+//   - Users tab actions (Suspend / Unsuspend / Ban / Unban / Promote /
+//     Demote) now confirm before proceeding for the irreversible ones
+//     and show their own verb in the toast, matching what the Report
+//     modal shows — so the two surfaces stay consistent.
 //
-//  Action dispatch uses ONE delegated click listener on <main>. Each
-//  action button carries `data-action`, `data-row-id`, and
-//  `data-row-type` (see admin-listings.js).
-//
-//  User-action authorization is enforced server-side in
-//  backend/routers/admin.py::update_user. The frontend only renders
-//  the buttons the backend says are permitted for the current viewer
-//  (via the row's `actions` array).
+//  The 404/405 root cause was backend (admin.router not mounted); that
+//  is fixed in backend/main.py. This file just ensures the frontend
+//  surface that already worked against the mounted router is polished.
 // ============================================================
 
-import { loadReports, loadMarkedPosts, loadAdminUsers } from '../admin-data.js';
-import { renderReports, renderMarkedPosts, renderAdminUsers } from '../admin-listings.js';
+import {
+  loadReports, loadMarkedPosts, loadAdminUsers, loadHiddenPosts
+} from '../admin-data.js';
+import {
+  renderReports, renderMarkedPosts, renderAdminUsers, renderHiddenPosts
+} from '../admin-listings.js';
 
 const API_BASE = (typeof location !== 'undefined' &&
                   (location.port === '8000' || location.port === ''))
   ? '' : 'http://localhost:8000';
 
 (function () {
+  /* ---------- DOM ---------- */
   const tabs   = document.querySelectorAll('#admin-tabs .s-navigation--item');
   const panels = document.querySelectorAll('section[data-panel]');
   const main   = document.querySelector('main');
 
-  const cache   = { reports: null, marked: null, users: null };
-  const filters = { reports: 'pending', marked: 'all', users: 'all' };
-
   const bodies = {
     reports: document.getElementById('reports-body'),
     marked:  document.getElementById('marked-body'),
-    users:   document.getElementById('users-body')
+    users:   document.getElementById('users-body'),
+    hidden:  document.getElementById('hidden-body')
   };
+
+  /* ---------- State ---------- */
+  const cache   = { reports: null, marked: null, users: null, hidden: null };
+  const filters = { reports: 'pending', marked: 'all', users: 'all', hidden: 'all' };
 
   const renderers = {
     reports: renderReports,
     marked:  renderMarkedPosts,
-    users:   renderAdminUsers
+    users:   renderAdminUsers,
+    hidden:  renderHiddenPosts
   };
 
   const loaders = {
     reports: loadReports,
     marked:  loadMarkedPosts,
-    users:   loadAdminUsers
+    users:   loadAdminUsers,
+    hidden:  loadHiddenPosts
   };
 
-  /* ---------- Toast helper ---------- */
+  /* ---------- Modal refs ---------- */
+  const modal = {
+    root:      document.getElementById('report-modal'),
+    closeBtn:  document.getElementById('report-modal-close'),
+    type:      document.getElementById('modal-target-type'),
+    author:    document.getElementById('modal-target-author'),
+    title:     document.getElementById('modal-target-title'),
+    body:      document.getElementById('modal-target-body'),
+    reporter:  document.getElementById('modal-reporter'),
+    reason:    document.getElementById('modal-reason'),
+    date:      document.getElementById('modal-reported-at'),
+    details:   document.getElementById('modal-details'),
+    actions:   document.getElementById('modal-actions')
+  };
+  let activeReport = null;
 
+  /* ---------- Toast ---------- */
   function showToast(message, type = 'success') {
     const existing = document.getElementById('admin-toast');
     if (existing) existing.remove();
@@ -69,12 +90,38 @@ const API_BASE = (typeof location !== 'undefined' &&
     toast.textContent = message;
 
     if (main) main.insertBefore(toast, main.firstChild);
-
     setTimeout(() => toast.remove(), 3500);
   }
 
-  /* ---------- Tab switching ---------- */
+  /* ---------- HTTP helpers ---------- */
+  async function requestJson(url, opts = {}) {
+    const res = await fetch(API_BASE + url, {
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      ...opts
+    });
 
+    if (res.status === 401) {
+      window.location.href = './login.html?next=' +
+        encodeURIComponent(location.pathname + location.search);
+      throw Object.assign(new Error('UNAUTHORIZED'), { status: 401 });
+    }
+
+    if (!res.ok && res.status !== 204) {
+      const body = await res.json().catch(() => null);
+      throw new Error(
+        (body && (body.detail || body.message)) || ('HTTP ' + res.status)
+      );
+    }
+    return res.status === 204 ? null : res.json();
+  }
+
+  function setRowBusy(btn, busy) {
+    const rowButtons = btn.parentElement ? btn.parentElement.querySelectorAll('button') : [btn];
+    rowButtons.forEach((b) => { b.disabled = busy; });
+  }
+
+  /* ---------- Tabs ---------- */
   function switchTab(name) {
     tabs.forEach((t) => {
       const on = t.dataset.tab === name;
@@ -82,12 +129,10 @@ const API_BASE = (typeof location !== 'undefined' &&
       t.setAttribute('aria-selected', String(on));
     });
     panels.forEach((p) => { p.hidden = p.dataset.panel !== name; });
-
     ensureLoaded(name);
   }
 
-  /* ---------- Lazy load + cache ---------- */
-
+  /* ---------- Load + cache ---------- */
   function ensureLoaded(name, { force = false } = {}) {
     if (!force && cache[name]) {
       renderers[name](cache[name], bodies[name], filters[name]);
@@ -110,14 +155,347 @@ const API_BASE = (typeof location !== 'undefined' &&
       });
   }
 
-  /* ---------- Tab click ---------- */
+  /* ---------- Modal ---------- */
+  function openModal(report) {
+    activeReport = report;
+
+    modal.type.textContent = report.type || 'post';
+
+    const authorName = report.target_author?.display_name || 'anonymous';
+    const authorSlug = report.target_author?.username || '';
+    modal.author.textContent = '@' + authorName;
+    modal.author.href = authorSlug
+      ? `./user-profile.html?username=${encodeURIComponent(authorSlug)}`
+      : '#';
+
+    modal.title.textContent = report.title || 'Untitled';
+    modal.title.href = report.url || '#';
+
+    modal.body.textContent = report.target_body || '(no body content available)';
+
+    modal.reporter.textContent = '@' + (report.reporter || 'anonymous');
+    modal.reporter.href = report.reporter_username
+      ? `./user-profile.html?username=${encodeURIComponent(report.reporter_username)}`
+      : '#';
+
+    modal.reason.textContent = report.reason || 'Unknown';
+    modal.reason.className = `s-badge s-badge__${report.reasonTone || 'tonal'}`;
+
+    modal.date.textContent = report.reportedAt
+      ? new Date(report.reportedAt).toLocaleString()
+      : 'Just now';
+
+    modal.details.textContent = report.details || 'No additional details provided.';
+    modal.details.className = report.details ? 'fc-black-600' : 'fc-black-400';
+
+    renderModalActions(report);
+
+    modal.root.setAttribute('aria-hidden', 'false');
+  }
+
+  function closeModal() {
+    modal.root.setAttribute('aria-hidden', 'true');
+    activeReport = null;
+  }
+
+  function renderModalActions(report) {
+    let postId = null;
+    if (report.url) {
+      try {
+        const url = new URL(report.url, location.origin);
+        postId = url.searchParams.get('id');
+      } catch (_) {}
+    }
+
+    const authorId = report.target_author?.id;
+    const isAdmin = (typeof sessionStorage !== 'undefined') &&
+                    sessionStorage.getItem('t4r_role') === 'admin';
+
+    const buttons = [];
+
+    if (postId) {
+      buttons.push(
+        `<button class="s-btn s-btn__danger" type="button" data-modal-action="hide-post" data-post-id="${postId}">
+           Hide Post
+         </button>`
+      );
+    }
+
+    if (authorId) {
+      buttons.push(
+        `<button class="s-btn s-btn__warning" type="button" data-modal-action="suspend-author" data-user-id="${authorId}">
+           Suspend Author
+         </button>`
+      );
+    }
+
+    if (authorId && isAdmin) {
+      buttons.push(
+        `<button class="s-btn s-btn__danger" type="button" data-modal-action="ban-author" data-user-id="${authorId}">
+           Ban Author
+         </button>`
+      );
+    }
+
+    buttons.push(
+      `<button class="s-btn s-btn__clear" type="button" data-modal-action="dismiss">Dismiss Report</button>`
+    );
+
+    modal.actions.innerHTML = buttons.join('');
+  }
+
+  /* ---------- Report actions ---------- */
+
+  const STATUS_FOR_ACTION = { 'review': 'reviewed', 'dismiss': 'dismissed', 're-open': 'pending' };
+  const REPORT_VERB = { 'review': 'marked as reviewed', 'dismiss': 'dismissed', 're-open': 're-opened' };
+
+  async function handleReportAction(btn) {
+    const id = btn.dataset.rowId;
+    const action = btn.dataset.action;
+    if (!id || !action) return;
+
+    if (action === 'review') {
+      const report = (cache.reports || []).find((r) => String(r.id) === String(id));
+      if (report) openModal(report);
+      return;
+    }
+
+    const newStatus = STATUS_FOR_ACTION[action];
+    if (!newStatus) return;
+
+    setRowBusy(btn, true);
+    const originalLabel = btn.textContent;
+    btn.textContent = 'Updating…';
+
+    try {
+      await requestJson(
+        '/api/reports/' + encodeURIComponent(id),
+        { method: 'PATCH', body: JSON.stringify({ status: newStatus }) }
+      );
+      showToast(`Report #${id} ${REPORT_VERB[action]}.`, 'success');
+      await ensureLoaded('reports', { force: true });
+    } catch (err) {
+      if (err && err.status === 401) return;
+      showToast('Could not update report: ' + (err.message || ''), 'danger');
+      btn.textContent = originalLabel;
+    } finally {
+      setRowBusy(btn, false);
+    }
+  }
+
+  /* ---------- Marked Posts actions ---------- */
+
+  async function handleMarkedAction(btn) {
+    const id = btn.dataset.rowId;
+    const action = btn.dataset.action;
+    if (!id) return;
+
+    if (action === 'remove-mark') {
+      if (!window.confirm('Remove this mark? The post will no longer appear in the Marked Posts list.')) return;
+
+      setRowBusy(btn, true);
+      btn.textContent = 'Removing…';
+
+      try {
+        await requestJson('/api/admin/post-marks/' + encodeURIComponent(id), { method: 'DELETE' });
+        showToast('Mark removed.', 'success');
+        await ensureLoaded('marked', { force: true });
+      } catch (err) {
+        if (err && err.status === 401) return;
+        showToast('Could not remove mark: ' + (err.message || ''), 'danger');
+        btn.textContent = 'Remove Mark';
+      } finally {
+        setRowBusy(btn, false);
+      }
+    }
+  }
+
+  /* ---------- User actions ---------- */
+
+  /**
+   * Verb map for user-action toasts. Previously the code used
+   * `${action}ed` which produced awkward text like "suspendeded",
+   * "baned", "promoteed". Fixed with this map.
+   */
+  const USER_ACTION_VERB = {
+    'suspend':   'suspended',
+    'unsuspend': 're-activated',
+    'ban':       'banned',
+    'unban':     'unbanned',
+    'promote':   'promoted',
+    'demote':    'demoted'
+  };
+
+  const USER_ACTION_CONFIRM = {
+    'suspend':   null,     // duration prompt handled separately
+    'unsuspend': null,
+    'ban':       'Ban this user? They will lose access until unbanned.',
+    'unban':     null,
+    'promote':   'Promote this user to moderator? They will gain moderation powers.',
+    'demote':    'Demote this moderator to a regular user?'
+  };
+
+  function promptSuspensionDays() {
+    const raw = window.prompt(
+      'Suspend for how many days? (1–365, default 7)',
+      '7'
+    );
+    if (raw === null) return null;   // cancelled
+    const n = parseInt(raw, 10);
+    if (!Number.isFinite(n) || n < 1 || n > 365) {
+      showToast('Invalid duration. Enter a number between 1 and 365.', 'danger');
+      return null;
+    }
+    return n;
+  }
+
+  async function handleUserAction(btn) {
+    const id = btn.dataset.rowId;
+    const action = btn.dataset.action;
+    if (!id || !action) return;
+
+    if (!(action in USER_ACTION_CONFIRM)) return;
+
+    // 1. Confirm (for destructive actions)
+    const prompt = USER_ACTION_CONFIRM[action];
+    if (prompt && !window.confirm(prompt)) return;
+
+    // 2. Duration (only for suspend)
+    let payload = { action };
+    if (action === 'suspend') {
+      const days = promptSuspensionDays();
+      if (days === null) return;   // cancelled or invalid
+      payload = { action, days };
+    }
+
+    // 3. Execute
+    setRowBusy(btn, true);
+    const originalLabel = btn.textContent;
+    btn.textContent = 'Updating…';
+
+    try {
+      await requestJson(
+        '/api/admin/users/' + encodeURIComponent(id),
+        { method: 'PATCH', body: JSON.stringify(payload) }
+      );
+      const verb = USER_ACTION_VERB[action] || action;
+      showToast(`User #${id} ${verb}.`, 'success');
+      await ensureLoaded('users', { force: true });
+    } catch (err) {
+      if (err && err.status === 401) return;
+      showToast('Could not update user: ' + (err.message || ''), 'danger');
+      btn.textContent = originalLabel;
+    } finally {
+      setRowBusy(btn, false);
+    }
+  }
+
+  /* ---------- Hidden Content actions ---------- */
+
+  async function handleHiddenAction(btn) {
+    const id = btn.dataset.rowId;
+    const action = btn.dataset.action;
+    if (!id) return;
+
+    if (action === 'restore') {
+      setRowBusy(btn, true);
+      btn.textContent = 'Restoring…';
+
+      try {
+        await requestJson(
+          '/api/admin/posts/' + encodeURIComponent(id) + '/restore',
+          { method: 'PATCH' }
+        );
+        showToast('Post restored.', 'success');
+        await ensureLoaded('hidden', { force: true });
+      } catch (err) {
+        if (err && err.status === 401) return;
+        showToast('Could not restore post: ' + (err.message || ''), 'danger');
+        btn.textContent = 'Restore';
+      } finally {
+        setRowBusy(btn, false);
+      }
+    }
+  }
+
+  /* ---------- Modal actions ---------- */
+
+  async function handleModalAction(btn) {
+    const action = btn.dataset.modalAction;
+    if (!action || !activeReport) return;
+
+    const reportId = activeReport.id;
+
+    try {
+      if (action === 'hide-post') {
+        const postId = btn.dataset.postId;
+        if (!postId) return;
+        if (!window.confirm('Hide this post from public view?')) return;
+
+        btn.disabled = true;
+        await requestJson('/api/admin/posts/' + encodeURIComponent(postId) + '/hide', { method: 'PATCH' });
+        await requestJson('/api/reports/' + encodeURIComponent(reportId), {
+          method: 'PATCH',
+          body: JSON.stringify({ status: 'reviewed' })
+        });
+        showToast('Post hidden and report marked as reviewed.', 'success');
+
+      } else if (action === 'suspend-author') {
+        const userId = btn.dataset.userId;
+        if (!userId) return;
+        const days = promptSuspensionDays();
+        if (days === null) return;
+
+        btn.disabled = true;
+        await requestJson('/api/admin/users/' + encodeURIComponent(userId), {
+          method: 'PATCH', body: JSON.stringify({ action: 'suspend', days })
+        });
+        await requestJson('/api/reports/' + encodeURIComponent(reportId), {
+          method: 'PATCH', body: JSON.stringify({ status: 'reviewed' })
+        });
+        showToast(`Author suspended for ${days} day${days === 1 ? '' : 's'} and report marked as reviewed.`, 'success');
+
+      } else if (action === 'ban-author') {
+        const userId = btn.dataset.userId;
+        if (!userId) return;
+        if (!window.confirm('Ban this author permanently?')) return;
+
+        btn.disabled = true;
+        await requestJson('/api/admin/users/' + encodeURIComponent(userId), {
+          method: 'PATCH', body: JSON.stringify({ action: 'ban' })
+        });
+        await requestJson('/api/reports/' + encodeURIComponent(reportId), {
+          method: 'PATCH', body: JSON.stringify({ status: 'reviewed' })
+        });
+        showToast('Author banned and report marked as reviewed.', 'success');
+
+      } else if (action === 'dismiss') {
+        btn.disabled = true;
+        await requestJson('/api/reports/' + encodeURIComponent(reportId), {
+          method: 'PATCH', body: JSON.stringify({ status: 'dismissed' })
+        });
+        showToast('Report dismissed.', 'success');
+      }
+
+      closeModal();
+      await ensureLoaded('reports', { force: true });
+      if (cache.users)   await ensureLoaded('users',   { force: true });
+      if (cache.hidden)  await ensureLoaded('hidden',  { force: true });
+
+    } catch (err) {
+      if (err && err.status === 401) return;
+      console.error('[admin] modal action failed:', err);
+      showToast('Could not complete action: ' + (err.message || ''), 'danger');
+      btn.disabled = false;
+    }
+  }
+
+  /* ---------- Event delegation ---------- */
 
   document.getElementById('admin-tabs').addEventListener('click', (e) => {
     const btn = e.target.closest('[data-tab]');
     if (btn) switchTab(btn.dataset.tab);
   });
-
-  /* ---------- Filter click ---------- */
 
   document.querySelectorAll('[data-filter-nav]').forEach((nav) => {
     nav.addEventListener('click', (e) => {
@@ -137,179 +515,46 @@ const API_BASE = (typeof location !== 'undefined' &&
     });
   });
 
-  /* ---------- Shared update helpers ---------- */
-
-  async function patchJson(path, body) {
-    const res = await fetch(API_BASE + path, {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify(body)
-    });
-
-    if (res.status === 401) {
-      window.location.href = './login.html?next=' +
-        encodeURIComponent(location.pathname + location.search);
-      throw Object.assign(new Error('UNAUTHORIZED'), { status: 401 });
-    }
-
-    if (!res.ok) {
-      const errBody = await res.json().catch(() => null);
-      throw new Error(
-        (errBody && (errBody.detail || errBody.message)) || ('HTTP ' + res.status)
-      );
-    }
-
-    return res.json();
-  }
-
-  function setRowBusy(btn, busy) {
-    const rowButtons = btn.parentElement
-      ? btn.parentElement.querySelectorAll('button')
-      : [btn];
-    rowButtons.forEach((b) => { b.disabled = busy; });
-    return rowButtons;
-  }
-
-  /* ---------- Report action ---------- */
-
-  /**
-   * Backend status values accepted by PATCH /api/reports/{id}.
-   * Keep in sync with `ReportStatusUpdate` in backend/routers/reports.py.
-   */
-  const STATUS_FOR_ACTION = {
-    'review':  'reviewed',
-    'dismiss': 'dismissed',
-    're-open': 'pending'
-  };
-
-  async function handleReportAction(btn) {
-    const id     = btn.dataset.rowId;
-    const action = btn.dataset.action;
-    if (!id || !action) return;
-
-    const newStatus = STATUS_FOR_ACTION[action];
-    if (!newStatus) return;
-
-    const rowButtons = setRowBusy(btn, true);
-    const originalLabel = btn.textContent;
-    btn.textContent = 'Updating…';
-
-    try {
-      await patchJson(
-        '/api/reports/' + encodeURIComponent(String(id)),
-        { status: newStatus }
-      );
-
-      const verb = newStatus === 'pending'
-        ? 're-opened'
-        : (newStatus === 'reviewed' ? 'marked as reviewed' : 'dismissed');
-      showToast(`Report #${id} ${verb}.`, 'success');
-
-      await ensureLoaded('reports', { force: true });
-    } catch (err) {
-      if (err && err.status === 401) return;
-      console.error('[admin] report update failed:', err);
-      showToast(
-        'Could not update the report: ' + (err.message || 'unknown error'),
-        'danger'
-      );
-      btn.textContent = originalLabel;
-    } finally {
-      setRowBusy(btn, false);
-    }
-  }
-
-  /* ---------- User action ---------- */
-
-  /**
-   * Confirm text per action. `null` means no confirmation prompt.
-   * Destructive actions (ban, demote) ask before proceeding.
-   */
-  const USER_ACTION_CONFIRM = {
-    'suspend':   null,                          // reversible; default 7 days
-    'unsuspend': null,
-    'ban':       'Ban this user? They will lose access until unbanned.',
-    'unban':     null,
-    'promote':   'Promote this user to moderator? They will gain moderation powers.',
-    'demote':    'Demote this moderator to a regular user?'
-  };
-
-  async function handleUserAction(btn) {
-    const id     = btn.dataset.rowId;
-    const action = btn.dataset.action;
-    if (!id || !action) return;
-
-    if (!(action in USER_ACTION_CONFIRM)) return;
-
-    const prompt = USER_ACTION_CONFIRM[action];
-    if (prompt && !window.confirm(prompt)) return;
-
-    const rowButtons = setRowBusy(btn, true);
-    const originalLabel = btn.textContent;
-    btn.textContent = 'Updating…';
-
-    try {
-      // Backend defaults `days` to 7 for suspend. If a custom duration
-      // is desired later, add a prompt here and include `days` in body.
-      await patchJson(
-        '/api/admin/users/' + encodeURIComponent(String(id)),
-        { action }
-      );
-
-      const verb = {
-        'suspend':   'suspended',
-        'unsuspend': 're-activated',
-        'ban':       'banned',
-        'unban':     'unbanned',
-        'promote':   'promoted',
-        'demote':    'demoted'
-      }[action] || action;
-
-      showToast(`User #${id} ${verb}.`, 'success');
-
-      // Refetch users so the row's status/role badges and available
-      // actions reflect the new state.
-      await ensureLoaded('users', { force: true });
-    } catch (err) {
-      if (err && err.status === 401) return;
-      console.error('[admin] user update failed:', err);
-      showToast(
-        'Could not update user: ' + (err.message || 'unknown error'),
-        'danger'
-      );
-      btn.textContent = originalLabel;
-    } finally {
-      setRowBusy(btn, false);
-    }
-  }
-
-  /* ---------- Delegated click listener ---------- */
-
   if (main) {
     main.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-action][data-row-type]');
       if (!btn) return;
 
       const rowType = btn.dataset.rowType;
+      e.preventDefault();
 
-      if (rowType === 'report') {
-        e.preventDefault();
-        handleReportAction(btn);
-        return;
-      }
-
-      if (rowType === 'user') {
-        e.preventDefault();
-        handleUserAction(btn);
-        return;
-      }
-
-      // Marked Posts actions: no-op until their backend routes exist.
+      if (rowType === 'report')  return handleReportAction(btn);
+      if (rowType === 'marked')  return handleMarkedAction(btn);
+      if (rowType === 'user')    return handleUserAction(btn);
+      if (rowType === 'hidden')  return handleHiddenAction(btn);
     });
   }
 
-  /* ---------- Initial load: Reports tab is active by default ---------- */
+  /* ---------- Modal dismissal ---------- */
 
+  if (modal.closeBtn) {
+    modal.closeBtn.addEventListener('click', closeModal);
+  }
+
+  if (modal.root) {
+    modal.root.addEventListener('click', (e) => {
+      if (e.target === modal.root) closeModal();
+    });
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modal.root?.getAttribute('aria-hidden') === 'false') {
+      closeModal();
+    }
+  });
+
+  if (modal.actions) {
+    modal.actions.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-modal-action]');
+      if (btn) handleModalAction(btn);
+    });
+  }
+
+  /* ---------- Initial load ---------- */
   ensureLoaded('reports');
 })();

@@ -15,16 +15,21 @@
    - Referenced target (post / answer / comment) must exist and not
      be soft-deleted → 404.
 
-   Response shapes
-   ───────────────
-   GET returns an array of items that directly match what
-   `frontend/js/admin-listings.js::renderReports` expects:
+   Response shape
+   ──────────────
+   GET /api/reports now returns an enriched shape that includes the
+   *content* of the reported target (body + author) so the admin UI can
+   show a self-contained "Report Details" modal without extra fetches:
 
-     { id, type, title, url, reason, reasonTone, reporter,
-       reportedAt, status, statusTone, actions: [{label, tone}] }
+     {
+       id, type, title, url, target_body, target_author,
+       reason, reasonTone, reporter, details,
+       reportedAt, status, statusTone, actions: [...]
+     }
 
-   This mapping happens server-side so the frontend never has to
-   resolve target_type → title/url itself.
+   `target_body` is truncated to 1500 chars — long enough to see the
+   context, short enough to keep the payload small. `target_author` is
+   `{ username, display_name }` so the modal can link to the profile.
 """
 from __future__ import annotations
 
@@ -46,15 +51,9 @@ router = APIRouter(prefix="/api/reports", tags=["reports"])
 
 # ── Constants ───────────────────────────────────────────────────────────
 
-# Must match the reports_reason_check constraint in schema.sql.
 _ALLOWED_REASONS = {
-    "spam",
-    "abuse",
-    "off-topic",
-    "off-topic-discussion",
-    "duplicate",
-    "plagiarism",
-    "other",
+    "spam", "abuse", "off-topic", "off-topic-discussion",
+    "duplicate", "plagiarism", "other",
 }
 
 _ALLOWED_TARGET_TYPES = {"post", "answer", "comment"}
@@ -91,6 +90,11 @@ _STATUS_TONES = {
     "dismissed": "tonal",
 }
 
+# Cap how much of the reported body we ship to the client. 1500 chars
+# fits the modal without scrolling on a 1080p screen and is well under
+# the 8000-char limit `post_form.js` enforces on new content.
+_BODY_PREVIEW_LEN = 1500
+
 
 # ── Request / response models ───────────────────────────────────────────
 
@@ -104,18 +108,35 @@ class ReportCreate(BaseModel):
 
 class ReportStatusUpdate(BaseModel):
     """Body for PATCH /api/reports/{id}."""
-    status: Literal["reviewed", "dismissed"]
+    status: Literal["pending", "reviewed", "dismissed"]
 
 
 # ── Internal helpers ────────────────────────────────────────────────────
 
 def _require_staff(user: User) -> None:
-    """Raise 403 unless the caller is a moderator or admin."""
     if user.role not in ("moderator", "admin"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only moderators or admins can access reports.",
         )
+
+
+def _preview(text: str | None) -> str:
+    s = (text or "").strip()
+    if len(s) <= _BODY_PREVIEW_LEN:
+        return s
+    return s[:_BODY_PREVIEW_LEN].rsplit(" ", 1)[0] + "…"
+
+
+def _author_block(user: User | None) -> dict | None:
+    if user is None:
+        return None
+    return {
+        "id":           user.id,
+        "username":     user.username,
+        "display_name": user.display_name,
+        "reputation":   user.reputation,
+    }
 
 
 def _resolve_target(
@@ -124,24 +145,30 @@ def _resolve_target(
     """Look up a report target and normalize it for the admin UI.
 
     Returns a dict of the form:
-        { title, url, type, exists }   when the target is valid
-        None                           when it doesn't exist
+        { title, url, type, body, author }   when valid
+        None                                 when it doesn't exist
 
-    `type` is the human-facing type string the frontend's
-    `.question-badge` / `.discussion-badge` will use ("question",
-    "discussion", "answer", "comment").
+    `author` is `{ id, username, display_name, reputation }` so the modal
+    can render and link to the target's profile without extra fetches.
     """
     if target_type == "post":
         p = db.get(Post, target_id)
         if p is None or p.deleted_at is not None:
             return None
+        author = db.get(User, p.author_id)
         kind = "discussion" if p.post_type == "discussion" else "question"
         url = (
             f"./discussion-detail.html?id={p.id}"
             if kind == "discussion"
             else f"./question-detail.html?id={p.id}"
         )
-        return {"title": p.title, "url": url, "type": kind, "exists": True}
+        return {
+            "title":  p.title,
+            "url":    url,
+            "type":   kind,
+            "body":   _preview(p.body),
+            "author": _author_block(author),
+        }
 
     if target_type == "answer":
         a = db.get(Answer, target_id)
@@ -150,23 +177,26 @@ def _resolve_target(
         parent = db.get(Post, a.post_id)
         if parent is None or parent.deleted_at is not None:
             return None
+        author = db.get(User, a.author_id)
         url = (
             f"./discussion-detail.html?id={parent.id}#answer-{a.id}"
             if parent.post_type == "discussion"
             else f"./question-detail.html?id={parent.id}#answer-{a.id}"
         )
         return {
-            "title": f"Answer to: {parent.title}",
-            "url": url,
-            "type": "answer",
-            "exists": True,
+            "title":  f"Answer to: {parent.title}",
+            "url":    url,
+            "type":   "answer",
+            "body":   _preview(a.body),
+            "author": _author_block(author),
         }
 
     if target_type == "comment":
         c = db.get(Comment, target_id)
         if c is None or c.deleted_at is not None:
             return None
-        # A comment attaches either to a post or to an answer.
+        author = db.get(User, c.author_id)
+
         if c.post_id is not None:
             parent = db.get(Post, c.post_id)
             if parent is None:
@@ -177,11 +207,13 @@ def _resolve_target(
                 else f"./question-detail.html?id={parent.id}#comment-{c.id}"
             )
             return {
-                "title": f"Comment on: {parent.title}",
-                "url": url,
-                "type": "comment",
-                "exists": True,
+                "title":  f"Comment on: {parent.title}",
+                "url":    url,
+                "type":   "comment",
+                "body":   _preview(c.body),
+                "author": _author_block(author),
             }
+
         if c.answer_id is not None:
             ans = db.get(Answer, c.answer_id)
             if ans is None:
@@ -195,10 +227,11 @@ def _resolve_target(
                 else f"./question-detail.html?id={parent.id}#comment-{c.id}"
             )
             return {
-                "title": f"Comment on answer: {parent.title}",
-                "url": url,
-                "type": "comment",
-                "exists": True,
+                "title":  f"Comment on answer: {parent.title}",
+                "url":    url,
+                "type":   "comment",
+                "body":   _preview(c.body),
+                "author": _author_block(author),
             }
 
     return None
@@ -212,11 +245,7 @@ def create_report(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Submit a report against a post, answer, or comment.
-
-    Guest access is blocked by the `get_current_user` dependency —
-    unauthenticated callers get a 401 before this body runs.
-    """
+    """Submit a report against a post, answer, or comment."""
     if payload.reason not in _ALLOWED_REASONS:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -229,7 +258,6 @@ def create_report(
             detail=f"Invalid target_type. Allowed: {sorted(_ALLOWED_TARGET_TYPES)}",
         )
 
-    # Ensure the target exists and hasn't been deleted.
     target = _resolve_target(db, payload.target_type, payload.target_id)
     if target is None:
         raise HTTPException(
@@ -250,7 +278,6 @@ def create_report(
     try:
         db.commit()
     except IntegrityError:
-        # The reports_unique_per_user constraint fired.
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -274,8 +301,8 @@ def list_reports(
     """List reports for the admin/mod center.
 
     Returns an array of items shaped exactly the way
-    `admin-listings.js::renderReports` expects — no client-side
-    target resolution required.
+    `admin-listings.js::renderReports` expects — plus the reported
+    content's body and author for the "Report Details" modal.
     """
     _require_staff(user)
 
@@ -291,7 +318,6 @@ def list_reports(
     if not rows:
         return {"items": [], "total": total, "page": page, "page_size": page_size}
 
-    # Batch-load reporters.
     reporter_ids = {r.reporter_id for r in rows}
     reporters = {
         u.id: u for u in db.scalars(
@@ -309,7 +335,6 @@ def list_reports(
         status_label = _STATUS_LABELS.get(r.status, r.status)
         status_tone  = _STATUS_TONES.get(r.status, "tonal")
 
-        # Build actions based on the current status.
         actions = []
         if r.status == "pending":
             actions.append({"label": "Review",  "tone": "primary"})
@@ -320,17 +345,21 @@ def list_reports(
             actions.append({"label": "Re-open", "tone": "clear"})
 
         items.append({
-            "id":         str(r.id),
-            "type":       target["type"] if target else r.target_type,
-            "title":      target["title"] if target else f"Deleted {r.target_type}",
-            "url":        target["url"]   if target else "#",
-            "reason":     reason_label,
-            "reasonTone": reason_tone,
-            "reporter":   reporter.display_name if reporter else "anonymous",
-            "reportedAt": r.created_at.isoformat(),
-            "status":     status_label,
-            "statusTone": status_tone,
-            "actions":    actions,
+            "id":            str(r.id),
+            "type":          target["type"] if target else r.target_type,
+            "title":         target["title"] if target else f"Deleted {r.target_type}",
+            "url":           target["url"] if target else "#",
+            "target_body":   target["body"] if target else "",
+            "target_author": target["author"] if target else None,
+            "reason":        reason_label,
+            "reasonTone":    reason_tone,
+            "reporter":      reporter.display_name if reporter else "anonymous",
+            "reporter_username": reporter.username if reporter else "",
+            "details":       r.details or "",
+            "reportedAt":    r.created_at.isoformat(),
+            "status":        status_label,
+            "statusTone":    status_tone,
+            "actions":       actions,
         })
 
     return {"items": items, "total": total, "page": page, "page_size": page_size}
@@ -343,11 +372,7 @@ def update_report_status(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Mark a report as reviewed or dismissed.
-
-    Admins and moderators only. Stamps resolved_at + resolved_by_user_id
-    so the audit trail is preserved.
-    """
+    """Mark a report as pending / reviewed / dismissed."""
     _require_staff(user)
 
     r = db.get(Report, report_id)

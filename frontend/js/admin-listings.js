@@ -5,25 +5,22 @@
 //  the tbody's innerHTML with rows filtered accordingly.
 //
 //  Change in this revision:
-//   - Action buttons now carry `data-action`, `data-row-id`, and
-//     `data-row-type` so admin.js can delegate clicks and dispatch
-//     the corresponding backend call without any extra plumbing:
+//   - Reports: action buttons now include `data-action`, `data-row-id`,
+//     `data-row-type` (see admin.js). The `Review` action is
+//     intercepted by admin.js to open the Report Details modal; the
+//     row itself carries the data needed to populate the modal from
+//     the cached `reports` array.
+//   - Marked Posts: filter key for "Off-topic" fixed (`off_topic` in
+//     backend → `off-topic` in DOM `data-filter` → matched against
+//     the human label "Off-topic"). Added `Remove Mark` action.
+//   - Users: unchanged from previous version.
+//   - Hidden Posts: new renderer for the Hidden Content tab.
 //
-//       [Review]      → data-action="review"   data-row-type="report"
-//       [Dismiss]     → data-action="dismiss"  data-row-type="report"
-//       [Re-open]     → data-action="re-open"  data-row-type="report"
-//
-//   - The action key ("review", "dismiss", "re-open") is derived
-//     from the button's label, so the backend can keep returning
-//     plain `{label, tone}` objects without a schema change.
-//
-//   - Marked posts / Users actions keep working the same way (row
-//     IDs and types are attached but admin.js currently only wires
-//     the Reports tab — those tabs remain mock until their backend
-//     routes exist).
-//
-//  Data shape per row is documented in ./mock/*.json for the mock
-//  tabs, and in backend/routers/reports.py for the live Reports tab.
+//  All `actions` arrays come from the backend and are `[{label, tone}]`.
+//  `actionsCell` derives the action slug from the label, so
+//  `Remove Mark` → `remove-mark`, `Restore` → `restore`, etc. This
+//  means admin.js only needs a small action map — no per-button
+//  data-attribute plumbing beyond `data-row-id` / `data-row-type`.
 // ============================================================
 
 /* ---------- Primitives ---------- */
@@ -64,13 +61,16 @@ function toneOrText(label, tone) {
 /**
  * Render a single action button.
  *
- * `action` is a lowercase slug (e.g. "review", "dismiss", "re-open")
- * derived from the label. `rowId` / `rowType` are attached as data
- * attributes so admin.js can delegate clicks and dispatch the
- * matching backend call without needing to close over per-row state.
+ * `action` is a lowercase slug derived from the label, e.g.
+ *   "Review"      → "review"
+ *   "Remove Mark" → "remove-mark"
+ *   "Restore"     → "restore"
+ *
+ * admin.js maps these slugs to backend calls.
  */
-function actionButton({ label, tone, action, rowId, rowType }) {
+function actionButton({ label, tone, rowId, rowType }) {
   const cls = `s-btn s-btn__xs s-btn__${tone || 'clear'}`;
+  const action = String(label || '').toLowerCase().replace(/\s+/g, '-');
   const attrs = [
     `class="${cls}"`,
     'type="button"',
@@ -81,19 +81,11 @@ function actionButton({ label, tone, action, rowId, rowType }) {
   return `<button ${attrs}>${escapeHtml(label)}</button>`;
 }
 
-/**
- * Render the actions cell for a row.
- *
- * `actions` is the raw array from the backend / mock — each element
- * is `{label, tone}`. `rowId` / `rowType` are injected into every
- * button so admin.js can act on them.
- */
 function actionsCell(actions, { rowId, rowType } = {}) {
   const list = Array.isArray(actions) ? actions : [];
   return `<div class="d-flex g4">${list.map((a) => actionButton({
-    label:   a.label,
-    tone:    a.tone,
-    action:  String(a.label || '').toLowerCase().replace(/\s+/g, '-'),
+    label: a.label,
+    tone:  a.tone,
     rowId,
     rowType
   })).join('')}</div>`;
@@ -141,6 +133,10 @@ export function renderReports(data, tbody, filter = 'pending') {
 
 /* ---------- Marked Posts ---------- */
 
+// Filter keys come from `data-filter` in admin.html (kebab-case).
+// The human `mark` labels come from the backend (`_MARK_LABELS` in
+// backend/routers/admin.py): duplicated → "Duplicated", violated →
+// "Violated", off_topic → "Off-topic", spam → "Spam".
 const MARKED_PREDICATES = {
   all:         () => true,
   duplicated:  (p) => p.mark === 'Duplicated',
@@ -186,12 +182,15 @@ const USER_PREDICATES = {
 function userCell(u) {
   const color = u.avatarColor || 'bg-blue-300';
   const letter = u.avatarLetter || String(u.username || '?').charAt(0).toUpperCase();
+  const url = u.username
+    ? `./user-profile.html?username=${encodeURIComponent(u.username)}`
+    : '#';
   return `
     <div class="s-user-card">
-      <a href="#" class="s-avatar s-avatar__24 ${escapeHtml(color)}" aria-hidden="true" tabindex="-1">
+      <a href="${url}" class="s-avatar s-avatar__24 ${escapeHtml(color)}" aria-hidden="true" tabindex="-1">
         <span class="s-avatar--letter">${escapeHtml(letter)}</span>
       </a>
-      <span class="s-user-card--username">${escapeHtml(u.username)}</span>
+      <a href="${url}" class="s-user-card--username">${escapeHtml(u.username)}</a>
     </div>
   `;
 }
@@ -222,4 +221,40 @@ export function renderAdminUsers(data, tbody, filter = 'all') {
         </tr>
       `).join('')
     : emptyRow(7);
+}
+
+/* ---------- Hidden Content ---------- */
+
+export function renderHiddenPosts(data, tbody, filter = 'all') {
+  if (!tbody) return;
+  const rows = (data || []);
+
+  const typeBadge = (type) => {
+    if (type === 'discussion') return '<span class="discussion-badge">Discussion</span>';
+    return '<span class="question-badge">Question</span>';
+  };
+
+  tbody.innerHTML = rows.length
+    ? rows.map((p) => {
+        const authorUrl = p.authorUsername
+          ? `./user-profile.html?username=${encodeURIComponent(p.authorUsername)}`
+          : '#';
+        const score = Number(p.score);
+        const scoreCell = score < 0
+          ? `<span class="fc-red-400 fw-bold">${score}</span>`
+          : escapeHtml(score);
+
+        return `
+          <tr>
+            <td><code>${escapeHtml(p.id)}</code></td>
+            <td>${typeBadge(p.type)}</td>
+            <td><a href="${escapeHtml(p.url || '#')}">${escapeHtml(p.title)}</a></td>
+            <td><a href="${authorUrl}">${escapeHtml(p.author || 'anonymous')}</a></td>
+            <td>${timeEl(p.deletedAt)}</td>
+            <td>${scoreCell}</td>
+            <td>${actionsCell(p.actions, { rowId: p.id, rowType: 'hidden' })}</td>
+          </tr>
+        `;
+      }).join('')
+    : emptyRow(7, 'No hidden content found.');
 }

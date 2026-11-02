@@ -1,34 +1,34 @@
 // ============================================================
 //  Admin data loaders
 //
-//  All three tabs (Reports / Marked Posts / Users) now fetch from
-//  the live backend. The previous version still pointed at
-//  ./mock/*.json files for Marked Posts and Users — those files no
-//  longer exist (or never did), which produced the "Failed to load
-//  listings" error whenever the tab was opened.
+//  All four tabs (Reports / Marked Posts / Users / Hidden Content)
+//  fetch from the live backend. This module exposes one loader per
+//  tab — each returns a plain array of items, already unwrapped from
+//  the backend's `{ items, total, page, page_size }` envelope, so
+//  the renderers and action handlers in admin.js can operate on
+//  arrays without further processing.
 //
-//  All three endpoints:
-//    · Require a moderator/admin session (staff check on the backend).
-//    · Return a `{ items, total, page, page_size }` envelope.
+//  Endpoints
+//  ─────────
+//    GET /api/reports                → Reports tab
+//    GET /api/admin/post-marks       → Marked Posts tab
+//    GET /api/admin/users            → Users tab
+//    GET /api/admin/hidden-posts     → Hidden Content tab
 //
-//  This file unwraps `.items` so the rest of the admin code
-//  (admin.js + admin-listings.js) keeps operating on plain arrays,
-//  unchanged from the mock data era.
-//
-//  Field shapes match what admin-listings.js renders directly:
-//    · Reports      → backend/routers/reports.py::list_reports
-//    · Post marks   → backend/routers/admin.py::list_post_marks
-//    · Users        → backend/routers/admin.py::list_admin_users
-//
-//  Endpoints:
-//    GET /api/reports?status=all&page_size=100
-//    GET /api/admin/post-marks?page_size=100
-//    GET /api/admin/users?page_size=100
+//  All endpoints:
+//    · Require moderator/admin (staff-only, 403 for regular users).
+//    · Return the same `{ items, total, page, page_size }` envelope.
 //
 //  `page_size=100` is the backend's maximum. For a course project
 //  this comfortably covers seed data plus any live content created
 //  during testing — pagination inside the admin tables is out of
 //  scope for this build.
+//
+//  Field shapes match what admin-listings.js renders directly:
+//    · Reports       → backend/routers/reports.py::list_reports
+//    · Post marks    → backend/routers/admin.py::list_post_marks
+//    · Users         → backend/routers/admin.py::list_admin_users
+//    · Hidden posts  → backend/routers/admin.py::list_hidden_posts
 // ============================================================
 
 const API_BASE = (typeof location !== 'undefined' &&
@@ -78,4 +78,8 @@ export function loadMarkedPosts() {
 
 export function loadAdminUsers() {
   return fetchList('/api/admin/users?page_size=100', 'admin users');
+}
+
+export function loadHiddenPosts() {
+  return fetchList('/api/admin/hidden-posts?page_size=100', 'hidden posts');
 }

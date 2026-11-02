@@ -9,39 +9,23 @@
 
    Routes
    ──────
-   GET   /api/admin/post-marks        → list post marks
-   GET   /api/admin/users             → list users with admin fields
-   PATCH /api/admin/users/{user_id}   → suspend / unsuspend / ban / unban /
-                                        promote / demote
-
-   User-action authorization matrix (target = who you act ON, viewer =
-   who's logged in):
-
-     Action    | Mod → regular | Mod → staff | Admin → regular | Admin → staff | Admin → self
-     ──────────┼───────────────┼─────────────┼─────────────────┼───────────────┼──────────────
-     suspend   | ✅            | ❌          | ✅              | ✅            | ❌
-     unsuspend | ✅            | ❌          | ✅              | ✅            | ❌
-     ban       | ❌            | ❌          | ✅              | ✅            | ❌
-     unban     | ❌            | ❌          | ✅              | ✅            | ❌
-     promote   | ❌            | ❌          | ✅ (user only)  | ❌            | ❌
-     demote    | ❌            | ❌          | ❌              | ✅ (mod only) | ❌
-
-   Rationale
-   ─────────
-   - Moderators can suspend (temporary) but not ban (permanent) or
-     promote/demote staff.
-   - Admins can't act on themselves (prevents lockout).
-   - Admins can't demote another admin (prevents lateral warfare).
-   - All checks are enforced server-side in `update_user`, regardless of
-     what the frontend renders.
+   GET    /api/admin/post-marks             → list post marks
+   DELETE /api/admin/post-marks/{mark_id}   → remove a mark
+   GET    /api/admin/users                  → list users with admin fields
+   PATCH  /api/admin/users/{user_id}        → suspend / ban / promote / …
+   GET    /api/admin/hidden-posts           → list soft-deleted posts
+   PATCH  /api/admin/posts/{post_id}/hide   → soft-delete a post
+   PATCH  /api/admin/posts/{post_id}/restore→ un-delete a post
 
    Field shapes returned by GET endpoints match what
    `admin-listings.js` reads directly:
-     · post-marks: id, title, url, mark, markTone, markedBy, markedByTone,
-                   markedAt, score, actions
-     · users:      id, username, displayName, avatarLetter, avatarColor,
-                   email, reputation, joinedAt, role, roleTone, status,
-                   statusTone, suspendedUntil, actions
+     · post-marks:   id, title, url, mark, markTone, markedBy, markedAt,
+                     score, actions
+     · users:        id, username, displayName, avatarLetter, avatarColor,
+                     email, reputation, joinedAt, role, roleTone, status,
+                     statusTone, suspendedUntil, actions
+     · hidden-posts: id, title, url, author, authorUsername, deletedAt,
+                     score, actions
 """
 from __future__ import annotations
 
@@ -117,7 +101,6 @@ def _require_staff(user: User) -> None:
 
 
 def _avatar_color(seed: str) -> str:
-    """Stable hash → palette index. Mirrors the JS helper."""
     h = 0
     for ch in str(seed or "?"):
         h = ((h << 5) - h + ord(ch)) & 0xFFFFFFFF
@@ -142,11 +125,6 @@ def _is_staff(u: User) -> bool:
 
 
 def _can_act_on(viewer: User, target: User) -> bool:
-    """Base guard: can viewer act on target at all?
-
-    - Can never act on yourself (lockout prevention).
-    - Only admins may act on other staff members.
-    """
     if viewer.id == target.id:
         return False
     if _is_staff(target) and viewer.role != "admin":
@@ -155,13 +133,6 @@ def _can_act_on(viewer: User, target: User) -> bool:
 
 
 def _compute_user_actions(target: User, viewer: User) -> list[dict]:
-    """Return the list of `{label, tone}` actions the viewer can take
-    on the target user. Used by the Users tab's Actions column.
-
-    This is the *display* side of the authorization matrix. The
-    `update_user` endpoint re-enforces the same rules server-side,
-    so a tampered POST cannot bypass them.
-    """
     if not _can_act_on(viewer, target):
         return []
 
@@ -187,16 +158,15 @@ def _compute_user_actions(target: User, viewer: User) -> list[dict]:
     return actions
 
 
-# ── Request model ──────────────────────────────────────────────────────
+# ── Request models ──────────────────────────────────────────────────────
 
 class UserActionIn(BaseModel):
-    """Body for PATCH /api/admin/users/{id}."""
     action: Literal["suspend", "unsuspend", "ban", "unban", "promote", "demote"]
     days:   int = Field(default=7, ge=1, le=365,
                         description="Suspension duration (suspend only)")
 
 
-# ── Routes ─────────────────────────────────────────────────────────────
+# ── Post marks ──────────────────────────────────────────────────────────
 
 @router.get("/post-marks")
 def list_post_marks(
@@ -242,7 +212,7 @@ def list_post_marks(
             "markedByTone": None,
             "markedAt":     mark.created_at.isoformat() if mark.created_at else None,
             "score":        int(post.score or 0),
-            "actions":      [],
+            "actions":      [{"label": "Remove Mark", "tone": "clear"}],
         })
 
     return {
@@ -251,6 +221,26 @@ def list_post_marks(
     }
 
 
+@router.delete("/post-marks/{mark_id}", status_code=status.HTTP_204_NO_CONTENT)
+def remove_post_mark(
+    mark_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Remove a specific post mark."""
+    _require_staff(user)
+
+    mark = db.get(PostMark, mark_id)
+    if mark is None:
+        raise HTTPException(404, "Post mark not found.")
+
+    db.delete(mark)
+    db.commit()
+    return None
+
+
+# ── Users ───────────────────────────────────────────────────────────────
+
 @router.get("/users")
 def list_admin_users(
     page:      int = Query(1, ge=1),
@@ -258,13 +248,7 @@ def list_admin_users(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """List every user with admin-scope fields.
-
-    The `actions` array for each row is computed server-side from the
-    viewer's role + the target's role/status. This is what makes the
-    Actions column show the correct buttons per row without the frontend
-    re-implementing the authorization matrix.
-    """
+    """List every user with admin-scope fields."""
     _require_staff(user)
 
     stmt = select(User).order_by(User.created_at.desc())
@@ -310,15 +294,7 @@ def update_user(
     db: Session = Depends(get_db),
     viewer: User = Depends(get_current_user),
 ):
-    """Apply a moderation action to a user.
-
-    Server-side enforcement of the authorization matrix in the module
-    docstring. Every action re-checks:
-      - staff-only endpoint (`_require_staff`)
-      - target exists
-      - viewer can act on target (`_can_act_on`)
-      - action-specific preconditions (ban/promote/demote are admin-only)
-    """
+    """Apply a moderation action to a user."""
     _require_staff(viewer)
 
     target = db.get(User, user_id)
@@ -326,18 +302,14 @@ def update_user(
         raise HTTPException(404, "User not found.")
 
     if not _can_act_on(viewer, target):
-        raise HTTPException(
-            403, "You cannot perform this action on this user."
-        )
+        raise HTTPException(403, "You cannot perform this action on this user.")
 
     is_admin = viewer.role == "admin"
     now = datetime.now(timezone.utc)
 
     if payload.action == "suspend":
         if target.status == "banned":
-            raise HTTPException(
-                400, "Cannot suspend a banned user. Unban first."
-            )
+            raise HTTPException(400, "Cannot suspend a banned user. Unban first.")
         target.status = "suspended"
         target.suspended_until = now + timedelta(days=payload.days)
 
@@ -387,3 +359,97 @@ def update_user(
         "suspendedUntil": target.suspended_until.isoformat()
                           if target.suspended_until else None,
     }
+
+
+# ── Hidden content (soft-deleted posts) ─────────────────────────────────
+
+@router.get("/hidden-posts")
+def list_hidden_posts(
+    page:      int = Query(1, ge=1),
+    page_size: int = Query(100, ge=1, le=100),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """List all soft-deleted posts (removed from public view).
+
+    This is the "Hidden Content" tab. Only moderators/admins can see
+    these, and each row exposes a Restore action so content can be
+    un-hidden if it was deleted erroneously.
+    """
+    _require_staff(user)
+
+    stmt = (
+        select(Post, User)
+        .outerjoin(User, User.id == Post.author_id)
+        .where(Post.deleted_at.is_not(None))
+        .order_by(Post.deleted_at.desc())
+    )
+
+    total = db.scalar(
+        select(func.count()).select_from(Post)
+        .where(Post.deleted_at.is_not(None))
+    ) or 0
+
+    rows = db.execute(
+        stmt.offset((page - 1) * page_size).limit(page_size)
+    ).all()
+
+    items = []
+    for post, author in rows:
+        kind = "discussion" if post.post_type == "discussion" else "question"
+        items.append({
+            "id":             str(post.id),
+            "title":          post.title,
+            "url":            _post_url(post),
+            "type":           kind,
+            "author":         author.display_name if author else "anonymous",
+            "authorUsername": author.username if author else "",
+            "deletedAt":      post.deleted_at.isoformat() if post.deleted_at else None,
+            "score":          int(post.score or 0),
+            "actions":        [{"label": "Restore", "tone": "clear"}],
+        })
+
+    return {
+        "items": items, "total": total,
+        "page": page, "page_size": page_size,
+    }
+
+
+@router.patch("/posts/{post_id}/hide", status_code=status.HTTP_204_NO_CONTENT)
+def hide_post(
+    post_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Soft-delete a post from the admin panel (idempotent)."""
+    _require_staff(user)
+
+    post = db.get(Post, post_id)
+    if post is None:
+        raise HTTPException(404, "Post not found.")
+    if post.deleted_at is not None:
+        return None  # already hidden
+
+    post.deleted_at = datetime.now(timezone.utc)
+    db.commit()
+    return None
+
+
+@router.patch("/posts/{post_id}/restore", status_code=status.HTTP_204_NO_CONTENT)
+def restore_post(
+    post_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Un-delete a soft-deleted post."""
+    _require_staff(user)
+
+    post = db.get(Post, post_id)
+    if post is None:
+        raise HTTPException(404, "Post not found.")
+    if post.deleted_at is None:
+        return None  # already visible
+
+    post.deleted_at = None
+    db.commit()
+    return None
