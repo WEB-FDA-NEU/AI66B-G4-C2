@@ -13,7 +13,19 @@
   <link rel="stylesheet" href="./css/extra.css">
 </head>
 
-<body class="home-page">
+<!--
+  data-requires-role="user":
+    - Guests are redirected to /questions.html by the backend middleware
+      in backend/main.py (and again by page-guard.js as defence-in-depth).
+    - Any logged-in user (user / moderator / admin) may view Home.
+-->
+<body class="home-page" data-requires-role="user">
+
+  <!-- Pre-paint theme bootstrap. Must be first child of <body>. -->
+  <script src="./js/theme-boot.js"></script>
+
+  <!-- Page-level role guard. Defence-in-depth companion to the backend. -->
+  <script src="./js/page-guard.js"></script>
 
   <a href="#main" class="v-visible-sr">Skip to main content</a>
 
@@ -29,13 +41,18 @@
     <!-- MAIN CONTENT -->
     <main id="main" class="question-feed fl-grow1" role="main">
 
-      <!-- Greeting card -->
-      <section class="s-card p16 mb24">
+      <!--
+        Greeting card. The h1 carries `data-greeting` — home-greeting.js
+        swaps the text to "Welcome <display_name> to Tech4Rum!" once
+        /api/auth/me resolves. The neutral default below is what
+        renders before the fetch resolves and if the fetch fails.
+      -->
+      <section class="widget p16 mb24">
         <div class="d-flex jc-space-between ai-center g16 fw-wrap">
           <div class="fl-grow1">
-            <h1 class="fs-title fw-bold mb0">
-              Welcome Bùi Đụt to Tech4Rum!
-            </h1>
+            <h1 class="fs-title fw-bold mb0" data-greeting>Welcome to Tech4Rum!</h1>
+          </div>
+        </div>
       </section>
 
       <!-- Recommended questions -->
@@ -43,11 +60,11 @@
         <header class="d-flex fd-column mb16">
           <div class="fs-title fw-bold">Interesting posts for you</div>
           <div class="fs-body1 fc-black-400">
-          Let's solve the troubles you have!!
+            Let's solve the troubles you have!!
           </div>
         </header>
 
-        <!-- Populated by ./js/render-questions.js from ./mock/question-list.json -->
+        <!-- Populated by ./js/render-questions.js from /api/posts?type=question -->
         <div id="question-list" class="question-list"></div>
       </section>
 
@@ -60,7 +77,7 @@
           </div>
         </header>
 
-        <!-- Populated by ./js/pages/discussions.js from ./mock/discussion-list.json -->
+        <!-- Populated by ./js/pages/discussions.js from /api/posts?type=discussion -->
         <div id="discussion-list" class="discussion-list"></div>
       </section>
 
@@ -76,6 +93,11 @@
   <!-- Feed renderers — same scripts used by questions.html and discussions.html -->
   <script src="./js/render-questions.js" defer></script>
   <script src="./js/pages/discussions.js" defer></script>
+
+  <!-- Dynamic greeting — swaps "Welcome to Tech4Rum!" with the logged-in
+       user's display_name once /api/auth/me resolves. Independent of the
+       feeds above; no shared state. -->
+  <script src="./js/home-greeting.js" defer></script>
 
   <script type="module" src="./js/components/site-header.js" defer></script>
   <script type="module" src="./js/components/site-footer.js" defer></script>

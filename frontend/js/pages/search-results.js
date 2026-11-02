@@ -2,9 +2,19 @@
  * search-results.js
  *
  * Renders the /search_result.html page from the live backend.
- *   - Single call: GET /api/posts?q=&sort=&page=&page_size=
- *     (no `type` param → backend returns BOTH questions and discussions)
+ *
+ * Change in this revision:
+ *   - Author avatar + display name in every search result card are now
+ *     clickable links to ./user-profile.html?username=<u>. Previously
+ *     both were `<a href="#">` placeholders.
+ *
+ * Everything else unchanged from the previous version:
+ *   - GET /api/posts?q=&sort=&page=&page_size=&ignore_tags=
  *   - Reads ?q=, ?tab=, ?page= from the URL
+ *   - Applies the user's saved ignored tags from localStorage
+ *     (key: t4r_ignored_tags:<uid> for signed-in users, t4r_ignored_tags
+ *      for guests — same keys the settings page writes to). Ignored
+ *      posts are silently dropped server-side.
  *   - Sort nav refetches from the backend (server-side sort)
  *   - Pagination reads total/page/page_size from the response envelope
  *   - Advanced Search Tips toggle stays client-side
@@ -28,13 +38,18 @@ const SORT_MAP = {
   'newest':    'newest'
 };
 
+const IGNORE_KEY_GUEST = 't4r_ignored_tags';
+const IGNORE_KEY_USER  = (uid) => `t4r_ignored_tags:${uid}`;
+
 const API_BASE = (location.port === '8000' || location.port === '')
   ? '' : 'http://localhost:8000';
 
 const state = {
   query: '',
   sort: 'relevance',
-  page: 1
+  page: 1,
+  uid: null,
+  ignoreTags: []
 };
 
 /* ------------------------------------------------------------------ */
@@ -82,6 +97,11 @@ function makeTagUrl(name) {
   return './tag-detail.html?tag=' + encodeURIComponent(String(name || ''));
 }
 
+function userProfileUrl(username) {
+  if (!username) return '#';
+  return './user-profile.html?username=' + encodeURIComponent(username);
+}
+
 function colorFromString(str) {
   const palette = [
     'bg-orange-300', 'bg-blue-300', 'bg-purple-300', 'bg-green-300',
@@ -91,6 +111,27 @@ function colorFromString(str) {
   let hash = 0;
   for (let i = 0; i < s.length; i++) { hash = ((hash << 5) - hash) + s.charCodeAt(i); hash |= 0; }
   return palette[Math.abs(hash) % palette.length];
+}
+
+/* ------------------------------------------------------------------ */
+/* Ignored tags (shared with settings.js + feed pages)                */
+/* ------------------------------------------------------------------ */
+
+function ignoreKey() {
+  return state.uid != null ? IGNORE_KEY_USER(state.uid) : IGNORE_KEY_GUEST;
+}
+
+function readIgnoredTags() {
+  try {
+    const raw = localStorage.getItem(ignoreKey());
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr)
+      ? arr.filter((t) => typeof t === 'string' && t)
+      : [];
+  } catch (_) {
+    return [];
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -110,14 +151,15 @@ function renderAuthorCard(author, timeIso, action) {
   const letter = name.trim().charAt(0).toUpperCase() || '?';
   const color  = colorFromString(author.username || author.id || '?');
   const rep    = formatCount(author.reputation);
+  const url    = userProfileUrl(author.username);
 
   return `
     <div class="s-user-card">
-      <a href="#" class="s-avatar ${escapeHtml(color)}" aria-hidden="true" tabindex="-1">
+      <a href="${url}" class="s-avatar ${escapeHtml(color)}" aria-label="${escapeHtml(name)}'s profile" tabindex="-1">
         <span class="s-avatar--letter">${escapeHtml(letter)}</span>
       </a>
       <div class="s-user-card--column">
-        <a class="s-user-card--username" href="#">${escapeHtml(name)}</a>
+        <a class="s-user-card--username" href="${url}">${escapeHtml(name)}</a>
         <div class="s-user-card--group">
           <span class="s-user-card--rep">${escapeHtml(rep)}</span>
           <span class="s-user-card--time">${escapeHtml(action || 'asked')} ${escapeHtml(formatRelativeTime(timeIso))}</span>
@@ -226,9 +268,21 @@ function renderLoading(listEl) {
 
 function renderEmpty(listEl) {
   listEl.removeAttribute('aria-busy');
+  const hasIgnored = state.ignoreTags.length > 0;
+  const hasQuery   = !!state.query;
+
+  let hint = '';
+  if (hasQuery && hasIgnored) {
+    hint = ` — some matches may be hidden by your <a class="s-link" href="./settings.html#personalization">ignored tags</a>.`;
+  } else if (hasIgnored) {
+    hint = ` You have ignored tags configured (<a class="s-link" href="./settings.html#personalization">manage</a>).`;
+  }
+
   listEl.innerHTML = `
     <div class="p24 ta-center fc-black-400">
-      No results match <strong>${escapeHtml(state.query || '(empty)')}</strong>.
+      ${hasQuery
+        ? `No results match <strong>${escapeHtml(state.query)}</strong>.${hint}`
+        : `Enter a search term to find questions and discussions.${hint}`}
     </div>`;
 }
 
@@ -347,7 +401,6 @@ function bindSortNav() {
     const tab = a.dataset.sort;
     if (!SORT_MAP[tab]) return;
 
-    // Clone + rebind so repeated calls don't stack listeners.
     const fresh = a.cloneNode(true);
     a.parentNode.replaceChild(fresh, a);
 
@@ -378,6 +431,7 @@ function load() {
   params.set('sort', SORT_MAP[state.sort] || 'votes');
   params.set('page', String(state.page));
   params.set('page_size', String(PAGE_SIZE));
+  if (state.ignoreTags.length) params.set('ignore_tags', state.ignoreTags.join(','));
 
   const url = API_BASE + '/api/posts?' + params.toString();
 
@@ -400,9 +454,10 @@ function load() {
 
       const countEl = document.querySelector('[data-result-count]');
       if (countEl) {
+        const filtered = state.ignoreTags.length > 0 ? ' (ignored tags excluded)' : '';
         countEl.textContent = total === 0
           ? 'No results'
-          : `${total.toLocaleString()} ${plural(total, 'result')}`;
+          : `${total.toLocaleString()} ${plural(total, 'result')}${filtered}`;
       }
 
       renderPagination(totalPages);
@@ -414,6 +469,18 @@ function load() {
       const countEl = document.querySelector('[data-result-count]');
       if (countEl) countEl.textContent = '';
     });
+}
+
+/* ------------------------------------------------------------------ */
+/* Auth (uid for ignore-tags key)                                      */
+/* ------------------------------------------------------------------ */
+
+function fetchMe() {
+  return fetch(API_BASE + '/api/auth/me', {
+    credentials: 'include',
+    headers: { Accept: 'application/json' }
+  }).then((r) => (r.ok ? r.json() : null))
+    .catch(() => null);
 }
 
 /* ------------------------------------------------------------------ */
@@ -430,7 +497,12 @@ function init() {
   readUrlState();
   bindAdvancedTips();
   bindSortNav();
-  load();
+
+  fetchMe().then((user) => {
+    state.uid = user && user.id != null ? user.id : null;
+    state.ignoreTags = readIgnoredTags();
+    load();
+  });
 }
 
 if (document.readyState === 'loading') {

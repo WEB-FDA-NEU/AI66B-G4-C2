@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Edit question — Tech4Rum</title>
+  <title>Edit post — Tech4Rum</title>
 
   <link rel="stylesheet" href="./css/reset.css">
   <link rel="stylesheet" href="./css/tokens.css">
@@ -23,6 +23,8 @@
 
 <body class="theme-light">
 
+  <script src="./js/theme-boot.js"></script>
+
   <a href="#main" class="v-visible-sr">Skip to main content</a>
 
   <!-- ================= TOP BAR ================= -->
@@ -32,8 +34,13 @@
   <div class="ask-hero">
     <div class="ask-hero__inner d-flex ai-center g16">
       <div class="fl-grow1">
-        <span class="question-badge mb8">Question</span>
-        <h1 class="fs-headline1 fw-normal mb0">Edit question</h1>
+        <!--
+          The badge + H1 start in their "question" defaults.
+          updateTypeAwareLabels() in edit-question-page.js swaps them
+          based on the post's real `post_type` once /api/posts/{id} resolves.
+        -->
+        <span id="edit-type-badge" class="question-badge mb8">Question</span>
+        <h1 id="edit-heading" class="fs-headline1 fw-normal mb0">Edit question</h1>
       </div>
       <svg class="ask-hero__illustration d-none md:d-block" width="120" height="78"
            viewBox="0 0 120 78" aria-hidden="true">
@@ -65,7 +72,7 @@
         <svg class="svg-icon" aria-hidden="true" width="16" height="16" viewBox="0 0 16 16">
           <path d="M8 1a7 7 0 1 1 0 14A7 7 0 0 1 8 1Zm0 1.2a5.8 5.8 0 1 0 0 11.6A5.8 5.8 0 0 0 8 2.2ZM7.4 11h1.2v1.2H7.4V11Zm0-6.4h1.2v5H7.4v-5Z"/>
         </svg>
-        <span id="edit-context-text">Loading question…</span>
+        <span id="edit-context-text">Loading post…</span>
       </div>
 
       <form class="s-form-group edit-form is-loading" id="edit-form"
@@ -87,7 +94,9 @@
 
         <!-- ===== Body ===== -->
         <div class="s-form-group">
-          <label class="s-label" for="answer-body">What are the details of your problem?</label>
+          <label class="s-label" id="body-label" for="answer-body">
+            What are the details of your problem?
+          </label>
           <div class="s-description">
             Introduce the problem and expand on what you put in the title. Minimum 20 characters.
             Markdown, <code>$LaTeX$</code>, and fenced code blocks are supported.
@@ -109,7 +118,7 @@
               <button class="tool-btn" type="button" id="preview-toggle">Preview</button>
             </div>
 
-            <label class="v-visible-sr" for="answer-body">Question body</label>
+            <label class="v-visible-sr" for="answer-body">Post body</label>
             <textarea id="answer-body" name="body" class="s-textarea" rows="14"
                       placeholder="Describe the problem, what you've tried, and what you expected to happen…"></textarea>
 
@@ -131,17 +140,43 @@
         <div class="s-form-group">
           <label class="s-label" for="tag-input">Tags</label>
           <div class="s-description">
-            Add up to 5 tags to describe what your question is about. Press <kbd>Enter</kbd> or <kbd>,</kbd> to add.
+            Add up to 5 tags to describe what your post is about. Press <kbd>Enter</kbd> or <kbd>,</kbd> to add.
           </div>
 
-          <div class="tag-editor" id="tag-editor">
-            <input id="tag-input" type="text" placeholder="e.g. rust" autocomplete="off"
-                   aria-label="Add a tag">
+          <div class="ps-relative">
+            <div class="tag-editor" id="tag-editor">
+              <input id="tag-input" type="text" placeholder="e.g. rust" autocomplete="off"
+                     aria-label="Add a tag">
+            </div>
+
+            <!-- Tag autocomplete popover (filled by bindTagSuggestions) -->
+            <div id="tag-suggestions"
+                 class="ps-absolute t100 l0 r0 mt4 z-popover bg-white bc-medium ba bar-md bs-md p8 d-none"
+                 role="listbox"
+                 aria-label="Tag suggestions">
+              <ul id="tag-suggestions-list" class="s-menu"></ul>
+            </div>
           </div>
 
           <div class="s-input-message fc-black-400">
             <span id="tag-count" class="fw-bold">0</span> / 5 tags
           </div>
+        </div>
+
+        <!-- ===== Similar posts (soft dedup, filled by post-similar.js) ===== -->
+        <div id="similar-questions-block"
+             class="similar-questions"
+             role="status"
+             aria-live="polite"
+             hidden>
+          <h4>
+            <svg class="svg-icon va-text-bottom mr4" aria-hidden="true"
+                 width="14" height="14" viewBox="0 0 14 14">
+              <path d="M7 1a6 6 0 1 1 0 12A6 6 0 0 1 7 1Zm0 1.2a4.8 4.8 0 1 0 0 9.6 4.8 4.8 0 0 0 0-9.6ZM6.4 8.6h1.2V10H6.4V8.6Zm0-4.6h1.2v3.6H6.4V4Z"/>
+            </svg>
+            <span data-similar-heading>Questions that may already have your answer</span>
+          </h4>
+          <ul id="similar-questions-list"></ul>
         </div>
 
         <!-- ===== Edit summary ===== -->
@@ -255,58 +290,17 @@
   <script type="module" src="./js/components/site-footer.js"></script>
   <script type="module" src="./js/components/site-sidebar.js"></script>
 
-  <!-- =========================================================
-       Load the right question by ?id= and hand it to the editor
-       ========================================================= -->
-  <script type="module">
-    import { initEditQuestionPage } from './js/edit-question-page.js';
-
-    const QUESTIONS_URL = './mock/question-list.json';
-
-    async function loadQuestionForEdit() {
-      const params = new URLSearchParams(location.search);
-      const idParam = params.get('id');
-
-      const res = await fetch(QUESTIONS_URL, { cache: 'no-store' });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const list = await res.json();
-      const items = Array.isArray(list) ? list : [];
-
-      if (!items.length) throw new Error('No questions available');
-
-      if (idParam) {
-        const found = items.find(function (q) {
-          return String(q.id) === String(idParam);
-        });
-        if (found) return found;
-        console.warn('[edit-question] id=' + idParam + ' not found — falling back to first');
-      }
-
-      return items[0];
-    }
-
-    try {
-      const data = await loadQuestionForEdit();
-      await initEditQuestionPage({
-        data,
-        onSave: async function (payload) {
-          console.info('[edit-question] save payload', payload);
-        },
-        onDelete: async function () {
-          console.info('[edit-question] delete confirmed');
-        }
-      });
-    } catch (err) {
-      console.error('[edit-question] Failed to load:', err);
-      const ctx = document.getElementById('edit-context-text');
-      if (ctx) {
-        ctx.innerHTML =
-          '<span class="fc-red-400">Could not load the question: ' +
-          String(err.message || err) +
-          '</span>';
-      }
-    }
-  </script>
+  <!--
+    Page bootstrap. `edit-question-page.js` self-initialises when
+    `#edit-form` is present AND `?id=<n>` is in the URL. It:
+      - loads the post via GET /api/posts/{id}
+      - swaps the type badge / H1 / body label from the post_type
+      - wires tag suggestions + soft-dedup panel (excludes this post)
+      - submits via PATCH /api/posts/{id}
+      - deletes via DELETE /api/posts/{id}
+    No inline script needed.
+  -->
+  <script type="module" src="./js/edit-question-page.js"></script>
 
 </body>
 </html>

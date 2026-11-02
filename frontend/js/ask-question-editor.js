@@ -1,12 +1,17 @@
 /**
  * ask-question-editor.js
  *
- * Wires up the "Ask Question" form:
+ * Wires up the "Ask Question" / "Create discussion" / "Edit post" forms:
  *   - character counters for the title and body
  *   - markdown preview toggle
  *   - toolbar buttons that wrap/prefix the current selection
  *   - Tab inserts two spaces in the textarea
  *   - tag editor (add / remove / cap at MAX_TAGS)
+ *   - tag suggestions (auto-complete from /api/tags?q=)
+ *
+ * Tag changes dispatch a bubbling `tag:change` CustomEvent on the
+ * tag editor, so siblings (e.g. post-similar.js) can react without
+ * tight coupling.
  *
  * Usage:
  *   import { initAskQuestionEditor } from './js/ask-question-editor.js';
@@ -24,6 +29,10 @@ export const MAX_TAGS = 5;
 
 const TAG_PATTERN = /^[a-z0-9][a-z0-9+.#-]*$/i;
 const TAG_MAX_LENGTH = 35;
+
+const API_BASE = (typeof location !== 'undefined' &&
+                  (location.port === '8000' || location.port === ''))
+  ? '' : 'http://localhost:8000';
 
 /** Toolbar insertion specs. `line` prefixes, `before`/`after` wrap. */
 export const INSERTIONS = {
@@ -49,6 +58,16 @@ function escapeHtml(str) {
     '"': '&quot;',
     "'": '&#39;'
   }[c]));
+}
+
+function debounce(fn, wait) {
+  let timer = null;
+  const wrapped = (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), wait);
+  };
+  wrapped.cancel = () => { clearTimeout(timer); timer = null; };
+  return wrapped;
 }
 
 /* ------------------------------------------------------------------ */
@@ -252,6 +271,8 @@ export function removeTag(el) {
  *   - clicking the container focuses the input
  *   - clicking a dismiss button removes its tag
  *   - `onChange` is called whenever the tag list changes
+ *   - a `tag:change` CustomEvent bubbles up from the tag editor so
+ *     siblings (e.g. post-similar.js) can listen without a callback
  *
  * Returns a cleanup function.
  */
@@ -263,7 +284,14 @@ export function bindTagEditor({
 } = {}) {
   if (!tagEditor || !tagInput) return () => {};
 
-  const notify = () => { if (onChange) onChange(currentTags(tagEditor)); };
+  const notify = () => {
+    const tags = currentTags(tagEditor);
+    if (onChange) onChange(tags);
+    tagEditor.dispatchEvent(new CustomEvent('tag:change', {
+      bubbles: true,
+      detail: { tags }
+    }));
+  };
 
   const commit = (raw) => {
     const added = addTag(tagEditor, tagInput, raw, { maxTags });
@@ -314,12 +342,152 @@ export function bindTagEditor({
 }
 
 /* ------------------------------------------------------------------ */
+/* Tag suggestions                                                     */
+/* ------------------------------------------------------------------ */
+
+async function fetchTagSuggestions(query, excludeSet) {
+  if (!query) return [];
+  try {
+    const url = API_BASE + '/api/tags?q=' + encodeURIComponent(query) +
+                '&sort=popular&page_size=8';
+    const res = await fetch(url, {
+      credentials: 'include',
+      headers: { Accept: 'application/json' }
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const items = Array.isArray(data.items) ? data.items : [];
+    return items
+      .filter((t) => t && t.name &&
+                     !excludeSet.has(String(t.name).toLowerCase()))
+      .slice(0, 8);
+  } catch (_) {
+    return [];
+  }
+}
+
+function renderSuggestionItems(listEl, tags, onPick) {
+  if (!tags.length) {
+    listEl.innerHTML = '';
+    return false;
+  }
+
+  listEl.innerHTML = tags.map((t) => {
+    const name = String(t.name || '');
+    const count = Number(t.post_count) || 0;
+    return `
+      <li role="option">
+        <button type="button"
+                class="s-menu--action w100"
+                data-tag="${escapeHtml(name)}">
+          <span class="fl-grow1 ta-left">${escapeHtml(name)}</span>
+          <span class="fc-black-400 fs-fine">${count.toLocaleString()}</span>
+        </button>
+      </li>`;
+  }).join('');
+
+  listEl.querySelectorAll('[data-tag]').forEach((btn) => {
+    // Use mousedown so the pick fires before the input's blur commits
+    // a partial value.
+    btn.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      onPick(btn.dataset.tag);
+    });
+  });
+
+  return true;
+}
+
+/**
+ * Bind auto-complete on the tag input.
+ *
+ * Requires the HTML to provide:
+ *   - `suggestionsEl`   — the outer popover wrapper (toggled via `.d-none`)
+ *   - `suggestionsList` — the `<ul class="s-menu">` to fill
+ *
+ * The HTML is responsible for positioning (`ps-relative` on parent,
+ * `ps-absolute t100 l0 r0` on the popover).
+ *
+ * Returns a cleanup function.
+ */
+export function bindTagSuggestions({
+  tagEditor,
+  tagInput,
+  suggestionsEl,
+  suggestionsList,
+  maxTags = MAX_TAGS
+} = {}) {
+  if (!tagInput || !suggestionsEl || !suggestionsList) return () => {};
+
+  let activeFetch = 0;
+
+  const close = () => suggestionsEl.classList.add('d-none');
+  const open  = () => suggestionsEl.classList.remove('d-none');
+
+  const runFetch = debounce(async () => {
+    const q = tagInput.value.trim();
+
+    if (!q || currentTags(tagEditor).length >= maxTags) {
+      close();
+      return;
+    }
+
+    const myFetch = ++activeFetch;
+    const excludeSet = new Set(
+      currentTags(tagEditor).map((t) => t.toLowerCase())
+    );
+
+    const tags = await fetchTagSuggestions(q, excludeSet);
+    if (myFetch !== activeFetch) return;   // superseded by a newer request
+
+    const populated = renderSuggestionItems(suggestionsList, tags, (name) => {
+      const added = addTag(tagEditor, tagInput, name, { maxTags });
+      tagInput.value = '';
+      close();
+      if (added) {
+        tagEditor.dispatchEvent(new CustomEvent('tag:change', {
+          bubbles: true,
+          detail: { tags: currentTags(tagEditor) }
+        }));
+      }
+      tagInput.focus();
+    });
+
+    populated ? open() : close();
+  }, 250);
+
+  const onInput = () => runFetch();
+  const onFocus = () => { if (tagInput.value.trim()) runFetch(); };
+  const onKeydown = (e) => { if (e.key === 'Escape') close(); };
+  const onDocClick = (e) => {
+    if (suggestionsEl.contains(e.target) || e.target === tagInput) return;
+    close();
+  };
+
+  tagInput.addEventListener('input', onInput);
+  tagInput.addEventListener('focus', onFocus);
+  tagInput.addEventListener('keydown', onKeydown);
+  document.addEventListener('click', onDocClick);
+
+  return () => {
+    tagInput.removeEventListener('input', onInput);
+    tagInput.removeEventListener('focus', onFocus);
+    tagInput.removeEventListener('keydown', onKeydown);
+    document.removeEventListener('click', onDocClick);
+    runFetch.cancel();
+  };
+}
+
+/* ------------------------------------------------------------------ */
 /* Bootstrap                                                           */
 /* ------------------------------------------------------------------ */
 
 /**
  * Initialize the whole editor. Pass elements explicitly or let it look
  * them up by id/class from the document.
+ *
+ * `tagSuggestionsEl` / `tagSuggestionsList` are optional — when both
+ * are present in the DOM, auto-complete is wired automatically.
  *
  * Returns { destroy, getTags, setTags } — `destroy()` unbinds every
  * listener; the getters are handy for form submission.
@@ -335,6 +503,8 @@ export function initAskQuestionEditor({
   tagEditor    = document.getElementById('tag-editor'),
   tagInput     = document.getElementById('tag-input'),
   tagCount     = document.getElementById('tag-count'),
+  tagSuggestionsEl   = document.getElementById('tag-suggestions'),
+  tagSuggestionsList = document.getElementById('tag-suggestions-list'),
   maxTags      = MAX_TAGS
 } = {}) {
   const teardown = [];
@@ -371,6 +541,17 @@ export function initAskQuestionEditor({
   }));
   updateTagCount();
 
+  // Tag suggestions (optional — only when HTML provides the containers)
+  if (tagSuggestionsEl && tagSuggestionsList) {
+    teardown.push(bindTagSuggestions({
+      tagEditor,
+      tagInput,
+      suggestionsEl: tagSuggestionsEl,
+      suggestionsList: tagSuggestionsList,
+      maxTags
+    }));
+  }
+
   return {
     /** Remove all listeners. Safe to call more than once. */
     destroy() {
@@ -392,13 +573,6 @@ export function initAskQuestionEditor({
   };
 }
 
-/* Auto-bootstrap when loaded directly (no explicit init). */
-// if (document.readyState === 'loading') {
-//   document.addEventListener('DOMContentLoaded', () => { initAskQuestionEditor(); }, { once: true });
-// } else {
-//   initAskQuestionEditor();
-// }
-
 export default {
   initAskQuestionEditor,
   bindCounter,
@@ -406,6 +580,7 @@ export default {
   bindToolbar,
   bindTabInsert,
   bindTagEditor,
+  bindTagSuggestions,
   applyInsertion,
   addTag,
   removeTag,

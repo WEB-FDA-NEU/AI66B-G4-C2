@@ -5,17 +5,28 @@
 //    - On mount, calls GET /api/auth/me with credentials:'include'.
 //    - 200 → renders user chip (letter avatar derived from display_name).
 //    - 401 → renders Log in / Sign up.
-//    - Logout calls POST /api/auth/logout then reloads home.
+//    - Logout calls POST /api/auth/logout then reloads public landing.
+//
+//  Logo target (as of this fix):
+//    - Default href: ./questions.html  (public landing — safe for guests)
+//    - Upgraded to ./index.html when a logged-in user is confirmed
+//    - Cached role from sessionStorage is applied immediately on mount,
+//      so on repeat visits the correct target renders from frame 1
+//      (no flash of the wrong href before /me resolves)
+//
+//    This matches the backend middleware in main.py, which serves
+//    ./questions.html to guests hitting Home and ../index.html to
+//    logged-in users. The logo always points to a page the current
+//    viewer can actually access, so clicking it never produces an
+//    unexpected redirect.
 //
 //  Theme flow:
-//    - Before /me resolves, applies the guest theme (default: light).
-//    - After /me resolves, applies the per-user theme stored under
-//      localStorage key `t4r_theme:<user.id>` — so each account keeps
-//      its own Light/Dark preference across pages, sessions, and
-//      username changes.
-//
-//  No localStorage for auth. No `is-logged-in` attribute dependency
-//  (still tolerated in HTML for backward compat, ignored here).
+//    - theme-boot.js applies the correct theme pre-paint; this
+//      component's _applyStoredTheme is an idempotent re-apply and
+//      a fallback for pages that forgot to load theme-boot.js.
+//    - After /me resolves, applies the per-user theme from
+//      localStorage 't4r_theme:<user.id>' and mirrors to 't4r_theme'
+//      for theme-boot.js's next pre-paint read.
 // ============================================================
 
 const SEARCH_URL = './search_result.html';
@@ -25,12 +36,20 @@ const API_BASE = (typeof location !== 'undefined' &&
   ? ''
   : 'http://localhost:8000';
 
-const THEME_GUEST_KEY = 't4r_theme';
-const THEME_USER_KEY  = (uid) => `t4r_theme:${uid}`;
+const THEME_GUEST_KEY = 't4r_theme';        // device-wide mirror (read by theme-boot.js)
+const THEME_USER_KEY  = (uid) => `t4r_theme:${uid}`;  // per-user source of truth
+
+// Same key as site-sidebar.js — the role cache is shared so both
+// components make consistent decisions on the first paint of every
+// page load.
+const ROLE_CACHE_KEY = 't4r_role';
+
+const LOGO_HREF_GUEST = './questions.html';   // public landing
+const LOGO_HREF_USER  = './index.html';       // personalized home
 
 const TEMPLATE = /* html */ `
 <header class="site-header">
-  <a class="site-logo" href="./index.html" aria-label="Tech4Rum home">
+  <a class="site-logo" href="${LOGO_HREF_GUEST}" aria-label="Tech4Rum home" data-logo-link>
      <img src="./img/Tech4Rum_logo.png" alt="Tech4Rum" class="h48" data-logo />
   </a>
 
@@ -110,17 +129,45 @@ function authUserHtml(user) {
 const LOGO_LIGHT = './img/Tech4Rum_logo.png';
 const LOGO_DARK  = './img/Tech4Rum_dark_logo.png';
 
+/* ---------- Role cache (shared with site-sidebar.js) ---------- */
+
+function readCachedRole() {
+  try {
+    const v = sessionStorage.getItem(ROLE_CACHE_KEY);
+    return (v === 'guest' || v === 'user' ||
+            v === 'moderator' || v === 'admin') ? v : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function writeCachedRole(role) {
+  try { sessionStorage.setItem(ROLE_CACHE_KEY, role); } catch (_) {}
+}
+
 class SiteHeader extends HTMLElement {
   connectedCallback() {
     this.innerHTML = TEMPLATE;
     this.classList.add('d-block', 'ps-sticky', 't0', 'z-nav');
 
-    // 1. Apply the guest theme immediately — before /me resolves.
-    //    This avoids a flash of the wrong palette and resets any
-    //    leftover theme from a previous session on this browser.
+    // 0. Logo target — apply cached role immediately so repeat visits
+    //    render the correct href from frame 1. Guests default to the
+    //    public landing page; /me will upgrade to Home if logged in.
+    const cachedRole = readCachedRole();
+    this._updateLogoHref(
+      cachedRole === 'user' || cachedRole === 'moderator' || cachedRole === 'admin'
+        ? LOGO_HREF_USER
+        : LOGO_HREF_GUEST
+    );
+
+    // 1. Re-apply the guest theme immediately. Idempotent with
+    //    theme-boot.js (which already painted the correct class
+    //    before the first frame) — this call covers pages that
+    //    forgot to load theme-boot.js, and resets any leftover
+    //    theme from a previous session in this browser.
     this._applyStoredTheme(null);
 
-    // 2. Swap logo on theme change (both guest and user states).
+    // 2. Swap logo image on theme change (both guest and user states).
     const logo = this.querySelector('[data-logo]');
     const syncLogo = () => {
       const dark = document.body.classList.contains('theme-dark');
@@ -139,13 +186,28 @@ class SiteHeader extends HTMLElement {
   }
 
   /**
+   * Point the logo at the correct target for the current viewer.
+   * Called with the cached role on mount, and again with the
+   * authoritative role after /me resolves.
+   */
+  _updateLogoHref(href) {
+    const link = this.querySelector('[data-logo-link]');
+    if (link && link.getAttribute('href') !== href) {
+      link.setAttribute('href', href);
+    }
+  }
+
+  /**
    * Apply the correct theme class on <body>.
    *
-   * - Called with `null` in connectedCallback → uses the guest key
-   *   (`t4r_theme`), defaulting to light. That way a signed-out visitor
-   *   never inherits the previous user's dark mode.
-   * - Called with a `userId` after /me resolves → uses the per-user key
-   *   `t4r_theme:<id>`, falling back to the guest key, then light.
+   * - Called with `null` → uses the device mirror (`t4r_theme`),
+   *   defaulting to light. Never writes the mirror (that would
+   *   overwrite the last confirmed theme with a guess).
+   *
+   * - Called with a `userId` → uses the per-user key
+   *   `t4r_theme:<id>`, falling back to the device mirror, then
+   *   light. Mirrors the resolved value back to the device key so
+   *   theme-boot.js's next pre-paint read paints the right thing.
    */
   _applyStoredTheme(userId) {
     let pref = null;
@@ -161,6 +223,14 @@ class SiteHeader extends HTMLElement {
     const dark = pref === 'dark';
     document.body.classList.toggle('theme-dark', dark);
     document.body.classList.toggle('theme-light', !dark);
+
+    if (userId != null) {
+      try {
+        localStorage.setItem(THEME_GUEST_KEY, dark ? 'dark' : 'light');
+      } catch (_) {
+        // localStorage disabled — boot script will fall back to light.
+      }
+    }
   }
 
   async _loadCurrentUser() {
@@ -182,14 +252,31 @@ class SiteHeader extends HTMLElement {
         slot.innerHTML = authUserHtml(user);
         this.setAttribute('is-logged-in', 'true');
         this._wireLogout();
-        // Apply the user's own stored theme now that we know who they are.
+
+        // Update the logo target for a confirmed logged-in user.
+        this._updateLogoHref(LOGO_HREF_USER);
+
+        // Cache the authoritative role for the next page's sidebar
+        // and header. Normalise unknown values to "user".
+        const rawRole = String(user.role || 'user').toLowerCase();
+        const role = (rawRole === 'moderator' || rawRole === 'admin')
+          ? rawRole
+          : 'user';
+        writeCachedRole(role);
+
+        // Apply the user's own stored theme now that we know who they
+        // are, and mirror it to the device key for the next page.
         this._applyStoredTheme(user.id);
       } else {
+        // 401 / 403 / 5xx — treat as guest.
         this.setAttribute('is-logged-in', 'false');
+        this._updateLogoHref(LOGO_HREF_GUEST);
+        writeCachedRole('guest');
       }
     } catch (_) {
-      // Network error — stay as guest, keep guest theme.
+      // Network error — stay as guest, keep the guest logo target.
       this.setAttribute('is-logged-in', 'false');
+      this._updateLogoHref(LOGO_HREF_GUEST);
     }
   }
 
@@ -204,7 +291,15 @@ class SiteHeader extends HTMLElement {
           credentials: 'include',
         });
       } catch (_) { /* clear locally regardless */ }
-      window.location.href = './index.html';
+
+      // Invalidate the cached role so the next page paints as guest
+      // (sidebar hides Home/Admin, logo points to questions.html).
+      writeCachedRole('guest');
+
+      // Redirect to the public landing page, not Home. Home is
+      // role-guarded server-side, so a guest would just bounce
+      // back here anyway.
+      window.location.href = LOGO_HREF_GUEST;
     });
   }
 

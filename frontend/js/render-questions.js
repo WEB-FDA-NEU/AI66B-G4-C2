@@ -1,6 +1,26 @@
 /* render-questions.js
- * Fetches /api/posts?type=question and renders the feed.
- * Wires sort nav, real count, and pagination.
+ * Question feed for questions.html AND the home page (index.html).
+ *
+ * Change in this revision:
+ *   - Author avatar + display name are now clickable links to
+ *     ./user-profile.html?username=<u>. Previously both were <a href="#">
+ *     placeholders that did nothing.
+ *
+ * Everything else unchanged from the previous version:
+ *   - sort nav          (Trending / Newest / Most upvotes / Most views)
+ *   - Custom Filters    (Unanswered checkbox, Include tags, Ignore tags)
+ *   - pagination
+ *   - ignored-tags      (persisted to localStorage under the same key
+ *                        settings.js uses, so the two surfaces stay in sync)
+ *
+ * Backend contract used:
+ *   GET /api/posts?type=question
+ *     & q=<text>
+ *     & sort=<newest|active|votes|views>
+ *     & tag=<t1,t2,...>          include (multi, OR)
+ *     & ignore_tags=<t1,t2,...>  exclude (multi)
+ *     & unanswered=true
+ *     & page=<n>&page_size=<n>
  */
 (function () {
   'use strict';
@@ -10,7 +30,6 @@
   var API_BASE  = (location.port === '8000' || location.port === '')
     ? '' : 'http://localhost:8000';
 
-  // URL slug → backend sort key
   var SORT_MAP = {
     'trending':     'active',
     'newest':       'newest',
@@ -18,12 +37,27 @@
     'most views':   'views'
   };
 
+  var TAG_PATTERN = /^[a-z0-9][a-z0-9+.#-]*$/i;
+  var TAG_MAX_LENGTH = 35;
+  var MAX_INCLUDE = 10;
+
+  var IGNORE_KEY_GUEST = 't4r_ignored_tags';
+  var IGNORE_KEY_USER  = function (uid) { return 't4r_ignored_tags:' + uid; };
+
   var listEl = document.getElementById(LIST_ID);
   if (!listEl) return;
 
-  var state = { page: 1, sort: 'active', sortLabel: 'trending' };
+  var state = {
+    page: 1,
+    sort: 'active',
+    sortLabel: 'trending',
+    unanswered: false,
+    includeTags: [],
+    ignoreTags: [],
+    uid: null
+  };
 
-  /* ---------- helpers ---------- */
+  /* ---------- tiny helpers ---------- */
 
   function escapeHtml(v) {
     return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
@@ -76,9 +110,215 @@
     return './tag-detail.html?tag=' + encodeURIComponent(String(name || ''));
   }
 
+  function userProfileUrl(username) {
+    if (!username) return '#';
+    return './user-profile.html?username=' + encodeURIComponent(username);
+  }
+
   function questionHref(id) { return './question-detail.html?id=' + encodeURIComponent(id); }
 
-  /* ---------- author card (avatar derived client-side) ---------- */
+  function normalizeTag(raw) {
+    var t = String(raw == null ? '' : raw).trim().toLowerCase();
+    if (!t) return null;
+    if (t.length > TAG_MAX_LENGTH) return null;
+    if (!TAG_PATTERN.test(t)) return null;
+    return t;
+  }
+
+  /* ---------- ignore-tags persistence (shared with settings.js) ---------- */
+
+  function ignoreKey() {
+    return state.uid ? IGNORE_KEY_USER(state.uid) : IGNORE_KEY_GUEST;
+  }
+
+  function readIgnoredTags() {
+    try {
+      var raw = localStorage.getItem(ignoreKey());
+      if (!raw) return [];
+      var arr = JSON.parse(raw);
+      return Array.isArray(arr)
+        ? arr.filter(function (t) { return typeof t === 'string' && t; })
+        : [];
+    } catch (_) { return []; }
+  }
+
+  function writeIgnoredTags(tags) {
+    try { localStorage.setItem(ignoreKey(), JSON.stringify(tags)); } catch (_) {}
+  }
+
+  /* ---------- Custom Filters sidebar ---------- */
+
+  function findFilterSection(labelText) {
+    var labels = document.querySelectorAll('.widget .s-label__sm');
+    for (var i = 0; i < labels.length; i++) {
+      if ((labels[i].textContent || '').trim().toLowerCase() === labelText.toLowerCase()) {
+        return labels[i].closest('.d-flex.fd-column.g6');
+      }
+    }
+    return null;
+  }
+
+  function renderChips(container, tags, variant) {
+    if (!container) return;
+    var ignoredClass = variant === 'ignored' ? ' s-tag__ignored' : '';
+    container.innerHTML = (tags || []).map(function (tag) {
+      return '<span class="s-tag' + ignoredClass + '" data-tag="' + escapeHtml(tag) + '">'
+        + escapeHtml(tag)
+        + '<button type="button" class="s-tag--dismiss" aria-label="Remove tag ' + escapeHtml(tag) + '">×</button>'
+        + '</span>';
+    }).join('');
+  }
+
+  function addIncludeTag(raw) {
+    var t = normalizeTag(raw);
+    if (!t) return false;
+    if (state.includeTags.indexOf(t) !== -1) return false;
+    if (state.includeTags.length >= MAX_INCLUDE) return false;
+    if (state.ignoreTags.indexOf(t) !== -1) return false; // conflicting
+    state.includeTags.push(t);
+    return true;
+  }
+
+  function removeIncludeTag(t) {
+    var i = state.includeTags.indexOf(t);
+    if (i === -1) return false;
+    state.includeTags.splice(i, 1);
+    return true;
+  }
+
+  function addIgnoreTag(raw) {
+    var t = normalizeTag(raw);
+    if (!t) return false;
+    if (state.ignoreTags.indexOf(t) !== -1) return false;
+    removeIncludeTag(t);
+    state.ignoreTags.push(t);
+    writeIgnoredTags(state.ignoreTags);
+    return true;
+  }
+
+  function removeIgnoreTag(t) {
+    var i = state.ignoreTags.indexOf(t);
+    if (i === -1) return false;
+    state.ignoreTags.splice(i, 1);
+    writeIgnoredTags(state.ignoreTags);
+    return true;
+  }
+
+  function wireCustomFilters() {
+    var unansweredBox = document.querySelector('.widget .s-checkbox input[type="checkbox"]');
+    if (unansweredBox) {
+      unansweredBox.checked = state.unanswered;
+      unansweredBox.addEventListener('change', function () {
+        state.unanswered = unansweredBox.checked;
+        state.page = 1;
+        updateUrl();
+        load();
+      });
+    }
+
+    var includeSection = findFilterSection('Include tags');
+    var ignoreSection  = findFilterSection('Ignore tags');
+
+    var includeChips = includeSection && includeSection.querySelector('.d-flex.fw-wrap.g4');
+    var includeInput = includeSection && includeSection.querySelector('input.s-input__sm');
+    var ignoreChips  = ignoreSection  && ignoreSection.querySelector('.d-flex.fw-wrap.g4');
+    var ignoreInput  = ignoreSection  && ignoreSection.querySelector('input.s-input__sm');
+
+    renderChips(includeChips, state.includeTags, 'include');
+    renderChips(ignoreChips,  state.ignoreTags,  'ignored');
+
+    if (includeInput) {
+      var onIncludeKey = function (e) {
+        if (e.key !== 'Enter' && e.key !== ',') return;
+        e.preventDefault();
+        if (addIncludeTag(includeInput.value)) {
+          includeInput.value = '';
+          renderChips(includeChips, state.includeTags, 'include');
+          state.page = 1;
+          updateUrl();
+          load();
+        } else {
+          includeInput.value = '';
+        }
+      };
+      includeInput.addEventListener('keydown', onIncludeKey);
+      includeInput.addEventListener('blur', function () {
+        if (!includeInput.value.trim()) return;
+        if (addIncludeTag(includeInput.value)) {
+          includeInput.value = '';
+          renderChips(includeChips, state.includeTags, 'include');
+          state.page = 1;
+          updateUrl();
+          load();
+        } else {
+          includeInput.value = '';
+        }
+      });
+    }
+
+    if (ignoreInput) {
+      var onIgnoreKey = function (e) {
+        if (e.key !== 'Enter' && e.key !== ',') return;
+        e.preventDefault();
+        if (addIgnoreTag(ignoreInput.value)) {
+          ignoreInput.value = '';
+          renderChips(includeChips, state.includeTags, 'include');
+          renderChips(ignoreChips,  state.ignoreTags,  'ignored');
+          state.page = 1;
+          updateUrl();
+          load();
+        } else {
+          ignoreInput.value = '';
+        }
+      };
+      ignoreInput.addEventListener('keydown', onIgnoreKey);
+      ignoreInput.addEventListener('blur', function () {
+        if (!ignoreInput.value.trim()) return;
+        if (addIgnoreTag(ignoreInput.value)) {
+          ignoreInput.value = '';
+          renderChips(includeChips, state.includeTags, 'include');
+          renderChips(ignoreChips,  state.ignoreTags,  'ignored');
+          state.page = 1;
+          updateUrl();
+          load();
+        } else {
+          ignoreInput.value = '';
+        }
+      });
+    }
+
+    if (includeChips) {
+      includeChips.addEventListener('click', function (e) {
+        var btn = e.target.closest('.s-tag--dismiss');
+        if (!btn) return;
+        var chip = btn.closest('.s-tag');
+        if (!chip) return;
+        if (removeIncludeTag(chip.dataset.tag)) {
+          renderChips(includeChips, state.includeTags, 'include');
+          state.page = 1;
+          updateUrl();
+          load();
+        }
+      });
+    }
+
+    if (ignoreChips) {
+      ignoreChips.addEventListener('click', function (e) {
+        var btn = e.target.closest('.s-tag--dismiss');
+        if (!btn) return;
+        var chip = btn.closest('.s-tag');
+        if (!chip) return;
+        if (removeIgnoreTag(chip.dataset.tag)) {
+          renderChips(ignoreChips, state.ignoreTags, 'ignored');
+          state.page = 1;
+          updateUrl();
+          load();
+        }
+      });
+    }
+  }
+
+  /* ---------- author card (avatar + name clickable) ---------- */
 
   function renderAuthorCard(author, timeIso) {
     author = author || {};
@@ -86,14 +326,15 @@
     var letter = name.trim().charAt(0).toUpperCase() || '?';
     var color  = colorFromString(author.username || author.id || '?');
     var rep    = formatCount(author.reputation);
+    var url    = userProfileUrl(author.username);
 
     return [
       '<div class="s-user-card">',
-        '<a href="#" class="s-avatar ' + escapeHtml(color) + '" aria-hidden="true" tabindex="-1">',
+        '<a href="' + url + '" class="s-avatar ' + escapeHtml(color) + '" aria-label="' + escapeHtml(name) + '\'s profile" tabindex="-1">',
           '<span class="s-avatar--letter">' + escapeHtml(letter) + '</span>',
         '</a>',
         '<div class="s-user-card--column">',
-          '<a class="s-user-card--username" href="#">' + escapeHtml(name) + '</a>',
+          '<a class="s-user-card--username" href="' + url + '">' + escapeHtml(name) + '</a>',
           '<div class="s-user-card--group">',
             '<span class="s-user-card--rep">' + escapeHtml(rep) + '</span>',
             '<span class="s-user-card--time">asked ' + escapeHtml(formatRelativeTime(timeIso)) + '</span>',
@@ -163,13 +404,35 @@
   }
 
   function renderEmpty() {
+    var hasFilters = state.includeTags.length > 0 || state.unanswered;
     listEl.innerHTML = [
       '<div class="s-empty-state py48">',
-        '<div class="s-empty-state--title">No questions yet</div>',
-        '<p>Be the first to ask something interesting.</p>',
-        '<a class="s-btn" href="./ask-question.html">Ask Question</a>',
+        '<div class="s-empty-state--title">No questions match</div>',
+        '<p>' + (hasFilters
+          ? 'Try clearing some filters or adding a different tag.'
+          : 'Be the first to ask something interesting.') + '</p>',
+        hasFilters
+          ? '<button class="s-btn s-btn__clear" type="button" id="clear-filters">Clear filters</button>'
+          : '<a class="s-btn" href="./ask-question.html">Ask Question</a>',
       '</div>'
     ].join('');
+
+    var clearBtn = document.getElementById('clear-filters');
+    if (clearBtn) {
+      clearBtn.addEventListener('click', function () {
+        state.includeTags = [];
+        state.unanswered = false;
+        state.page = 1;
+        renderChips(
+          document.querySelector('.widget .d-flex.fw-wrap.g4'),
+          state.includeTags, 'include'
+        );
+        var uBox = document.querySelector('.widget .s-checkbox input[type="checkbox"]');
+        if (uBox) uBox.checked = false;
+        updateUrl();
+        load();
+      });
+    }
   }
 
   function renderError(err) {
@@ -189,7 +452,10 @@
 
   function updateCount(total) {
     var el = document.querySelector('[data-question-count]');
-    if (el) el.textContent = total.toLocaleString() + ' ' + plural(total, 'question');
+    if (!el) return;
+    var label = total.toLocaleString() + ' ' + plural(total, 'question');
+    var filtered = state.includeTags.length > 0 || state.ignoreTags.length > 0 || state.unanswered;
+    el.textContent = filtered ? label + ' (filtered)' : label;
   }
 
   /* ---------- pagination ---------- */
@@ -245,15 +511,32 @@
   function readUrlState() {
     var params = new URLSearchParams(location.search);
     state.page = Math.max(1, Number(params.get('page') || 1));
+
     var label = String(params.get('sort') || 'trending').toLowerCase();
     if (SORT_MAP[label]) { state.sortLabel = label; state.sort = SORT_MAP[label]; }
+
+    var tagValues = params.getAll('tag');
+    if (tagValues.length) {
+      state.includeTags = [];
+      tagValues.forEach(function (raw) {
+        String(raw).split(',').forEach(function (t) {
+          var n = normalizeTag(t);
+          if (n && state.includeTags.indexOf(n) === -1 && state.includeTags.length < MAX_INCLUDE) {
+            state.includeTags.push(n);
+          }
+        });
+      });
+    }
+
+    state.unanswered = params.get('unanswered') === 'true';
   }
 
   function updateUrl() {
     var params = new URLSearchParams(location.search);
     params.set('sort', state.sortLabel);
-    if (state.page > 1) params.set('page', String(state.page));
-    else params.delete('page');
+    if (state.page > 1) params.set('page', String(state.page)); else params.delete('page');
+    if (state.includeTags.length) params.set('tag', state.includeTags.join(',')); else params.delete('tag');
+    if (state.unanswered) params.set('unanswered', 'true'); else params.delete('unanswered');
     var qs = params.toString();
     history.replaceState(null, '', location.pathname + (qs ? '?' + qs : ''));
   }
@@ -273,7 +556,6 @@
       } else {
         a.classList.remove('is-selected'); a.removeAttribute('aria-current');
       }
-      // Rebind (idempotent — replace previous handlers by cloning)
       var fresh = a.cloneNode(true);
       a.parentNode.replaceChild(fresh, a);
       fresh.addEventListener('click', function (e) {
@@ -288,11 +570,17 @@
 
   function load() {
     renderLoading();
-    var url = API_BASE + '/api/posts'
-      + '?type=question'
-      + '&sort=' + encodeURIComponent(state.sort)
-      + '&page=' + state.page
-      + '&page_size=' + PAGE_SIZE;
+
+    var params = new URLSearchParams();
+    params.set('type', 'question');
+    params.set('sort', state.sort);
+    params.set('page', String(state.page));
+    params.set('page_size', String(PAGE_SIZE));
+    if (state.includeTags.length) params.set('tag', state.includeTags.join(','));
+    if (state.ignoreTags.length)  params.set('ignore_tags', state.ignoreTags.join(','));
+    if (state.unanswered)         params.set('unanswered', 'true');
+
+    var url = API_BASE + '/api/posts?' + params.toString();
 
     fetch(url, { credentials: 'include', headers: { Accept: 'application/json' } })
       .then(function (res) {
@@ -314,9 +602,34 @@
       .catch(renderError);
   }
 
+  /* ---------- auth (uid for ignore-tags key) ---------- */
+
+  function fetchMe() {
+    return fetch(API_BASE + '/api/auth/me', {
+      credentials: 'include',
+      headers: { Accept: 'application/json' }
+    }).then(function (r) { return r.ok ? r.json() : null; })
+      .catch(function () { return null; });
+  }
+
   /* ---------- bootstrap ---------- */
 
-  readUrlState();
-  wireSortNav();
-  load();
+  function init() {
+    readUrlState();
+
+    fetchMe().then(function (user) {
+      state.uid = user && user.id != null ? user.id : null;
+      state.ignoreTags = readIgnoredTags();
+
+      wireCustomFilters();
+      wireSortNav();
+      load();
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init, { once: true });
+  } else {
+    init();
+  }
 })();

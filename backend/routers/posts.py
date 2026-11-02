@@ -1,13 +1,30 @@
 """Posts: questions + discussions, list / detail / create / update / delete
-   plus answers, comments and votes."""
+   plus answers, comments and votes.
+
+   New in this revision:
+     GET /api/answers/{answer_id}    → context for the report page
+                                       (author, excerpt, parent post info)
+     GET /api/comments/{comment_id}  → context for the report page
+                                       (author, excerpt, parent post info)
+
+   These lightweight lookups let `report-form.js` populate the
+   "You are reporting a … by @author" card without loading the
+   entire parent post. When the target is a question or discussion,
+   report-form.js fetches `GET /api/posts/{id}` directly instead.
+
+   Type-aware body length validation is applied to POST and PATCH so
+   undersized bodies surface as 422 (not 500 from the DB CHECK).
+"""
 from __future__ import annotations
 
+import re
 from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import delete, func, or_, select, text
+from pydantic import BaseModel
+from sqlalchemy import delete, func, or_, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -17,6 +34,12 @@ from deps import get_current_user, get_current_user_optional
 from models import Answer, Comment, Post, PostTag, Tag, User, Vote
 
 router = APIRouter(prefix="/api", tags=["posts"])
+
+
+# ── Request models (small, endpoint-local) ──────────────────────────────
+
+class _AcceptAnswerIn(BaseModel):
+    answer_id: int | None = None
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────
@@ -29,7 +52,6 @@ def _author(u: User) -> dict:
 
 
 def _excerpt(body: str, length: int = 220) -> str:
-    """Trim body to a word-boundary excerpt with an ellipsis."""
     text_body = (body or "").strip()
     if len(text_body) <= length:
         return text_body
@@ -75,7 +97,7 @@ def _card(p: Post, a: User, tags: list[Tag], my_vote: int | None = None) -> dict
         "reply_count":  p.reply_count,
         "view_count":   p.view_count,
         "is_answered":  p.accepted_answer_id is not None,
-        "my_vote":      my_vote,                # ← NEW
+        "my_vote":      my_vote,
         "created_at":   p.created_at,
         "updated_at":   p.updated_at,
     }
@@ -86,11 +108,6 @@ def _my_vote_map(
     user_id: int | None,
     pairs: list[tuple[str, int]],
 ) -> dict[tuple[str, int], int]:
-    """Return {(target_type, target_id): value} for the given user.
-
-    Empty map when anonymous or when there are no pairs to look up — so
-    the route doesn't issue extra queries for guest requests.
-    """
     if not user_id or not pairs:
         return {}
     by_type: dict[str, list[int]] = defaultdict(list)
@@ -111,7 +128,6 @@ def _my_vote_map(
 
 
 def _upsert_tags(db: Session, names: list[str]) -> list[Tag]:
-    """Find or create tags. Uses SAVEPOINTs to survive insert races."""
     out: list[Tag] = []
     seen: set[str] = set()
     for raw in (names or [])[:5]:
@@ -135,6 +151,134 @@ def _upsert_tags(db: Session, names: list[str]) -> list[Tag]:
     return out
 
 
+# ── Tag-filter helpers ─────────────────────────────────────────────────
+
+def _split_tags(raw: str, limit: int) -> list[str]:
+    if not raw:
+        return []
+    out: list[str] = []
+    seen: set[str] = set()
+    for t in raw.split(","):
+        name = t.strip().lower()
+        if not name or name in seen:
+            continue
+        seen.add(name)
+        out.append(name)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _has_any_tag(any_of: list[str]):
+    return (
+        select(1)
+        .select_from(PostTag)
+        .join(Tag, Tag.id == PostTag.tag_id)
+        .where(
+            PostTag.post_id == Post.id,
+            func.lower(Tag.name).in_(any_of),
+        )
+        .exists()
+    )
+
+
+# ── Type-aware body length ─────────────────────────────────────────────
+
+_BODY_MIN = {"question": 20, "discussion": 10}
+
+
+def _validate_body_for_type(body: str, post_type: str) -> None:
+    min_len = _BODY_MIN.get(post_type, 20)
+    if len((body or "").strip()) < min_len:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"Body must be at least {min_len} characters "
+                f"for a {post_type}."
+            ),
+        )
+
+
+# ── Similar post suggestion (soft dedup) ────────────────────────────────
+
+_SIMILAR_STOPWORDS = {
+    "the", "a", "an", "is", "are", "was", "were", "to", "of", "for", "in",
+    "on", "at", "by", "with", "and", "or", "but", "do", "does", "did",
+    "how", "why", "what", "when", "where", "which", "who", "this", "that",
+    "it", "my", "i", "you", "we", "they", "be", "been", "being",
+    "have", "has", "had", "can", "could", "should", "would", "will",
+    "not", "no", "so", "if", "then", "than", "as", "into", "about",
+    "without", "from", "just", "only", "also", "very",
+}
+
+_WORD_RE = re.compile(r"[A-Za-z][A-Za-z0-9_+#.-]{2,}")
+
+
+@router.get("/posts/similar", response_model=list[schemas.PostCard])
+def similar_posts(
+    title: str = "",
+    tags: str = "",
+    exclude_id: int | None = Query(None),
+    limit: int = Query(5, ge=1, le=20),
+    db: Session = Depends(get_db),
+    user: User | None = Depends(get_current_user_optional),
+):
+    title = (title or "").strip()
+    tag_list = _split_tags(tags, 5)
+
+    words: list[str] = []
+    seen: set[str] = set()
+    for m in _WORD_RE.finditer(title):
+        w = m.group(0).lower()
+        if w in _SIMILAR_STOPWORDS or w in seen:
+            continue
+        seen.add(w)
+        words.append(w)
+        if len(words) >= 8:
+            break
+
+    if not words and not tag_list:
+        return []
+
+    stmt = select(Post).where(Post.deleted_at.is_(None))
+    if exclude_id:
+        stmt = stmt.where(Post.id != exclude_id)
+
+    conditions = []
+    if words:
+        conditions.append(
+            or_(*[func.lower(Post.title).like(f"%{w}%") for w in words])
+        )
+    if tag_list:
+        conditions.append(_has_any_tag(tag_list))
+
+    stmt = (
+        stmt.where(or_(*conditions))
+        .order_by(Post.score.desc(), Post.updated_at.desc())
+        .limit(limit)
+    )
+
+    posts = db.scalars(stmt).all()
+    if not posts:
+        return []
+
+    authors = _load_authors(db, {p.author_id for p in posts})
+    tags_by_post = _load_tags_for(db, [p.id for p in posts])
+    my_votes = _my_vote_map(
+        db, user.id if user else None, [("post", p.id) for p in posts]
+    )
+
+    return [
+        _card(
+            p,
+            authors[p.author_id],
+            tags_by_post[p.id],
+            my_votes.get(("post", p.id)),
+        )
+        for p in posts
+    ]
+
+
 # ── List ────────────────────────────────────────────────────────────────
 
 @router.get("/posts", response_model=schemas.PostPage)
@@ -142,7 +286,9 @@ def list_posts(
     type: Literal["question", "discussion"] | None = Query(None),
     q:    str = "",
     tag:  str = "",
-    author: str = "",                                # ← NEW
+    ignore_tags: str = "",
+    unanswered: bool = False,
+    author: str = "",
     sort: Literal["newest", "active", "votes", "views", "unanswered"] = "newest",
     mine: bool = False,
     page:      int = Query(1, ge=1),
@@ -160,13 +306,22 @@ def list_posts(
             or_(func.lower(Post.title).like(like),
                 func.lower(Post.body).like(like))
         )
-    if tag:
-        stmt = (stmt
-                .join(PostTag, PostTag.post_id == Post.id)
-                .join(Tag, Tag.id == PostTag.tag_id)
-                .where(func.lower(Tag.name) == tag.lower()))
+
+    tag_list = _split_tags(tag, 10)
+    if tag_list:
+        stmt = stmt.where(_has_any_tag(tag_list))
+
+    ignore_list = _split_tags(ignore_tags, 50)
+    if ignore_list:
+        stmt = stmt.where(~_has_any_tag(ignore_list))
+
+    if unanswered:
+        stmt = stmt.where(
+            Post.post_type == "question",
+            Post.answer_count == 0,
+        )
+
     if author:
-        # Resolve once so we don't JOIN per row.
         author_user = db.scalar(
             select(User).where(func.lower(User.username) == author.lower())
         )
@@ -177,8 +332,12 @@ def list_posts(
         if user is None:
             raise HTTPException(401, "Login required for `mine=true`.")
         stmt = stmt.where(Post.author_id == user.id)
+
     if sort == "unanswered":
-        stmt = stmt.where(Post.answer_count == 0).where(Post.post_type == "question")
+        stmt = stmt.where(
+            Post.post_type == "question",
+            Post.answer_count == 0,
+        )
 
     order = {
         "newest":     Post.created_at.desc(),
@@ -218,7 +377,7 @@ def get_post(
     post_id: int,
     increment_views: bool = Query(True, include_in_schema=False),
     db: Session = Depends(get_db),
-    user: User | None = Depends(get_current_user_optional),   # ← NEW
+    user: User | None = Depends(get_current_user_optional),
 ):
     p = db.get(Post, post_id)
     if p is None or p.deleted_at is not None:
@@ -240,7 +399,6 @@ def get_post(
     card = _card(p, authors[p.author_id], tags_by_post[p.id])
     card["body"] = p.body
 
-    # Top-level comments on the post
     comments = db.scalars(
         select(Comment)
         .where(Comment.post_id == p.id, Comment.answer_id.is_(None),
@@ -248,7 +406,6 @@ def get_post(
         .order_by(Comment.created_at.asc())
     ).all()
 
-    # Answers + their comments (questions only)
     answers = []
     if p.post_type == "question":
         ans_rows = db.scalars(
@@ -313,7 +470,6 @@ def get_post(
         for c in comments
     ]
 
-    # ── NEW: inject my_vote on the post, every answer, every comment ──
     target_pairs: list[tuple[str, int]] = [("post", p.id)]
     for a in answers:
         target_pairs.append(("answer", a["id"]))
@@ -337,6 +493,91 @@ def get_post(
     return card
 
 
+# ── Lookup endpoints for the report page ───────────────────────────────
+
+@router.get("/answers/{answer_id}")
+def get_answer_context(
+    answer_id: int,
+    db: Session = Depends(get_db),
+):
+    """Return the minimal context the report page needs for an answer.
+
+    The report page shows:
+      · author display name
+      · excerpt of the answer body
+      · the parent post's title and a link to it
+      · when the answer was created
+
+    This lightweight lookup avoids loading the entire parent post
+    detail (with all answers + comments) just to fill in a card.
+    """
+    a = db.get(Answer, answer_id)
+    if a is None or a.deleted_at is not None:
+        raise HTTPException(404, "Answer not found.")
+
+    p = db.get(Post, a.post_id)
+    if p is None or p.deleted_at is not None:
+        raise HTTPException(404, "Parent post not found.")
+
+    author = db.get(User, a.author_id)
+
+    return {
+        "id":           a.id,
+        "body_excerpt": _excerpt(a.body, 180),
+        "created_at":   a.created_at,
+        "author":       _author(author) if author else {
+            "id": 0, "username": "anonymous",
+            "display_name": "anonymous", "reputation": 0,
+        },
+        "post_id":      p.id,
+        "post_title":   p.title,
+        "post_type":    p.post_type,
+    }
+
+
+@router.get("/comments/{comment_id}")
+def get_comment_context(
+    comment_id: int,
+    db: Session = Depends(get_db),
+):
+    """Return the minimal context the report page needs for a comment.
+
+    Comments attach to either a post (post_id) or an answer (answer_id).
+    We resolve both cases here so the report form doesn't need to know.
+    """
+    c = db.get(Comment, comment_id)
+    if c is None or c.deleted_at is not None:
+        raise HTTPException(404, "Comment not found.")
+
+    # Determine parent content
+    post = None
+    if c.post_id is not None:
+        post = db.get(Post, c.post_id)
+    elif c.answer_id is not None:
+        ans = db.get(Answer, c.answer_id)
+        if ans is not None and ans.deleted_at is None:
+            post = db.get(Post, ans.post_id)
+
+    if post is None or post.deleted_at is not None:
+        raise HTTPException(404, "Parent content not found.")
+
+    author = db.get(User, c.author_id)
+
+    return {
+        "id":           c.id,
+        "body_excerpt": _excerpt(c.body, 180),
+        "created_at":   c.created_at,
+        "author":       _author(author) if author else {
+            "id": 0, "username": "anonymous",
+            "display_name": "anonymous", "reputation": 0,
+        },
+        "post_id":      post.id,
+        "post_title":   post.title,
+        "post_type":    post.post_type,
+        "answer_id":    c.answer_id,
+    }
+
+
 # ── Create ──────────────────────────────────────────────────────────────
 
 @router.post("/posts", response_model=schemas.PostDetail,
@@ -346,6 +587,8 @@ def create_post(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    _validate_body_for_type(payload.body, payload.post_type)
+
     post = Post(
         post_type=payload.post_type,
         title=payload.title.strip(),
@@ -353,12 +596,19 @@ def create_post(
         author_id=user.id,
     )
     db.add(post)
-    db.flush()
 
-    for tag in _upsert_tags(db, payload.tags):
-        db.add(PostTag(post_id=post.id, tag_id=tag.id))
+    try:
+        db.flush()
+        for tag in _upsert_tags(db, payload.tags):
+            db.add(PostTag(post_id=post.id, tag_id=tag.id))
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            f"Could not create post: {exc.orig or exc}",
+        )
 
-    db.commit()
     db.refresh(post)
     return get_post(post.id, increment_views=False, db=db, user=user)
 
@@ -372,11 +622,15 @@ def update_post(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    """Update a post (works for both questions and discussions)."""
     p = db.get(Post, post_id)
     if p is None or p.deleted_at is not None:
         raise HTTPException(404, "Post not found.")
-    if p.author_id != user.id and user.role not in ("moderator", "admin"):
-        raise HTTPException(403, "You do not own this post.")
+    if p.author_id != user.id:
+        raise HTTPException(403, "Only the author can edit this post.")
+
+    if payload.body is not None:
+        _validate_body_for_type(payload.body, p.post_type)
 
     if payload.title is not None:
         p.title = payload.title.strip()
@@ -388,7 +642,16 @@ def update_post(
             db.add(PostTag(post_id=p.id, tag_id=tag.id))
 
     p.updated_at = datetime.now(timezone.utc)
-    db.commit()
+
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            f"Could not update post: {exc.orig or exc}",
+        )
+
     db.refresh(p)
     return get_post(p.id, increment_views=False, db=db, user=user)
 
@@ -402,11 +665,72 @@ def delete_post(
     p = db.get(Post, post_id)
     if p is None or p.deleted_at is not None:
         raise HTTPException(404, "Post not found.")
-    if p.author_id != user.id and user.role not in ("moderator", "admin"):
-        raise HTTPException(403, "You do not own this post.")
+    if p.author_id != user.id:
+        raise HTTPException(403, "Only the author can delete this post.")
     p.deleted_at = datetime.now(timezone.utc)
     db.commit()
     return None
+
+
+# ── Accept / un-accept an answer ────────────────────────────────────────
+
+@router.post("/posts/{post_id}/accept-answer",
+             response_model=schemas.PostDetail)
+def accept_answer(
+    post_id: int,
+    payload: _AcceptAnswerIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    p = db.get(Post, post_id)
+    if p is None or p.deleted_at is not None:
+        raise HTTPException(404, "Post not found.")
+    if p.post_type != "question":
+        raise HTTPException(
+            400, "Only questions can have an accepted answer."
+        )
+    if p.author_id != user.id:
+        raise HTTPException(
+            403, "Only the question author can accept an answer."
+        )
+
+    try:
+        db.execute(
+            update(Answer)
+            .where(
+                Answer.post_id == p.id,
+                Answer.is_accepted.is_(True),
+            )
+            .values(is_accepted=False)
+        )
+        db.flush()
+
+        if payload.answer_id is not None:
+            ans = db.get(Answer, payload.answer_id)
+            if ans is None or ans.deleted_at is not None:
+                raise HTTPException(404, "Answer not found.")
+            if ans.post_id != p.id:
+                raise HTTPException(
+                    400, "Answer does not belong to this question."
+                )
+            ans.is_accepted = True
+            p.accepted_answer_id = ans.id
+        else:
+            p.accepted_answer_id = None
+
+        db.commit()
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as exc:  # noqa: BLE001
+        db.rollback()
+        raise HTTPException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            f"Could not update accepted answer: {exc}",
+        )
+
+    db.refresh(p)
+    return get_post(p.id, increment_views=False, db=db, user=user)
 
 
 # ── Answers ─────────────────────────────────────────────────────────────
@@ -532,7 +856,7 @@ def vote(
                     target_id=payload.target_id,
                     value=payload.value))
     elif existing.value == payload.value:
-        db.delete(existing)   # toggle off
+        db.delete(existing)
     else:
         existing.value = payload.value
     db.commit()

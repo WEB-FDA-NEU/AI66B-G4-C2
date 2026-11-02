@@ -4,7 +4,23 @@
 //  Each renderer receives (data, tbodyEl, filterKey) and replaces
 //  the tbody's innerHTML with rows filtered accordingly.
 //
-//  Data shape per row is documented in ./mock/*.json.
+//  Change in this revision:
+//   - Reports: action buttons now include `data-action`, `data-row-id`,
+//     `data-row-type` (see admin.js). The `Review` action is
+//     intercepted by admin.js to open the Report Details modal; the
+//     row itself carries the data needed to populate the modal from
+//     the cached `reports` array.
+//   - Marked Posts: filter key for "Off-topic" fixed (`off_topic` in
+//     backend → `off-topic` in DOM `data-filter` → matched against
+//     the human label "Off-topic"). Added `Remove Mark` action.
+//   - Users: unchanged from previous version.
+//   - Hidden Posts: new renderer for the Hidden Content tab.
+//
+//  All `actions` arrays come from the backend and are `[{label, tone}]`.
+//  `actionsCell` derives the action slug from the label, so
+//  `Remove Mark` → `remove-mark`, `Restore` → `restore`, etc. This
+//  means admin.js only needs a small action map — no per-button
+//  data-attribute plumbing beyond `data-row-id` / `data-row-type`.
 // ============================================================
 
 /* ---------- Primitives ---------- */
@@ -42,14 +58,37 @@ function toneOrText(label, tone) {
   return tone ? badge(label, tone) : escapeHtml(label);
 }
 
-function actionButton({ label, tone }) {
+/**
+ * Render a single action button.
+ *
+ * `action` is a lowercase slug derived from the label, e.g.
+ *   "Review"      → "review"
+ *   "Remove Mark" → "remove-mark"
+ *   "Restore"     → "restore"
+ *
+ * admin.js maps these slugs to backend calls.
+ */
+function actionButton({ label, tone, rowId, rowType }) {
   const cls = `s-btn s-btn__xs s-btn__${tone || 'clear'}`;
-  return `<button class="${cls}" type="button">${escapeHtml(label)}</button>`;
+  const action = String(label || '').toLowerCase().replace(/\s+/g, '-');
+  const attrs = [
+    `class="${cls}"`,
+    'type="button"',
+    action ? `data-action="${escapeHtml(action)}"` : '',
+    rowId != null ? `data-row-id="${escapeHtml(String(rowId))}"` : '',
+    rowType ? `data-row-type="${escapeHtml(rowType)}"` : ''
+  ].filter(Boolean).join(' ');
+  return `<button ${attrs}>${escapeHtml(label)}</button>`;
 }
 
-function actionsCell(actions) {
+function actionsCell(actions, { rowId, rowType } = {}) {
   const list = Array.isArray(actions) ? actions : [];
-  return `<div class="d-flex g4">${list.map(actionButton).join('')}</div>`;
+  return `<div class="d-flex g4">${list.map((a) => actionButton({
+    label: a.label,
+    tone:  a.tone,
+    rowId,
+    rowType
+  })).join('')}</div>`;
 }
 
 function emptyRow(colspan, message = 'No results match this filter.') {
@@ -69,10 +108,12 @@ export function renderReports(data, tbody, filter = 'pending') {
   const predicate = REPORT_PREDICATES[filter] || REPORT_PREDICATES.all;
   const rows = (data || []).filter(predicate);
 
-  const typeBadge = (type) =>
-    type === 'discussion'
-      ? '<span class="discussion-badge">Discussion</span>'
-      : '<span class="question-badge">Question</span>';
+  const typeBadge = (type) => {
+    if (type === 'discussion') return '<span class="discussion-badge">Discussion</span>';
+    if (type === 'answer')     return '<span class="s-badge s-badge__info">Answer</span>';
+    if (type === 'comment')    return '<span class="s-badge s-badge__tonal">Comment</span>';
+    return '<span class="question-badge">Question</span>';
+  };
 
   tbody.innerHTML = rows.length
     ? rows.map((r) => `
@@ -84,7 +125,7 @@ export function renderReports(data, tbody, filter = 'pending') {
           <td>${escapeHtml(r.reporter)}</td>
           <td>${timeEl(r.reportedAt)}</td>
           <td>${badge(r.status, r.statusTone)}</td>
-          <td>${actionsCell(r.actions)}</td>
+          <td>${actionsCell(r.actions, { rowId: r.id, rowType: 'report' })}</td>
         </tr>
       `).join('')
     : emptyRow(8);
@@ -92,6 +133,10 @@ export function renderReports(data, tbody, filter = 'pending') {
 
 /* ---------- Marked Posts ---------- */
 
+// Filter keys come from `data-filter` in admin.html (kebab-case).
+// The human `mark` labels come from the backend (`_MARK_LABELS` in
+// backend/routers/admin.py): duplicated → "Duplicated", violated →
+// "Violated", off_topic → "Off-topic", spam → "Spam".
 const MARKED_PREDICATES = {
   all:         () => true,
   duplicated:  (p) => p.mark === 'Duplicated',
@@ -118,7 +163,7 @@ export function renderMarkedPosts(data, tbody, filter = 'all') {
             <td>${toneOrText(p.markedBy, p.markedByTone)}</td>
             <td>${timeEl(p.markedAt)}</td>
             <td>${scoreCell}</td>
-            <td>${actionsCell(p.actions)}</td>
+            <td>${actionsCell(p.actions, { rowId: p.id, rowType: 'marked' })}</td>
           </tr>
         `;
       }).join('')
@@ -137,12 +182,15 @@ const USER_PREDICATES = {
 function userCell(u) {
   const color = u.avatarColor || 'bg-blue-300';
   const letter = u.avatarLetter || String(u.username || '?').charAt(0).toUpperCase();
+  const url = u.username
+    ? `./user-profile.html?username=${encodeURIComponent(u.username)}`
+    : '#';
   return `
     <div class="s-user-card">
-      <a href="#" class="s-avatar s-avatar__24 ${escapeHtml(color)}" aria-hidden="true" tabindex="-1">
+      <a href="${url}" class="s-avatar s-avatar__24 ${escapeHtml(color)}" aria-hidden="true" tabindex="-1">
         <span class="s-avatar--letter">${escapeHtml(letter)}</span>
       </a>
-      <span class="s-user-card--username">${escapeHtml(u.username)}</span>
+      <a href="${url}" class="s-user-card--username">${escapeHtml(u.username)}</a>
     </div>
   `;
 }
@@ -169,8 +217,44 @@ export function renderAdminUsers(data, tbody, filter = 'all') {
           <td>${timeEl(u.joinedAt)}</td>
           <td>${toneOrText(u.role, u.roleTone)}</td>
           <td>${badge(u.status, u.statusTone)}</td>
-          <td>${actionsCell(u.actions)}</td>
+          <td>${actionsCell(u.actions, { rowId: u.id, rowType: 'user' })}</td>
         </tr>
       `).join('')
     : emptyRow(7);
+}
+
+/* ---------- Hidden Content ---------- */
+
+export function renderHiddenPosts(data, tbody, filter = 'all') {
+  if (!tbody) return;
+  const rows = (data || []);
+
+  const typeBadge = (type) => {
+    if (type === 'discussion') return '<span class="discussion-badge">Discussion</span>';
+    return '<span class="question-badge">Question</span>';
+  };
+
+  tbody.innerHTML = rows.length
+    ? rows.map((p) => {
+        const authorUrl = p.authorUsername
+          ? `./user-profile.html?username=${encodeURIComponent(p.authorUsername)}`
+          : '#';
+        const score = Number(p.score);
+        const scoreCell = score < 0
+          ? `<span class="fc-red-400 fw-bold">${score}</span>`
+          : escapeHtml(score);
+
+        return `
+          <tr>
+            <td><code>${escapeHtml(p.id)}</code></td>
+            <td>${typeBadge(p.type)}</td>
+            <td><a href="${escapeHtml(p.url || '#')}">${escapeHtml(p.title)}</a></td>
+            <td><a href="${authorUrl}">${escapeHtml(p.author || 'anonymous')}</a></td>
+            <td>${timeEl(p.deletedAt)}</td>
+            <td>${scoreCell}</td>
+            <td>${actionsCell(p.actions, { rowId: p.id, rowType: 'hidden' })}</td>
+          </tr>
+        `;
+      }).join('')
+    : emptyRow(7, 'No hidden content found.');
 }

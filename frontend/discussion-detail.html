@@ -19,8 +19,12 @@
 
 <body class="theme-light">
 
+  <script src="./js/theme-boot.js"></script>
+
   <a href="#main" class="v-visible-sr">Skip to main content</a>
 
+  <!-- Auth state is resolved by site-header.js from GET /api/auth/me —
+       the `is-logged-in` attribute is tolerated but ignored. -->
   <site-header is-logged-in="true"></site-header>
 
   <div class="d-flex ai-start g24 wmx12 mx-auto px16 py24">
@@ -31,7 +35,9 @@
     <!-- ---------- MAIN ---------- -->
     <main id="main" class="question-feed">
 
-      <!-- Filled by js/pages/discussion-detail.js -->
+      <!-- Filled by js/pages/discussion-detail.js:
+           hero, post-meta, vote cell, body (markdown), tags, post-footer
+           (with owner-only Edit/Delete actions), threaded reply tree. -->
       <div id="discussion-root" aria-live="polite"></div>
 
       <!-- ============ YOUR REPLY (plain text only) ============ -->
@@ -96,13 +102,25 @@
 
   <site-footer></site-footer>
 
+  <!-- =========================================================
+       Third-party libraries (globals required by markdown-renderer.js)
+       ========================================================= -->
   <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" defer></script>
 
+  <!-- =========================================================
+       Modular elements
+       ========================================================= -->
   <script type="module" src="./js/components/site-header.js"></script>
   <script type="module" src="./js/components/site-footer.js"></script>
   <script type="module" src="./js/components/site-sidebar.js"></script>
+
+  <!-- =========================================================
+       Page logic — auto-bootstraps from ?id=<n>.
+       Renders the discussion, threads replies, wires votes +
+       comments, and shows owner-only Edit / Delete actions.
+       ========================================================= -->
   <script type="module" src="./js/pages/discussion-detail.js"></script>
 
 </body>
