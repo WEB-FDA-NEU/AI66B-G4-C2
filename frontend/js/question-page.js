@@ -521,8 +521,78 @@ function postActions(data, { currentUser = null } = {}) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Full-page render                                                    */
+/* Full-page render                                                   */
 /* ------------------------------------------------------------------ */
+
+function renderDuplicateBanner(data, duplicates) {
+  // Legacy case: marked duplicate but no visible target (all targets
+  // soft-deleted, or a pre-`related_post_id` row).
+  if (!duplicates.length) {
+    return `
+      <div class="dup-banner" role="note">
+        <div class="dup-banner__header">
+          <svg class="svg-icon" aria-hidden="true" width="16" height="16" viewBox="0 0 16 16">
+            <path d="M8 1a7 7 0 1 1 0 14A7 7 0 0 1 8 1Zm0 1.2a5.8 5.8 0 1 0 0 11.6A5.8 5.8 0 0 0 8 2.2ZM7.4 11h1.2v1.2H7.4V11Zm0-6.4h1.2v5H7.4v-5Z"/>
+          </svg>
+          <span>This question was marked as a duplicate.</span>
+        </div>
+      </div>`;
+  }
+
+  const itemsHtml = duplicates.map((d) => {
+    const answerLabel = d.answer_count === 1
+      ? '1 answer'
+      : `${d.answer_count} ${d.answer_count === 0 ? 'answers' : 'answers'}`;
+    return `
+      <li>
+        <a class="dup-banner__link" href="${escapeHtml(d.url)}">${escapeHtml(d.title)}</a>
+        <span class="dup-banner__meta">(${escapeHtml(answerLabel)})</span>
+      </li>`;
+  }).join('');
+
+  // Unique markers, in first-mark order
+  const markerMap = new Map();
+  for (const d of duplicates) {
+    if (d.marked_by) markerMap.set(d.marked_by.username, d.marked_by);
+  }
+  const markers = [...markerMap.values()];
+  const markerLink = (m) =>
+    `<a class="s-link" href="./user-profile.html?username=${encodeURIComponent(m.username)}">@${escapeHtml(m.display_name || m.username)}</a>`;
+
+  let markedBy = 'a moderator';
+  if (markers.length === 1) {
+    markedBy = markerLink(markers[0]);
+  } else if (markers.length === 2) {
+    markedBy = `${markerLink(markers[0])} and ${markerLink(markers[1])}`;
+  } else if (markers.length > 2) {
+    markedBy = `${markerLink(markers[0])} and ${markers.length - 1} others`;
+  }
+
+  const earliest = duplicates
+    .map((d) => d.marked_at)
+    .filter(Boolean)
+    .sort()[0];
+  const markedAgo = earliest ? timeAgo(earliest) : '';
+
+  return `
+    <div class="dup-banner" role="note" aria-label="Duplicate question notice">
+      <div class="dup-banner__header">
+        <svg class="svg-icon" aria-hidden="true" width="16" height="16" viewBox="0 0 16 16">
+          <path d="M8 1a7 7 0 1 1 0 14A7 7 0 0 1 8 1Zm0 1.2a5.8 5.8 0 1 0 0 11.6A5.8 5.8 0 0 0 8 2.2ZM7.4 11h1.2v1.2H7.4V11Zm0-6.4h1.2v5H7.4v-5Z"/>
+        </svg>
+        <span>Marked as duplicate by ${markedBy}${markedAgo ? ` ${escapeHtml(markedAgo)}` : ''}.</span>
+      </div>
+      <div class="dup-banner__body">
+        <p class="dup-banner__lead">This question already has answers here:</p>
+        <ul class="dup-banner__list">${itemsHtml}</ul>
+        <p class="dup-banner__footer">
+          This question has been asked before and already has an answer.
+          If those answers do not fully address your question, please
+          <a class="s-link" href="./ask-question.html">ask a new question</a>.
+        </p>
+      </div>
+    </div>`;
+}
 
 export function renderQuestionPage(
   data,
@@ -539,10 +609,15 @@ export function renderQuestionPage(
   const isQuestionAuthor = currentUser &&
     data.author &&
     Number(currentUser.id) === Number(data.author.id);
+  const duplicates   = Array.isArray(data.duplicates) ? data.duplicates : [];
+  const isDuplicate  = data.is_duplicate === true || duplicates.length > 0;
 
   root.innerHTML = `
+    ${isDuplicate ? renderDuplicateBanner(data, duplicates) : ''}
     <div class="d-flex ai-start jc-space-between g16 mb8">
-      <h1 class="fs-headline1 fw-normal mb0">${escapeHtml(data.title)}</h1>
+      <h1 class="fs-headline1 fw-normal mb0">
+        ${escapeHtml(data.title)}${isDuplicate ? ' <span class="dup-title-tag" title="Marked as duplicate">[duplicate]</span>' : ''}
+      </h1>
       <a class="s-btn fl-shrink0" href="./ask-question.html">Ask Question</a>
     </div>
 

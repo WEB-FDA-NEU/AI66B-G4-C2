@@ -160,6 +160,9 @@ class PostMark(Base):
         PgEnum("duplicated", "violated", "off_topic", "spam", name="mark_type", create_type=False)
     )
     marked_by_user_id:  Mapped[int | None] = mapped_column(BigInteger, ForeignKey("users.id"), nullable=True)
+    related_post_id:    Mapped[int | None] = mapped_column(
+                            BigInteger, ForeignKey("posts.id"), nullable=True
+                        )
     notes:              Mapped[str] = mapped_column(Text, default="")
     created_at:         Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

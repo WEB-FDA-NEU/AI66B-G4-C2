@@ -373,6 +373,7 @@
         '<div class="s-post-summary--content">',
           '<h3 class="s-post-summary--title mb0">',
             '<a class="s-post-summary--title-link" href="' + questionHref(q.id) + '">' + escapeHtml(q.title) + '</a>',
+            q.is_duplicate ? ' <span class="dup-title-tag dup-title-tag--inline" title="Marked as duplicate">[duplicate]</span>' : '',
           '</h3>',
           q.body_excerpt ? '<div class="s-post-summary--excerpt v-truncate2">' + escapeHtml(q.body_excerpt) + '</div>' : '',
           '<div class="d-flex ai-center jc-space-between g8 fw-wrap mt8">',

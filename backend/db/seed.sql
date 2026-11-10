@@ -440,14 +440,16 @@ INSERT INTO reports (reporter_id, target_type, target_id, reason, details, statu
   (21, 'post',    21, 'plagiarism',          'This is copied verbatim from a blog post without attribution.', 'dismissed', NOW() - INTERVAL '12 hours', 2,    NOW() - INTERVAL '2 days');
 
 -- ============================================================
--- Post marks (5)
+-- Post marks (7)
 -- ============================================================
-INSERT INTO post_marks (post_id, mark_type, marked_by_user_id, notes) VALUES
-  (5,  'violated',  NULL, 'Auto-detected: potential spam'),
-  (12, 'off_topic', 4,    'Marked off-topic by moderator'),
-  (8,  'duplicated', 6,    'Duplicate of question 7483001'),
-  (21, 'spam',      4,    'User report + auto-classifier flagged'),
-  (35, 'violated',  NULL, 'Auto-detected: provocative opinion piece');
+INSERT INTO post_marks (post_id, mark_type, marked_by_user_id, related_post_id, notes) VALUES
+  (5,  'violated',   NULL, NULL, 'Auto-detected: potential spam'),
+  (12, 'off_topic',  4,    NULL, 'Marked off-topic by moderator'),
+  (8,  'duplicated', 6,    12,   ''),   -- Go pprof → FastAPI slow (both "my thing is slow")
+  (8,  'duplicated', 4,    24,   ''),   -- Go pprof → Lambda cold start (also performance)
+  (17, 'duplicated', 6,    5,    ''),   -- K8s CrashLoop → Docker no space (both infra failures)
+  (21, 'spam',       4,    NULL, 'User report + auto-classifier flagged'),
+  (35, 'violated',   NULL, NULL, 'Auto-detected: provocative opinion piece');
 
 -- ============================================================
 -- Follows (deterministic pattern)

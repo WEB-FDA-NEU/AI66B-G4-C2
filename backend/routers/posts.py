@@ -27,7 +27,7 @@ import schemas
 from db import get_db
 from deps import get_current_user, get_current_user_optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from models import Answer, Comment, Post, PostTag, Tag, User, Vote
+from models import Answer, Comment, Post, PostMark, PostTag, Tag, User, Vote
 from notifications import answer_url, comment_url, notify, post_url
 from pydantic import BaseModel
 from sqlalchemy import delete, func, or_, select, text, update
@@ -80,12 +80,83 @@ def _load_tags_for(db: Session, post_ids: list[int]) -> dict[int, list[Tag]]:
     return out
 
 
+def _duplicate_ids_for(db: Session, post_ids: list[int]) -> set[int]:
+    """Return the subset of post_ids that have at least one 'duplicated' mark."""
+    if not post_ids:
+        return set()
+    rows = db.scalars(
+        select(PostMark.post_id)
+        .where(
+            PostMark.post_id.in_(post_ids),
+            PostMark.mark_type == "duplicated",
+        )
+        .distinct()
+    ).all()
+    return set(rows)
+
+
+def _load_duplicates(db: Session, post_id: int) -> list[dict]:
+    """Return enriched duplicate references for a single post.
+
+    Entries whose target post has been soft-deleted (or whose
+    related_post_id is NULL, as in legacy rows) are silently dropped
+    so the frontend never renders a dead link.
+    """
+    marks = db.scalars(
+        select(PostMark)
+        .where(
+            PostMark.post_id == post_id,
+            PostMark.mark_type == "duplicated",
+            PostMark.related_post_id.is_not(None),
+        )
+        .order_by(PostMark.created_at.asc())
+    ).all()
+    if not marks:
+        return []
+
+    related_ids = {m.related_post_id for m in marks}
+    marker_ids  = {m.marked_by_user_id for m in marks if m.marked_by_user_id}
+
+    related_posts = {
+        p.id: p for p in db.scalars(
+            select(Post).where(
+                Post.id.in_(related_ids),
+                Post.deleted_at.is_(None),
+            )
+        )
+    }
+    markers = {
+        u.id: u for u in db.scalars(
+            select(User).where(User.id.in_(marker_ids))
+        )
+    } if marker_ids else {}
+
+    out: list[dict] = []
+    for m in marks:
+        target = related_posts.get(m.related_post_id)
+        if target is None:
+            continue
+        marker = markers.get(m.marked_by_user_id) if m.marked_by_user_id else None
+        kind = "discussion" if target.post_type == "discussion" else "question"
+        out.append({
+            "post_id":      target.id,
+            "title":        target.title,
+            "url":          f"./{kind}-detail.html?id={target.id}",
+            "answer_count": int(target.answer_count or 0),
+            "marked_by":    _author(marker) if marker else None,
+            "marked_at":    m.created_at,
+        })
+    return out
+
+
 def _tag_out(t: Tag, count: int = 0) -> dict:
     return {"id": t.id, "name": t.name,
             "description": t.description, "post_count": count}
 
 
-def _card(p: Post, a: User, tags: list[Tag], my_vote: int | None = None) -> dict:
+def _card(p: Post, a: User, tags: list[Tag],
+          my_vote: int | None = None,
+          is_duplicate: bool = False) -> dict:
     return {
         "id":           p.id,
         "post_type":    p.post_type,
@@ -98,6 +169,7 @@ def _card(p: Post, a: User, tags: list[Tag], my_vote: int | None = None) -> dict
         "reply_count":  p.reply_count,
         "view_count":   p.view_count,
         "is_answered":  p.accepted_answer_id is not None,
+        "is_duplicate": is_duplicate,
         "my_vote":      my_vote,
         "created_at":   p.created_at,
         "updated_at":   p.updated_at,
@@ -229,8 +301,18 @@ def similar_posts(
 ):
     """Recommend posts similar to the one being composed.
 
-    All params except `title` are optional; callers that only send `title`
-    and `tags` (the pre-dedupe contract) still work.
+    All params except `title` are optional; callers that only send
+    `title` and `tags` (the pre-dedupe contract) still work.
+
+    The response carries the usual PostCard shape plus two extra
+    fields per item:
+
+        similarity        float in [0, 1]
+        similarity_label  "similar" | "probably_duplicate" | "duplicate"
+
+    And the standard `is_duplicate` flag from PostCard, so a
+    suggestion that has *already been marked* as a duplicate by a
+    moderator renders with the same tag as elsewhere in the app.
     """
     title = (title or "").strip()
     body  = (body  or "").strip()
@@ -241,6 +323,10 @@ def similar_posts(
         return []
 
     # ── Cheap candidate fetch (blocking) ─────────────────────────────
+    # LIKE-filter on any title or body token the caller provided,
+    # plus a tag-index probe. This produces a candidate pool of up
+    # to 200 rows for the scoring stage. Sorted newest-first so
+    # recent posts dominate the pool when the token set is broad.
     stmt = select(Post).where(Post.deleted_at.is_(None))
     if exclude_id:
         stmt = stmt.where(Post.id != exclude_id)
@@ -274,6 +360,7 @@ def similar_posts(
 
     # ── Score + rank ─────────────────────────────────────────────────
     tags_by_post = _load_tags_for(db, [p.id for p in raw])
+    dup_ids = _duplicate_ids_for(db, [p.id for p in raw])
     candidates = [
         {
             "id":        p.id,
@@ -290,7 +377,7 @@ def similar_posts(
     if not top:
         return []
 
-    # ── Enrich (same PostCard shape as before + similarity fields) ──
+    # ── Enrich (PostCard + similarity fields) ───────────────────────
     authors = _load_authors(db, {c["_post"].author_id for _, c in top})
     my_votes = _my_vote_map(
         db, user.id if user else None,
@@ -305,6 +392,7 @@ def similar_posts(
             authors[p.author_id],
             tags_by_post.get(p.id, []),
             my_votes.get(("post", p.id)),
+            is_duplicate=(p.id in dup_ids),
         )
         card["similarity"]       = score.score
         card["similarity_label"] = score.label
@@ -386,6 +474,7 @@ def list_posts(
 
     authors = _load_authors(db, {p.author_id for p in posts})
     tags_by_post = _load_tags_for(db, [p.id for p in posts])
+    dup_ids = _duplicate_ids_for(db, [p.id for p in posts])
 
     my_votes = _my_vote_map(
         db,
@@ -396,7 +485,8 @@ def list_posts(
     return {
         "items": [
             _card(p, authors[p.author_id], tags_by_post[p.id],
-                  my_votes.get(("post", p.id)))
+                  my_votes.get(("post", p.id)),
+                  is_duplicate=(p.id in dup_ids))
             for p in posts
         ],
         "total": total, "page": page, "page_size": page_size,
@@ -431,6 +521,8 @@ def get_post(
     tags_by_post = _load_tags_for(db, [p.id])
     card = _card(p, authors[p.author_id], tags_by_post[p.id])
     card["body"] = p.body
+    card["is_duplicate"] = p.id in _duplicate_ids_for(db, [p.id])
+    card["duplicates"] = _load_duplicates(db, p.id) if p.post_type == "question" else []
 
     comments = db.scalars(
         select(Comment)
