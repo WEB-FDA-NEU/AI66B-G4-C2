@@ -1176,3 +1176,262 @@ a.s-tag:focus-visible {
   object-fit: cover;
   display: block;
 }
+
+/* ---------- Hamburger button (visible only on mobile) ---------- */
+.site-header__hamburger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--black-600);
+  border-radius: var(--br-md);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.site-header__hamburger:hover { background-color: var(--black-100); }
+.site-header__hamburger:focus-visible {
+  box-shadow: 0 0 0 var(--su2) var(--focus-neutral),
+              0 0 0 var(--su4) var(--focus-theme);
+  outline: var(--su2) solid #0000 !important;
+}
+/* Icon swap handled by aria-expanded */
+.site-header__hamburger .icon-close { display: none; }
+.site-header__hamburger[aria-expanded="true"] .icon-hamburger { display: none; }
+.site-header__hamburger[aria-expanded="true"] .icon-close    { display: inline; }
+
+/* ================= Mobile (≤ 48.75rem / 780px) ================= */
+@media (max-width: 48.75rem) {
+
+  /* ---------- Header reflow ---------- */
+  .site-header {
+    padding: 0 var(--su8);
+    gap: var(--su2);
+  }
+  .site-header .site-logo {
+    padding: var(--su4);
+    flex-shrink: 0;
+  }
+  .site-header .site-logo img {
+    height: 32px;
+  }
+
+    /* ---------- Search: icon button + full-width dropdown ---------- */
+  /* Icon-only button in the header */
+  .site-header__search-btn {
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--black-600);
+    border-radius: var(--br-md);
+    cursor: pointer;
+    flex-shrink: 0;
+    margin-left: auto;   /* pushes search + auth to the right edge */
+  }
+  .site-header__search-btn:hover { background-color: var(--black-100); }
+  .site-header__search-btn:focus-visible {
+    box-shadow: 0 0 0 var(--su2) var(--focus-neutral),
+                0 0 0 var(--su4) var(--focus-theme);
+    outline: var(--su2) solid #0000 !important;
+  }
+
+  /* Hide the inline search form on mobile */
+  .header-search { display: none !important; }
+
+  /* Show it as a full-width dropdown below the header when open */
+  body.search-open .header-search {
+    display: flex !important;
+    position: fixed !important;   /* !important defeats .ps-relative */
+    top: 56px;                    /* header height — viewport-relative */
+    left: 0;
+    right: 0;
+    margin: 0 !important;
+    max-width: none !important;
+    min-width: 0;
+    padding: var(--su8) var(--su12);
+    background-color: var(--white);
+    border-bottom: 1px solid var(--bc-medium);
+    box-shadow: var(--bs-sm);
+  }
+  body.search-open .header-search .s-input {
+    font-size: var(--fs-body1);
+    padding-top: var(--su8);
+    padding-bottom: var(--su8);
+  }
+
+  /* Backdrop — dims the page below the header while search is open */
+  body.search-open::after {
+    content: "";
+    position: fixed;
+    inset: 109px 0 0 0;
+    background-color: rgba(0, 0, 0, 0.15);
+    z-index: calc(var(--zi-navigation-fixed) - 2);
+  }
+
+  /* Settings is reachable from the avatar menu; drop the extra icon */
+  .site-header .site-header__settings { display: none !important; }
+
+  /* Compact avatar + logout */
+  .site-header .header-user-avatar {
+    width: 28px;
+    height: 28px;
+  }
+  .site-header .header-logout-btn {
+    padding: 0 var(--su6);
+    font-size: var(--fs-fine);
+    white-space: nowrap;
+  }
+
+  /* ---------- Sidebar → fixed sliding drawer ---------- */
+  /* Dim backdrop — click-through to <body>, document listener closes. */
+  body.nav-open::after {
+    content: "";
+    position: fixed;
+    inset: 56px 0 0 0;
+    background-color: rgba(0, 0, 0, 0.45);
+    z-index: calc(var(--zi-navigation-fixed) - 2);
+  }
+
+  .sidebar-left {
+    position: fixed;
+    top: 56px;
+    left: 0;
+    bottom: 0;
+    width: 280px;
+    max-width: 82vw;
+    padding: var(--su16);
+    background-color: var(--white);
+    border-right: 1px solid var(--bc-medium);
+    box-shadow: var(--bs-lg);
+    overflow-y: auto;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    z-index: calc(var(--zi-navigation-fixed) - 1);
+    will-change: transform;
+  }
+  body.nav-open .sidebar-left {
+    transform: translateX(0);
+  }
+
+  /* Larger touch targets inside the drawer */
+  .sidebar-left .s-navigation--item {
+    padding: var(--su8) var(--su12);
+    border-radius: var(--br-md);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sidebar-left { transition: none; }
+  }
+
+  /* ---------- Page gutters ---------- */
+  .wmx12.mx-auto.px16.py24 {
+    padding-left: var(--su12) !important;
+    padding-right: var(--su12) !important;
+    padding-top: var(--su16) !important;
+    padding-bottom: var(--su16) !important;
+  }
+  .ask-hero__inner {
+    padding: var(--su16) var(--su12) var(--su12);
+  }
+  .ask-hero__inner h1 { font-size: var(--fs-title); }
+
+  /* ---------- Modal ---------- */
+  .s-modal .s-modal--dialog {
+    max-width: calc(100vw - var(--su32));
+    padding: var(--su16);
+  }
+  .s-modal .s-modal--header {
+    font-size: var(--fs-headline1);
+    margin-right: var(--su32);
+  }
+
+  /* ---------- Post layout ---------- */
+  .post-layout   { gap: var(--su12); }
+  .post-meta     { gap: var(--su8); }
+  .post-footer   { flex-direction: column; align-items: flex-start; }
+  .vote-cell     { width: 40px; }
+
+  /* ---------- Tables ---------- */
+  .s-table__stripes thead th,
+  .s-table__stripes tbody td {
+    font-size: var(--fs-caption);
+    padding: var(--su6);
+  }
+
+  /* ---------- Pagination ---------- */
+  .s-pagination { justify-content: center !important; }
+}
+
+/* ---------- Users grid: 3 → 2 → 1 columns ---------- */
+@media (max-width: 71.875rem) {
+  #user-list.d-grid.grid__3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 48.75rem) {
+  #user-list.d-grid.grid__3 {
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+  }
+}
+
+/* ==================================================================
+   ACCOUNT MENU (mobile-only avatar popover)
+   ================================================================== */
+
+/* Default (desktop): hide mobile-only pieces */
+.header-user-avatar--btn      { display: none; }
+.header-account__popover      { display: none; }
+
+.header-account__popover {
+  position: absolute;
+  top: calc(100% + var(--su8));
+  right: 0;
+  min-width: 180px;
+  background: var(--white);
+  border: 1px solid var(--bc-medium);
+  border-radius: var(--br-md);
+  box-shadow: var(--bs-lg);
+  padding: var(--su4);
+  z-index: var(--zi-popovers);
+}
+
+/* Buttons as avatars need reset of button chrome */
+.header-user-avatar--btn {
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+}
+.header-user-avatar--btn:focus-visible {
+  outline: 2px solid var(--focus-theme);
+  outline-offset: 2px;
+}
+
+/* Mobile: swap to the popover pattern */
+@media (max-width: 48.75rem) {
+  .header-user-avatar--link { display: none; }
+  .header-user-avatar--btn  { display: inline-flex; }
+
+  /* Everything already hidden by the previous mobile block; kept
+     here as a single place to review all "desktop-only in header"
+     elements together. */
+  .site-header__settings      { display: none !important; }
+  .site-header__desktop-only  { display: none !important; }
+
+  /* The popover is visible only when toggled */
+  .header-account__popover:not([hidden]) {
+    display: block;
+  }
+
+  /* Larger touch targets inside the popover */
+  .header-account__popover .s-menu--action {
+    padding: var(--su12);
+    min-height: 44px;
+  }
+}
