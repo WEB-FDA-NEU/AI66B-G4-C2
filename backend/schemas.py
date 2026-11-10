@@ -63,16 +63,6 @@ class TagOut(BaseModel):
     post_count:   int = 0
 
 
-class DuplicateInfo(BaseModel):
-    """One 'this question is a duplicate of X' reference."""
-    post_id:      int
-    title:        str
-    url:          str
-    answer_count: int = 0
-    marked_by:    AuthorOut | None = None
-    marked_at:    datetime
-
-
 class PostCard(BaseModel):
     id:           int
     post_type:    Literal["question", "discussion"]
@@ -85,7 +75,6 @@ class PostCard(BaseModel):
     reply_count:  int
     view_count:   int
     is_answered:  bool
-    is_duplicate: bool = False
     my_vote:      int | None = None          # ← NEW
     created_at:   datetime
     updated_at:   datetime
@@ -132,7 +121,6 @@ class PostDetail(PostCard):
     body:     str
     answers:  list[AnswerOut] = []
     comments: list[CommentOut] = []
-    duplicates: list[DuplicateInfo] = []
 
 
 def _validate_tag_list(v: list[str]) -> list[str]:

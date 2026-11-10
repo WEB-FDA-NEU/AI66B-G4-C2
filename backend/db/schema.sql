@@ -301,25 +301,15 @@ CREATE TABLE post_marks (
     post_id            BIGINT       NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
     mark_type          mark_type    NOT NULL,
     marked_by_user_id  BIGINT       NULL REFERENCES users(id) ON DELETE SET NULL,
-    related_post_id    BIGINT       NULL REFERENCES posts(id) ON DELETE SET NULL,
     notes              TEXT         NOT NULL DEFAULT '',
-    created_at         TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+    created_at         TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT post_marks_unique UNIQUE (post_id, mark_type)
 );
 
-CREATE INDEX post_marks_post_idx    ON post_marks (post_id);
-CREATE INDEX post_marks_type_idx    ON post_marks (mark_type, created_at DESC);
-CREATE INDEX post_marks_marker_idx  ON post_marks (marked_by_user_id);
-CREATE INDEX post_marks_related_idx ON post_marks (related_post_id);
-
--- A post can have at most one mark of each non-duplicate type.
-CREATE UNIQUE INDEX post_marks_unique_non_dup
-    ON post_marks (post_id, mark_type)
-    WHERE mark_type <> 'duplicated';
-
--- A post can be marked as a duplicate of the same original only once.
-CREATE UNIQUE INDEX post_marks_unique_dup_pair
-    ON post_marks (post_id, related_post_id)
-    WHERE mark_type = 'duplicated' AND related_post_id IS NOT NULL;
+CREATE INDEX post_marks_post_idx   ON post_marks (post_id);
+CREATE INDEX post_marks_type_idx   ON post_marks (mark_type, created_at DESC);
+CREATE INDEX post_marks_marker_idx ON post_marks (marked_by_user_id);
 
 -- ============================================================
 -- follows  (user → user)

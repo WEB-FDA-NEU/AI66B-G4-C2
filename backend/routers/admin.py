@@ -498,10 +498,9 @@ def restore_post(
 # ── Post marks (create) ─────────────────────────────────────────────────
 
 class PostMarkIn(BaseModel):
-    post_id:         int
-    mark_type:       Literal["duplicated", "violated", "off_topic", "spam"]
-    related_post_id: int | None = None
-    notes:           str = Field(default="", max_length=500)
+    post_id:   int
+    mark_type: Literal["duplicated", "violated", "off_topic", "spam"]
+    notes:     str = Field(default="", max_length=500)
 
 
 @router.post("/post-marks", status_code=status.HTTP_201_CREATED)
@@ -510,17 +509,11 @@ def create_post_mark(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Create a mark on a post.
+    """Create (or update) a moderator mark on a post.
 
-    Duplicates are special:
-      - If `related_post_id` is provided, the (post, related) pair is
-        validated and stored as a distinct row. Re-marking the same
-        pair is idempotent.
-      - Multiple duplicates per post are allowed (a post can be a
-        duplicate of more than one original).
-
-    All other mark types remain unique per (post, mark_type): posting
-    the same type again overwrites notes and re-attribution.
+    Re-posting an existing mark of the same type overwrites its notes —
+    this is what the Duplicates tab relies on to update the
+    "duplicate of …" reference without forcing a delete first.
     """
     _require_staff(user)
 
@@ -528,73 +521,33 @@ def create_post_mark(
     if post is None or post.deleted_at is not None:
         raise HTTPException(404, "Post not found.")
 
-    # ── Validate related target for duplicates ─────────────────────
-    if payload.mark_type == "duplicated" and payload.related_post_id is not None:
-        if payload.related_post_id == payload.post_id:
-            raise HTTPException(400, "A post cannot be a duplicate of itself.")
-        related = db.get(Post, payload.related_post_id)
-        if related is None or related.deleted_at is not None:
-            raise HTTPException(404, "Related post not found.")
-
+    existing = db.scalar(
+        select(PostMark).where(
+            PostMark.post_id   == payload.post_id,
+            PostMark.mark_type == payload.mark_type,
+        )
+    )
     now = datetime.now(timezone.utc)
 
-    # ── Duplicates with a target — pairwise idempotent ─────────────
-    if payload.mark_type == "duplicated" and payload.related_post_id is not None:
-        existing = db.scalar(
-            select(PostMark).where(
-                PostMark.post_id == payload.post_id,
-                PostMark.mark_type == "duplicated",
-                PostMark.related_post_id == payload.related_post_id,
-            )
-        )
-        if existing is not None:
-            existing.marked_by_user_id = user.id
-            existing.notes = payload.notes
-            existing.created_at = now
-            db.commit()
-            db.refresh(existing)
-            mark = existing
-        else:
-            mark = PostMark(
-                post_id=payload.post_id,
-                mark_type="duplicated",
-                marked_by_user_id=user.id,
-                related_post_id=payload.related_post_id,
-                notes=payload.notes,
-            )
-            db.add(mark)
-            db.commit()
-            db.refresh(mark)
-
-    # ── Any other case — unique per (post, mark_type) ──────────────
+    if existing is not None:
+        existing.notes             = payload.notes
+        existing.marked_by_user_id = user.id
+        existing.created_at        = now
     else:
-        existing = db.scalar(
-            select(PostMark).where(
-                PostMark.post_id == payload.post_id,
-                PostMark.mark_type == payload.mark_type,
-            )
+        existing = PostMark(
+            post_id=payload.post_id,
+            mark_type=payload.mark_type,
+            marked_by_user_id=user.id,
+            notes=payload.notes,
         )
-        if existing is not None:
-            existing.notes = payload.notes
-            existing.marked_by_user_id = user.id
-            existing.related_post_id = payload.related_post_id
-            existing.created_at = now
-        else:
-            existing = PostMark(
-                post_id=payload.post_id,
-                mark_type=payload.mark_type,
-                marked_by_user_id=user.id,
-                related_post_id=payload.related_post_id,
-                notes=payload.notes,
-            )
-            db.add(existing)
-        db.commit()
-        db.refresh(existing)
-        mark = existing
+        db.add(existing)
 
-    # ── Notify the post author (best-effort) ───────────────────────
+    db.commit()
+    db.refresh(existing)
+    
     try:
-        if post.author_id != user.id:
+        post = db.get(Post, payload.post_id)
+        if post is not None and post.author_id != user.id:
             label = payload.mark_type.replace("_", "-")
             notify(
                 db,
@@ -609,13 +562,12 @@ def create_post_mark(
             db.commit()
     except Exception:
         db.rollback()
-
+    
     return {
-        "id":              mark.id,
-        "post_id":         mark.post_id,
-        "mark_type":       mark.mark_type,
-        "related_post_id": mark.related_post_id,
-        "notes":           mark.notes,
+        "id":        existing.id,
+        "post_id":   existing.post_id,
+        "mark_type": existing.mark_type,
+        "notes":     existing.notes,
     }
 
 
