@@ -22,16 +22,17 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Literal
 
+import dedupe
+import schemas
+from db import get_db
+from deps import get_current_user, get_current_user_optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from models import Answer, Comment, Post, PostTag, Tag, User, Vote
+from notifications import answer_url, comment_url, notify, post_url
 from pydantic import BaseModel
 from sqlalchemy import delete, func, or_, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-
-import schemas
-from db import get_db
-from deps import get_current_user, get_current_user_optional
-from models import Answer, Comment, Post, PostTag, Tag, User, Vote
 
 router = APIRouter(prefix="/api", tags=["posts"])
 
@@ -214,69 +215,101 @@ _SIMILAR_STOPWORDS = {
 _WORD_RE = re.compile(r"[A-Za-z][A-Za-z0-9_+#.-]{2,}")
 
 
-@router.get("/posts/similar", response_model=list[schemas.PostCard])
+@router.get("/posts/similar", response_model=list[schemas.SimilarPost])
 def similar_posts(
     title: str = "",
-    tags: str = "",
+    body:  str = "",
+    tags:  str = "",
+    post_type: Literal["question", "discussion"] | None = Query(None),
     exclude_id: int | None = Query(None),
-    limit: int = Query(5, ge=1, le=20),
+    limit:      int   = Query(5,   ge=1, le=20),
+    min_score:  float = Query(0.30, ge=0.0, le=1.0),
     db: Session = Depends(get_db),
     user: User | None = Depends(get_current_user_optional),
 ):
+    """Recommend posts similar to the one being composed.
+
+    All params except `title` are optional; callers that only send `title`
+    and `tags` (the pre-dedupe contract) still work.
+    """
     title = (title or "").strip()
+    body  = (body  or "").strip()
     tag_list = _split_tags(tags, 5)
 
-    words: list[str] = []
-    seen: set[str] = set()
-    for m in _WORD_RE.finditer(title):
-        w = m.group(0).lower()
-        if w in _SIMILAR_STOPWORDS or w in seen:
-            continue
-        seen.add(w)
-        words.append(w)
-        if len(words) >= 8:
-            break
-
-    if not words and not tag_list:
+    q = dedupe.build_query(title, body, tag_list, post_type or "")
+    if not q.title_tokens and not q.body_tokens and not q.tags_lower:
         return []
 
+    # ── Cheap candidate fetch (blocking) ─────────────────────────────
     stmt = select(Post).where(Post.deleted_at.is_(None))
     if exclude_id:
         stmt = stmt.where(Post.id != exclude_id)
+    if post_type:
+        stmt = stmt.where(Post.post_type == post_type)
 
-    conditions = []
-    if words:
-        conditions.append(
-            or_(*[func.lower(Post.title).like(f"%{w}%") for w in words])
-        )
+    ors = []
     if tag_list:
-        conditions.append(_has_any_tag(tag_list))
-
-    stmt = (
-        stmt.where(or_(*conditions))
-        .order_by(Post.score.desc(), Post.updated_at.desc())
-        .limit(limit)
-    )
-
-    posts = db.scalars(stmt).all()
-    if not posts:
+        ors.append(_has_any_tag(tag_list))
+    if q.title_tokens:
+        ors.append(or_(*[
+            func.lower(Post.title).like(f"%{w}%")
+            for w in q.title_tokens[:6]
+        ]))
+    if q.body_tokens:
+        ors.append(or_(*[
+            func.lower(Post.body).like(f"%{w}%")
+            for w in q.body_tokens[:6]
+        ]))
+    if not ors:
         return []
 
-    authors = _load_authors(db, {p.author_id for p in posts})
-    tags_by_post = _load_tags_for(db, [p.id for p in posts])
+    stmt = (
+        stmt.where(or_(*ors))
+        .order_by(Post.created_at.desc())
+        .limit(200)
+    )
+    raw = db.scalars(stmt).all()
+    if not raw:
+        return []
+
+    # ── Score + rank ─────────────────────────────────────────────────
+    tags_by_post = _load_tags_for(db, [p.id for p in raw])
+    candidates = [
+        {
+            "id":        p.id,
+            "title":     p.title,
+            "body":      p.body,
+            "tags":      [t.name for t in tags_by_post.get(p.id, [])],
+            "post_type": p.post_type,
+            "_post":     p,
+        }
+        for p in raw
+    ]
+    ranked = dedupe.rank_candidates(q, candidates, min_score=min_score)
+    top = ranked[:limit]
+    if not top:
+        return []
+
+    # ── Enrich (same PostCard shape as before + similarity fields) ──
+    authors = _load_authors(db, {c["_post"].author_id for _, c in top})
     my_votes = _my_vote_map(
-        db, user.id if user else None, [("post", p.id) for p in posts]
+        db, user.id if user else None,
+        [("post", c["_post"].id) for _, c in top],
     )
 
-    return [
-        _card(
+    result: list[dict] = []
+    for score, c in top:
+        p = c["_post"]
+        card = _card(
             p,
             authors[p.author_id],
-            tags_by_post[p.id],
+            tags_by_post.get(p.id, []),
             my_votes.get(("post", p.id)),
         )
-        for p in posts
-    ]
+        card["similarity"]       = score.score
+        card["similarity_label"] = score.label
+        result.append(card)
+    return result
 
 
 # ── List ────────────────────────────────────────────────────────────────
@@ -730,6 +763,26 @@ def accept_answer(
         )
 
     db.refresh(p)
+    
+    # Notify the newly-accepted answer's author
+    if payload.answer_id is not None:
+        try:
+            accepted = db.get(Answer, payload.answer_id)
+            if accepted is not None and accepted.author_id != user.id:
+                notify(
+                    db,
+                    user_id=accepted.author_id,
+                    actor_id=user.id,
+                    type="accepted",
+                    target_type="answer",
+                    target_id=accepted.id,
+                    title_preview=p.title,
+                    url=answer_url(p, accepted),
+                )
+                db.commit()
+        except Exception:
+            db.rollback()
+    
     return get_post(p.id, increment_views=False, db=db, user=user)
 
 
@@ -754,6 +807,24 @@ def create_answer(
     db.add(a)
     db.commit()
     db.refresh(a)
+    
+    # Notify the question author (best-effort; never rolls back the answer)
+    try:
+        p = db.get(Post, post_id)
+        if p is not None and p.author_id != user.id:
+            notify(
+                db,
+                user_id=p.author_id,
+                actor_id=user.id,
+                type="answer",
+                target_type="post",
+                target_id=p.id,
+                title_preview=p.title,
+                url=answer_url(p, a),
+            )
+            db.commit()
+    except Exception:
+        db.rollback()
 
     return {
         "id": a.id, "post_id": a.post_id, "author": _author(user),
@@ -781,6 +852,40 @@ def comment_post(
     db.add(c)
     db.commit()
     db.refresh(c)
+    
+    try:
+        post = db.get(Post, post_id)
+        if post is not None:
+            if payload.parent_comment_id is not None:
+                parent = db.get(Comment, payload.parent_comment_id)
+                if parent and parent.author_id != user.id:
+                    notify(
+                        db,
+                        user_id=parent.author_id,
+                        actor_id=user.id,
+                        type="reply",
+                        target_type="comment",
+                        target_id=parent.id,
+                        title_preview=post.title,
+                        url=comment_url(post, c),
+                    )
+                    db.commit()
+            else:
+                if post.author_id != user.id:
+                    notify(
+                        db,
+                        user_id=post.author_id,
+                        actor_id=user.id,
+                        type="comment",
+                        target_type="post",
+                        target_id=post.id,
+                        title_preview=post.title,
+                        url=comment_url(post, c),
+                    )
+                    db.commit()
+    except Exception:
+        db.rollback()
+    
     return {
         "id": c.id, "post_id": c.post_id, "answer_id": c.answer_id,
         "parent_comment_id": c.parent_comment_id,
@@ -806,6 +911,41 @@ def comment_answer(
     db.add(c)
     db.commit()
     db.refresh(c)
+    
+    try:
+        parent_answer = db.get(Answer, answer_id)
+        if parent_answer is not None:
+            post = db.get(Post, parent_answer.post_id)
+            if post is not None:
+                if payload.parent_comment_id is not None:
+                    parent = db.get(Comment, payload.parent_comment_id)
+                    if parent and parent.author_id != user.id:
+                        notify(
+                            db,
+                            user_id=parent.author_id,
+                            actor_id=user.id,
+                            type="reply",
+                            target_type="comment",
+                            target_id=parent.id,
+                            title_preview=post.title,
+                            url=comment_url(post, c),
+                        )
+                        db.commit()
+                elif parent_answer.author_id != user.id:
+                    notify(
+                        db,
+                        user_id=parent_answer.author_id,
+                        actor_id=user.id,
+                        type="comment",
+                        target_type="answer",
+                        target_id=parent_answer.id,
+                        title_preview=post.title,
+                        url=comment_url(post, c),
+                    )
+                    db.commit()
+    except Exception:
+        db.rollback()
+    
     return {
         "id": c.id, "post_id": c.post_id, "answer_id": c.answer_id,
         "parent_comment_id": c.parent_comment_id,

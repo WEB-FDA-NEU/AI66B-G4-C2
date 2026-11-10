@@ -28,24 +28,26 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS citext;
 
 -- ---------- Drop in reverse-dependency order ----------
-DROP TABLE IF EXISTS follows      CASCADE;
-DROP TABLE IF EXISTS post_marks   CASCADE;
-DROP TABLE IF EXISTS reports      CASCADE;
-DROP TABLE IF EXISTS votes        CASCADE;
-DROP TABLE IF EXISTS post_tags    CASCADE;
-DROP TABLE IF EXISTS comments     CASCADE;
-DROP TABLE IF EXISTS answers      CASCADE;
-DROP TABLE IF EXISTS posts        CASCADE;
-DROP TABLE IF EXISTS tags         CASCADE;
-DROP TABLE IF EXISTS users        CASCADE;
+DROP TABLE IF EXISTS follows       CASCADE;
+DROP TABLE IF EXISTS notifications CASCADE;
+DROP TABLE IF EXISTS post_marks    CASCADE;
+DROP TABLE IF EXISTS reports       CASCADE;
+DROP TABLE IF EXISTS votes         CASCADE;
+DROP TABLE IF EXISTS post_tags     CASCADE;
+DROP TABLE IF EXISTS comments      CASCADE;
+DROP TABLE IF EXISTS answers       CASCADE;
+DROP TABLE IF EXISTS posts         CASCADE;
+DROP TABLE IF EXISTS tags          CASCADE;
+DROP TABLE IF EXISTS users         CASCADE;
 
-DROP TYPE IF EXISTS post_type      CASCADE;
-DROP TYPE IF EXISTS user_role      CASCADE;
-DROP TYPE IF EXISTS user_status    CASCADE;
-DROP TYPE IF EXISTS report_status  CASCADE;
-DROP TYPE IF EXISTS mark_type      CASCADE;
-DROP TYPE IF EXISTS vote_target    CASCADE;
-DROP TYPE IF EXISTS report_target  CASCADE;
+DROP TYPE IF EXISTS post_type         CASCADE;
+DROP TYPE IF EXISTS notification_type CASCADE;
+DROP TYPE IF EXISTS user_role         CASCADE;
+DROP TYPE IF EXISTS user_status       CASCADE;
+DROP TYPE IF EXISTS report_status     CASCADE;
+DROP TYPE IF EXISTS mark_type         CASCADE;
+DROP TYPE IF EXISTS vote_target       CASCADE;
+DROP TYPE IF EXISTS report_target     CASCADE;
 
 DROP FUNCTION IF EXISTS set_updated_at() CASCADE;
 DROP FUNCTION IF EXISTS posts_compute_search_vector() CASCADE;
@@ -323,6 +325,48 @@ CREATE TABLE follows (
 );
 
 CREATE INDEX follows_followed_idx ON follows (followed_id);
+
+-- ============================================================
+-- notifications
+--   Application-level creation, not triggers — see backend/
+--   notifications.py for the notify() helper. Rows are
+--   denormalised (title_preview, url) so they survive target
+--   edits and soft-deletes.
+-- ============================================================
+
+CREATE TYPE notification_type AS ENUM (
+    'answer',       -- someone answered your question
+    'comment',      -- someone commented on your post or answer
+    'reply',        -- someone replied to your comment
+    'accepted',     -- your answer was accepted
+    'moderation',   -- staff marked, hid, or restored your content
+    'role_change',  -- your role was changed (promote/demote/suspend/ban)
+    'system'        -- welcome, milestone, other
+);
+
+CREATE TABLE notifications (
+    id              BIGSERIAL         PRIMARY KEY,
+    user_id         BIGINT            NOT NULL
+                        REFERENCES users(id) ON DELETE CASCADE,
+    actor_id        BIGINT            NULL
+                        REFERENCES users(id) ON DELETE SET NULL,
+    type            notification_type NOT NULL,
+    target_type     TEXT              NULL,    -- 'post' | 'answer' | 'comment' | 'user'
+    target_id       BIGINT            NULL,
+    title_preview   TEXT              NOT NULL DEFAULT '',
+    url             TEXT              NOT NULL DEFAULT '',
+    is_read         BOOLEAN           NOT NULL DEFAULT FALSE,
+    created_at      TIMESTAMPTZ       NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX notifications_user_unread_idx
+    ON notifications (user_id, created_at DESC) WHERE is_read = FALSE;
+
+CREATE INDEX notifications_user_all_idx
+    ON notifications (user_id, created_at DESC);
+
+CREATE INDEX notifications_dedupe_idx
+    ON notifications (user_id, actor_id, type, target_type, target_id, created_at DESC);
 
 -- ============================================================
 -- Trigger: updated_at

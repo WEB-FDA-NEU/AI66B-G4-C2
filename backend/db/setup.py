@@ -33,6 +33,7 @@ EXPECTED_TABLES = (
     "reports",
     "post_marks",
     "follows",
+    "notifications",
 )
 
 

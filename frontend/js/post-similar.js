@@ -1,42 +1,29 @@
 /**
- * post-similar.js — soft dedup warning for the create/edit post form.
+ * post-similar.js — soft dedup panel for the create/edit post form.
  *
- * Watches the title input and the tag editor, debounces, and fetches
- * GET /api/posts/similar to surface related posts. Never blocks
- * submission — purely informational, mirroring Stack Overflow's
- * "Questions that may already have your answer" panel.
+ * Sends title + body + tags + post_type to /api/posts/similar, then
+ * renders the top matches with a similarity badge ("Duplicate" /
+ * "Possible duplicate" / "Similar") and a warning banner when any
+ * match is ≥ "probably_duplicate".
  *
- * Listens for the `tag:change` CustomEvent emitted by
- * ask-question-editor.js's bindTagEditor(), so both features stay in
- * sync without a direct import (edit pages can therefore re-use this
- * module even if they drive the tag editor themselves).
- *
- * Usage:
- *   import { initPostSimilar } from './js/post-similar.js';
- *   const teardown = initPostSimilar({
- *     blockEl:    document.getElementById('similar-questions-block'),
- *     listEl:     document.getElementById('similar-questions-list'),
- *     titleInput: document.getElementById('question-title'),
- *     tagEditor:  document.getElementById('tag-editor')
- *   });
- *   // later: teardown();
+ * Never blocks submission — the panel is purely informational,
+ * matching Stack Overflow's "Questions that may already have your
+ * answer" UX.
  */
 
 const API_BASE = (typeof location !== 'undefined' &&
                   (location.port === '8000' || location.port === ''))
   ? '' : 'http://localhost:8000';
 
-/* ------------------------------------------------------------------ */
-/* Helpers                                                             */
-/* ------------------------------------------------------------------ */
+const LABEL_BADGE = {
+  duplicate:          '<span class="s-badge s-badge__danger s-badge__sm">Duplicate</span>',
+  probably_duplicate: '<span class="s-badge s-badge__warning s-badge__sm">Possible duplicate</span>',
+  similar:            '<span class="s-badge s-badge__info s-badge__sm">Similar</span>',
+};
 
 function escapeHtml(str) {
   return String(str ?? '').replace(/[&<>"']/g, (c) => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;'
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   }[c]));
 }
 
@@ -50,15 +37,15 @@ function debounce(fn, wait) {
   return wrapped;
 }
 
-/* ------------------------------------------------------------------ */
-/* Fetch                                                               */
-/* ------------------------------------------------------------------ */
-
-async function fetchSimilar({ title, tags, excludeId, limit = 5 }) {
+async function fetchSimilar({
+  title, body, tags, excludeId, postType, limit = 5,
+}) {
   const params = new URLSearchParams();
   if (title) params.set('title', title);
+  if (body)  params.set('body', body.slice(0, 500));
   if (tags && tags.length) params.set('tags', tags.join(','));
-  if (excludeId != null) params.set('exclude_id', String(excludeId));
+  if (excludeId != null)   params.set('exclude_id', String(excludeId));
+  if (postType)            params.set('post_type', postType);
   params.set('limit', String(limit));
 
   try {
@@ -73,10 +60,6 @@ async function fetchSimilar({ title, tags, excludeId, limit = 5 }) {
     return [];
   }
 }
-
-/* ------------------------------------------------------------------ */
-/* Rendering                                                           */
-/* ------------------------------------------------------------------ */
 
 function postHref(post) {
   return post.post_type === 'discussion'
@@ -97,46 +80,64 @@ function renderItem(post) {
   const typeBadge = post.post_type === 'discussion'
     ? '<span class="discussion-badge">Discussion</span>'
     : '<span class="question-badge">Question</span>';
+  const simBadge = LABEL_BADGE[post.similarity_label] || '';
 
   return `
     <li class="d-flex ai-center g6 fw-wrap">
       ${typeBadge}
+      ${simBadge}
       <a href="${postHref(post)}" target="_blank" rel="noopener">${escapeHtml(post.title || '')}</a>
       <span class="fc-black-400 fs-caption">· ${escapeHtml(metaFor(post))}</span>
     </li>`;
 }
 
-/* ------------------------------------------------------------------ */
-/* Bootstrap                                                           */
-/* ------------------------------------------------------------------ */
+function ensureBanner(blockEl) {
+  let banner = blockEl.querySelector('[data-similar-banner]');
+  if (banner) return banner;
+  banner = document.createElement('div');
+  banner.className = 's-notice s-notice__warning pl12 bar-md mb8';
+  banner.setAttribute('role', 'alert');
+  banner.setAttribute('data-similar-banner', '');
+  banner.hidden = true;
+  const h4 = blockEl.querySelector('h4');
+  if (h4 && h4.parentNode) {
+    h4.parentNode.insertBefore(banner, h4.nextSibling);
+  } else {
+    blockEl.insertBefore(banner, blockEl.firstChild);
+  }
+  return banner;
+}
 
-/**
- * @param {object} opts
- * @param {HTMLElement}         opts.blockEl        Outer container (toggled via `hidden`).
- * @param {HTMLElement}         opts.listEl         `<ul>` to fill.
- * @param {HTMLInputElement}    opts.titleInput     Title field to watch.
- * @param {HTMLElement}         [opts.tagEditor]    Tag editor — listens for `tag:change`.
- * @param {number|null}         [opts.excludeId]    Edit mode: exclude the post being edited.
- * @param {() => string[]}      [opts.getTags]      Custom tag reader. Defaults to reading
- *                                                  `.s-tag[data-tag]` from `tagEditor`.
- * @param {number}              [opts.debounceMs]   Debounce delay (default 600 ms).
- *
- * @returns {() => void} cleanup — removes listeners and cancels any pending fetch.
- */
+function updateBanner(banner, posts) {
+  const top = posts[0];
+  if (!top || !top.similarity_label) { banner.hidden = true; return; }
+  if (top.similarity_label === 'duplicate' ||
+      top.similarity_label === 'probably_duplicate') {
+    const label = top.similarity_label === 'duplicate'
+      ? 'This looks like an existing post.'
+      : 'This may already have been asked.';
+    banner.innerHTML = `⚠ ${label} Check the suggestions below before posting.`;
+    banner.hidden = false;
+  } else {
+    banner.hidden = true;
+  }
+}
+
 export function initPostSimilar({
   blockEl,
   listEl,
   titleInput,
+  bodyInput,
+  postType,
   tagEditor,
   excludeId = null,
   getTags,
-  debounceMs = 600
+  debounceMs = 600,
 } = {}) {
   if (!blockEl || !listEl || !titleInput) return () => {};
 
-  // Hide immediately — the HTML ships the block visible-but-empty and
-  // JS only reveals it when there are results to show.
   blockEl.hidden = true;
+  const banner = ensureBanner(blockEl);
 
   let activeFetch = 0;
 
@@ -144,28 +145,29 @@ export function initPostSimilar({
     Array.from(tagEditor?.querySelectorAll('.s-tag') || [])
       .map((el) => el.dataset.tag)
       .filter(Boolean);
-
   const tagsFn = typeof getTags === 'function' ? getTags : defaultGetTags;
 
   const hide = () => {
     blockEl.hidden = true;
+    banner.hidden = true;
     listEl.innerHTML = '';
   };
 
   const run = debounce(async () => {
     const title = (titleInput.value || '').trim();
+    const body  = bodyInput ? (bodyInput.value || '').trim() : '';
     const tags  = tagsFn();
 
-    // Require enough signal to bother the API. The backend needs at
-    // least one word of ≥3 chars OR a tag to return meaningful rows.
-    if (title.length < 3 && tags.length === 0) {
+    if (title.length < 3 && tags.length === 0 && body.length < 20) {
       hide();
       return;
     }
 
     const myFetch = ++activeFetch;
-    const posts   = await fetchSimilar({ title, tags, excludeId });
-    if (myFetch !== activeFetch) return;   // superseded by a newer request
+    const posts = await fetchSimilar({
+      title, body, tags, excludeId, postType,
+    });
+    if (myFetch !== activeFetch) return;
 
     if (!posts.length) {
       hide();
@@ -173,21 +175,21 @@ export function initPostSimilar({
     }
 
     listEl.innerHTML = posts.map(renderItem).join('');
+    updateBanner(banner, posts);
     blockEl.hidden = false;
   }, debounceMs);
 
   const onChange = () => run();
 
   titleInput.addEventListener('input', onChange);
+  bodyInput?.addEventListener('input', onChange);
   tagEditor?.addEventListener('tag:change', onChange);
-
-  // No initial run — a blank create form should not fire a request.
 
   return () => {
     titleInput.removeEventListener('input', onChange);
+    bodyInput?.removeEventListener('input', onChange);
     tagEditor?.removeEventListener('tag:change', onChange);
     run.cancel();
-    // Leave the DOM as-is; the caller decides whether to clear.
   };
 }
 

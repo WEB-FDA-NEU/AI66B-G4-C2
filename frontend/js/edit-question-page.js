@@ -575,6 +575,8 @@ export async function initEditQuestionPage({
         blockEl:    similarBlock,
         listEl:     similarList,
         titleInput: E.titleInput,
+        bodyInput:  E.textarea,
+        postType,
         tagEditor:  E.tagEditor,
         excludeId:  postId
       });

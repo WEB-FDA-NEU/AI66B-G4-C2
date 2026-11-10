@@ -83,3 +83,8 @@ export function loadAdminUsers() {
 export function loadHiddenPosts() {
   return fetchList('/api/admin/hidden-posts?page_size=100', 'hidden posts');
 }
+
+// Fetch pairs at "probably duplicate" or stronger.
+export function loadDuplicates() {
+  return fetchList('/api/admin/duplicates?min_similarity=0.65&page_size=50', 'duplicates');
+}

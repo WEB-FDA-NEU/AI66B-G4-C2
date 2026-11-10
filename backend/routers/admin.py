@@ -29,17 +29,19 @@
 """
 from __future__ import annotations
 
+from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 
+import dedupe
+from db import get_db
+from deps import get_current_user
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from models import Post, PostMark, User
+from notifications import notify, post_url
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
-
-from db import get_db
-from deps import get_current_user
-from models import Post, PostMark, User
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -351,6 +353,29 @@ def update_user(
 
     db.commit()
     db.refresh(target)
+    
+    try:
+        msg = {
+            "suspend": f"Your account was suspended for {payload.days} day"
+                       f"{'s' if payload.days != 1 else ''}.",
+            "ban":     "Your account was banned.",
+            "promote": "You were promoted to moderator.",
+            "demote":  "You were demoted to a regular user.",
+        }.get(payload.action)
+        if msg and target.id != viewer.id:
+            notify(
+                db,
+                user_id=target.id,
+                actor_id=viewer.id,
+                type="role_change",
+                target_type="user",
+                target_id=target.id,
+                title_preview=msg,
+                url="./settings.html",
+            )
+            db.commit()
+    except Exception:
+        db.rollback()
 
     return {
         "id":             target.id,
@@ -432,6 +457,22 @@ def hide_post(
 
     post.deleted_at = datetime.now(timezone.utc)
     db.commit()
+    
+    try:
+        notify(
+            db,
+            user_id=post.author_id,
+            actor_id=user.id,
+            type="moderation",
+            target_type="post",
+            target_id=post.id,
+            title_preview=post.title,
+            url=post_url(post),
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+    
     return None
 
 
@@ -453,3 +494,270 @@ def restore_post(
     post.deleted_at = None
     db.commit()
     return None
+
+# ── Post marks (create) ─────────────────────────────────────────────────
+
+class PostMarkIn(BaseModel):
+    post_id:   int
+    mark_type: Literal["duplicated", "violated", "off_topic", "spam"]
+    notes:     str = Field(default="", max_length=500)
+
+
+@router.post("/post-marks", status_code=status.HTTP_201_CREATED)
+def create_post_mark(
+    payload: PostMarkIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Create (or update) a moderator mark on a post.
+
+    Re-posting an existing mark of the same type overwrites its notes —
+    this is what the Duplicates tab relies on to update the
+    "duplicate of …" reference without forcing a delete first.
+    """
+    _require_staff(user)
+
+    post = db.get(Post, payload.post_id)
+    if post is None or post.deleted_at is not None:
+        raise HTTPException(404, "Post not found.")
+
+    existing = db.scalar(
+        select(PostMark).where(
+            PostMark.post_id   == payload.post_id,
+            PostMark.mark_type == payload.mark_type,
+        )
+    )
+    now = datetime.now(timezone.utc)
+
+    if existing is not None:
+        existing.notes             = payload.notes
+        existing.marked_by_user_id = user.id
+        existing.created_at        = now
+    else:
+        existing = PostMark(
+            post_id=payload.post_id,
+            mark_type=payload.mark_type,
+            marked_by_user_id=user.id,
+            notes=payload.notes,
+        )
+        db.add(existing)
+
+    db.commit()
+    db.refresh(existing)
+    
+    try:
+        post = db.get(Post, payload.post_id)
+        if post is not None and post.author_id != user.id:
+            label = payload.mark_type.replace("_", "-")
+            notify(
+                db,
+                user_id=post.author_id,
+                actor_id=user.id,
+                type="moderation",
+                target_type="post",
+                target_id=post.id,
+                title_preview=f"Marked as {label} · {post.title}"[:200],
+                url=post_url(post),
+            )
+            db.commit()
+    except Exception:
+        db.rollback()
+    
+    return {
+        "id":        existing.id,
+        "post_id":   existing.post_id,
+        "mark_type": existing.mark_type,
+        "notes":     existing.notes,
+    }
+
+
+# ── Duplicate scan ─────────────────────────────────────────────────────
+
+def _batch_post_tags(db: Session, post_ids: list[int]) -> dict[int, list[str]]:
+    if not post_ids:
+        return {}
+    from models import PostTag, Tag
+    rows = db.execute(
+        select(PostTag.post_id, Tag.name)
+        .join(Tag, Tag.id == PostTag.tag_id)
+        .where(PostTag.post_id.in_(post_ids))
+    ).all()
+    out: dict[int, list[str]] = defaultdict(list)
+    for pid, name in rows:
+        out[pid].append(name)
+    return out
+
+
+def _enrich_post_for_dupes(p: Post, authors: dict[int, User]) -> dict:
+    a = authors.get(p.author_id)
+    kind = "discussion" if p.post_type == "discussion" else "question"
+    return {
+        "id":             p.id,
+        "title":          p.title,
+        "url":            f"./{kind}-detail.html?id={p.id}",
+        "type":           kind,
+        "author":         a.display_name if a else "anonymous",
+        "authorUsername": a.username if a else "",
+        "score":          int(p.score or 0),
+        "createdAt":      p.created_at.isoformat() if p.created_at else None,
+    }
+
+
+def _scan_duplicates(
+    db: Session,
+    post_type: str | None = None,
+    min_similarity: float = 0.65,
+    focus_post_id: int | None = None,
+) -> list[tuple]:
+    """Return a sorted list of (PairScore, post_a, post_b) tuples."""
+    stmt = select(Post).where(Post.deleted_at.is_(None))
+    if post_type:
+        stmt = stmt.where(Post.post_type == post_type)
+    posts = list(db.scalars(stmt).all())
+    if len(posts) < 2:
+        return []
+
+    focus = None
+    if focus_post_id is not None:
+        focus = next((p for p in posts if p.id == focus_post_id), None)
+        if focus is None:
+            return []
+        posts = [p for p in posts if p.post_type == focus.post_type]
+
+    ids = [p.id for p in posts]
+    tags_map = _batch_post_tags(db, ids)
+    post_index = {p.id: p for p in posts}
+
+    # ── Build corpus dicts once — this is what the engine indexes ───
+    corpus_dicts = [
+        {
+            "id":        p.id,
+            "title":     p.title,
+            "body":      p.body,
+            "tags":      tags_map.get(p.id, []),
+            "post_type": p.post_type,
+        }
+        for p in posts
+    ]
+    engine = dedupe.SimilarityEngine(corpus_dicts)
+
+    # ── Blocking indices (unchanged) ────────────────────────────────
+    tag_index:   dict[str, set[int]] = defaultdict(set)
+    token_index: dict[str, set[int]] = defaultdict(set)
+    for p in posts:
+        for t in tags_map.get(p.id, []):
+            tag_index[t.lower()].add(p.id)
+        for w in dedupe.tokenize(p.title)[:10]:
+            if len(w) >= 3:
+                token_index[w].add(p.id)
+
+    q_cache: dict[int, dedupe.Query] = {}
+    def q_for(pid: int) -> dedupe.Query:
+        if pid not in q_cache:
+            p = post_index[pid]
+            q_cache[pid] = dedupe.build_query(
+                title=p.title, body=p.body,
+                tags=tags_map.get(p.id, []),
+                post_type=p.post_type,
+            )
+        return q_cache[pid]
+
+    seen_pairs: set[tuple[int, int]] = set()
+    results: list[tuple] = []
+
+    for p in posts:
+        candidates: set[int] = set()
+        for t in tags_map.get(p.id, []):
+            candidates.update(tag_index[t.lower()])
+        for w in dedupe.tokenize(p.title)[:10]:
+            if len(w) >= 3:
+                candidates.update(token_index[w])
+        candidates.discard(p.id)
+
+        for cid in candidates:
+            pair = tuple(sorted((p.id, cid)))
+            if pair in seen_pairs:
+                continue
+            if focus is not None and p.id != focus.id and cid != focus.id:
+                continue
+            seen_pairs.add(pair)
+
+            c = post_index[cid]
+            cand = {
+                "id":        c.id,
+                "title":     c.title,
+                "body":      c.body,
+                "tags":      tags_map.get(c.id, []),
+                "post_type": c.post_type,
+            }
+            # ── Use the shared engine ──────────────────────────────
+            s = engine.score_pair(q_for(p.id), cand)
+            if s.score >= min_similarity:
+                results.append((s, p, c))
+
+    marked = set(
+        db.scalars(
+            select(PostMark.post_id).where(PostMark.mark_type == "duplicated")
+        ).all()
+    )
+    results = [(s, a, b) for s, a, b in results
+               if a.id not in marked and b.id not in marked]
+
+    results.sort(key=lambda r: r[0].score, reverse=True)
+    return results
+
+
+@router.get("/duplicates")
+def list_duplicate_candidates(
+    page:           int   = Query(1,  ge=1),
+    page_size:      int   = Query(20, ge=1, le=100),
+    min_similarity: float = Query(0.5, ge=0.0, le=1.0),
+    post_type:      Literal["question", "discussion"] | None = None,
+    post_id:        int | None = Query(None, description="Focus on one post"),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Return pairs of posts that look like duplicates of each other.
+
+    Scans every non-deleted post, groups candidates by tag and title
+    token, and scores the resulting pairs via `dedupe.score_pair`.
+    Results are sorted by similarity (highest first), paginated, and
+    enriched with author + URL metadata for the admin list.
+
+    `post_id` narrows the scan to pairs involving a single post —
+    useful for the "check this report's target" workflow.
+    """
+    _require_staff(user)
+
+    pairs = _scan_duplicates(
+        db, post_type=post_type,
+        min_similarity=min_similarity,
+        focus_post_id=post_id,
+    )
+    total = len(pairs)
+    start = (page - 1) * page_size
+    page_rows = pairs[start:start + page_size]
+
+    # Batch-fetch authors for the current page only
+    author_ids = {p.author_id for _, a, b in page_rows for p in (a, b)}
+    authors = {
+        u.id: u for u in db.scalars(
+            select(User).where(User.id.in_(author_ids))
+        )
+    } if author_ids else {}
+
+    items = []
+    for score, a, b in page_rows:
+        items.append({
+            "id":         f"{a.id}:{b.id}",
+            "similarity": score.score,
+            "label":      score.label,
+            "post_a":     _enrich_post_for_dupes(a, authors),
+            "post_b":     _enrich_post_for_dupes(b, authors),
+        })
+
+    return {
+        "items": items, "total": total,
+        "page": page, "page_size": page_size,
+        "min_similarity": min_similarity,
+    }

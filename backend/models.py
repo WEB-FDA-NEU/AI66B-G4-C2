@@ -174,3 +174,29 @@ class Follow(Base):
     follower_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), primary_key=True)
     followed_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), primary_key=True)
     created_at:  Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Notification(Base):
+    """Per-user notification. Created by application code, not triggers."""
+    __tablename__ = "notifications"
+
+    id:            Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id:       Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"))
+    actor_id:      Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("users.id"), nullable=True
+    )
+    type:          Mapped[str] = mapped_column(
+        PgEnum(
+            "answer", "comment", "reply", "accepted",
+            "moderation", "role_change", "system",
+            name="notification_type", create_type=False,
+        )
+    )
+    target_type:   Mapped[str | None]  = mapped_column(Text, nullable=True)
+    target_id:     Mapped[int | None]  = mapped_column(BigInteger, nullable=True)
+    title_preview: Mapped[str]         = mapped_column(Text, default="")
+    url:           Mapped[str]         = mapped_column(Text, default="")
+    is_read:       Mapped[bool]        = mapped_column(Boolean, default=False)
+    created_at:    Mapped[datetime]    = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )

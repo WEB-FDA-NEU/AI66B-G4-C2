@@ -87,6 +87,11 @@ class PostPage(BaseModel):
     page_size: int
 
 
+class SimilarPost(PostCard):
+    similarity:       float
+    similarity_label: str   # "similar" | "probably_duplicate" | "duplicate"
+
+
 class CommentOut(BaseModel):
     id:                int
     post_id:           int | None
@@ -239,3 +244,24 @@ class MeUpdate(BaseModel):
 class ChangePasswordIn(BaseModel):
     current_password: str = Field(min_length=1)
     new_password:     str = Field(min_length=8, max_length=72)
+
+
+class NotificationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id:            int
+    type:          str
+    actor:         AuthorOut | None = None
+    target_type:   str | None = None
+    target_id:     int | None = None
+    title_preview: str
+    url:           str
+    is_read:       bool
+    created_at:    datetime
+
+
+class NotificationPage(BaseModel):
+    items:     list[NotificationOut]
+    total:     int
+    unread:    int
+    page:      int
+    page_size: int

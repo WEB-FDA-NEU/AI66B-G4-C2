@@ -118,7 +118,7 @@ class SiteSidebar extends HTMLElement {
     // Host layout classes — same trick as <site-header>.
     // `sidebar-left`  = sticky + width 164px
     // `sm:d-none`     = hidden on viewport ≤ 48.75rem
-    this.classList.add('d-block', 'sidebar-left', 'sm:d-none');
+    this.classList.add('d-block', 'sidebar-left');
 
     this.innerHTML = TEMPLATE;
 

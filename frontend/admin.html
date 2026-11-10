@@ -65,6 +65,8 @@
                 data-tab="users" aria-selected="false">Users</button>
         <button class="s-navigation--item" type="button"
                 data-tab="hidden" aria-selected="false">Hidden Content</button>
+        <button class="s-navigation--item" type="button"
+                data-tab="duplicates" aria-selected="false">Duplicates</button>
       </nav>
 
       <!-- ==================== PANEL: REPORTS ==================== -->
@@ -202,6 +204,30 @@
             <tbody id="hidden-body"></tbody>
           </table>
         </div>
+      </section>
+
+      <!-- ==================== PANEL: DUPLICATES ==================== -->
+      <section data-panel="duplicates" aria-label="Duplicate detection" hidden>
+        <div class="d-flex ai-center jc-space-between g8 fw-wrap mb16">
+          <div>
+            <h2 class="fs-title fw-normal mb4">Duplicate Detection</h2>
+            <p class="fc-black-400 fs-caption mb0">
+              Pairs of posts flagged by similarity scoring.
+              Mark one as a duplicate to resolve the pair.
+            </p>
+          </div>
+
+          <div class="d-flex g8 fw-wrap">
+            <label class="s-checkbox s-checkbox__xs">
+              <input type="checkbox" id="dup-rescan">
+              <span class="s-label">Re-scan</span>
+            </label>
+          </div>
+        </div>
+
+        <div id="duplicates-body" class="d-flex fd-column g8"></div>
+
+        <nav class="s-pagination jc-end mt16" data-dup-pagination aria-label="Duplicates pagination"></nav>
       </section>
 
     </main>
