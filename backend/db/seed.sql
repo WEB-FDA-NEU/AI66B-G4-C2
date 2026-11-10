@@ -51,7 +51,8 @@ INSERT INTO users (id, email, password_hash, username, display_name, bio, websit
   (21, 'jack@tech4rum.io',   crypt('password123', gen_salt('bf', 10)), 'jack_web',          'Jack Web',           'GraphQL and WebSockets. HTTP/3 believer.', '', 'Melbourne, AU',           720, 'user',      'active',    NULL,                          NOW() - INTERVAL '50 days',  NOW() - INTERVAL '50 days'),
   (22, 'kate@tech4rum.io',   crypt('password123', gen_salt('bf', 10)), 'kate_mobile',       'Kate Mobile',        'React Native and Swift. Mobile UX nerd.', '', 'Kyiv, UA',                430, 'user',      'active',    NULL,                          NOW() - INTERVAL '40 days',  NOW() - INTERVAL '40 days'),
   (23, 'leo@tech4rum.io',    crypt('password123', gen_salt('bf', 10)), 'leo_git',           'Leo Git',            'Git plumber. Rebase enthusiast.', '', 'Warsaw, PL',                340, 'user',      'suspended', NOW() + INTERVAL '7 days',     NOW() - INTERVAL '30 days',  NOW() - INTERVAL '1 day'),
-  (24, 'mia@tech4rum.io',    crypt('password123', gen_salt('bf', 10)), 'mia_ui',            'Mia UI',             'Tailwind and design tokens. Banned for repeated spam.', '', 'Paris, FR',               -50, 'user',      'banned',    NULL,                          NOW() - INTERVAL '20 days',  NOW() - INTERVAL '2 days');
+  (24, 'mia@tech4rum.io',    crypt('password123', gen_salt('bf', 10)), 'mia_ui',            'Mia UI',             'Tailwind and design tokens. Banned for repeated spam.', '', 'Paris, FR',               -50, 'user',      'banned',    NULL,                          NOW() - INTERVAL '20 days',  NOW() - INTERVAL '2 days'),
+  (25, 'clotho@tech4rum.io', crypt('password123', gen_salt('bf', 10)), 'clotho',            'Clotho',             'The question of whether there exist infinitely many twin primes has been one of the great open questions in number theory for many years. This is the content of the twin prime conjecture, which states that there are infinitely many primes p such that p + 2 is also prime. Recently, an additional conjecture has been posed that states that there are infinitely many funny numbers f such that f + 2 is also a funny number. So far, the only known example of these "twin funny numbers" is the tuple consisting of 67 and 69. The conjecture relies on the fact that a previously non-funny number can spontaneously gain funny status if enough people treat it as funny.', '', 'Belgrade, YU', 177013, 'admin', 'active', NULL, NOW() - INTERVAL '20 days',  NOW() - INTERVAL '2 days');
 
 SELECT setval('users_id_seq', (SELECT MAX(id) FROM users));
 
@@ -113,7 +114,8 @@ INSERT INTO tags (id, name, description) VALUES
   (52, 'aws',                  'Amazon Web Services.'),
   (53, 'gcp',                  'Google Cloud Platform.'),
   (54, 'open-source',          'Open-source software and community work.'),
-  (55, 'code-review',          'Peer review of source code changes.');
+  (55, 'code-review',          'Peer review of source code changes.'),
+  (56, 'oop',                  'Object-oriented programming (OOP) is a programming paradigm using the concept of objects.');
 
 SELECT setval('tags_id_seq', (SELECT MAX(id) FROM tags));
 
@@ -448,6 +450,101 @@ INSERT INTO post_marks (post_id, mark_type, marked_by_user_id, notes) VALUES
   (8,  'duplicated', 6,    'Duplicate of question 7483001'),
   (21, 'spam',      4,    'User report + auto-classifier flagged'),
   (35, 'violated',  NULL, 'Auto-detected: provocative opinion piece');
+
+-- ============================================================
+-- Advanced(?) (1, a long question)
+-- ============================================================
+INSERT INTO posts (id, post_type, title, body, author_id, view_count, created_at) VALUES
+(53, 'question', 'C++ classes , Object oriented programming',                                              'I have a very simple class named person which is given below , I have a problem with only two functions , i.e setstring () function and setname() function , I am calling setstring() function from the setname function. The only problem is when in the main function I write
+`Object.setname(“Zia”);`
+The result is ok as shown in the output screen, Now when I write
+`Object.setname(“Zia ur Rahman”);`
+Nothing is displayed as you can see the output screen.
+
+I know the problem is when I pass the name pointer to setstring () function but I am confused about it please explain it in detail that what is happening here.
+```cpp
+#include<iostream.h>
+class person
+{
+char* name;
+public:
+person();
+void setname(const char*);
+void setstring(const char*, char*);
+void print()const;
+};
+person::person()
+{
+name=new char[3];
+strcpy(name,"NILL");
+name[3]=''\0'';
+}
+void person::setstring(const char* s, char*p)
+{
+if(s!=NULL)
+{
+delete[] p;
+p=new char[strlen(s)];
+strcpy(p,s);
+p[strlen(s)]=''\0'';
+}
+}
+void person::setname(const char* n)
+{
+setstring(n, name);//passing data member name
+}
+void person::print()const
+{
+cout<<"Name: "<<name<<endl;
+}
+main()
+{
+person object;
+object.setname("Zia ur Rahman");
+object.print();
+system("pause");
+}
+```', 25, 727,   NOW() - INTERVAL '1 hours');
+
+INSERT INTO post_tags (post_id, tag_id) VALUES
+  (53, 5),  (53, 56);
+
+INSERT INTO answers (id, post_id, author_id, body, created_at) VALUES
+  (36, 53, 1, 'The specific reason that nothing is being printed is that in `setstring`, `p` is copy of the name pointer, not a reference to it. Try changing the signature of `setstring` to:
+```cpp
+void setstring(const char* s, char*& p);
+```
+(note the `&`).
+
+See the other answers for other significant errors in the code - unless these problems are fixed, you are likely to get crashes or strange behaviour.
+
+And unless the purpose of the code is just to learn dynamic arrays, use std::string instead :-).', NOW() - INTERVAL '59 minutes'),
+  (37, 53, 2, 'If you want to do correct OO-oriented programming in C++ you should maybe stay away from direct pointer management but use the [STL string class](http://vds.uchicago.edu/twiki/pub/DslCS/Project4/stl_strings.html) and use [references](http://www.cprogramming.com/tutorial/references.html) instead of pointers. Then you should have an easier time and your source should produce the correct output.
+
+Otherwise check your constructor of the person class, the name-array has just 3 elements but you''re referencing the 4th one there (indices 0-2!). Also in the setstring() method you''re not allocating enough space for the trailing ''\0'' in the array!', NOW() - INTERVAL '58 minutes'),
+  (38, 53, 3, 'For starters:
+```cpp
+name=new char[3];
+strcpy(name,"NILL");
+name[3]=''\0'';
+```
+name has three elements - you are treating it as if it had five. In a similar vein:
+```cpp
+p=new char[strlen(s)];
+```
+should be:
+```cpp
+p=new char[strlen(s) + 1];
+```
+In fact, that function is completely wrong - you are supposed to be copying the string into ''name'', not the mysterious ''p'' parameter. If you really want that function, then ''p'' must be a pointer to a pointer or a reference to a pointer.', NOW() - INTERVAL '57 minutes');
+
+INSERT INTO comments (id, answer_id, author_id, body, created_at) VALUES
+  (106, 36, 4,  'Nice spot, I didn''t see that until I looked again :)', NOW() - INTERVAL '55 minutes'),
+  (107, 37, 4,  'Nothing wrong with pointers, I would say stay away from references they can get you into all type of problems.', NOW() - INTERVAL '55 minutes'),
+  (108, 37, 5,  'Same applies to pointers of course ;) But not the place to start a flamewar here, I had good and bad experiences with both types. Just that I had more good ones with references, but that''s my personal experience over the years.', NOW() - INTERVAL '50 minutes'),
+  (109, 37, 4,  'No problem :) Im not the style police patrol. Was just curious.', NOW() - INTERVAL '45 minutes'),
+  (110, 38, 1,  'O YES, ok i make it correct, but still there is the same problem', NOW() - INTERVAL '55 minutes'),
+  (111, 38, 1,  'when i write object.setname("zia") the output is Name: zia when i write object.setname("Zia ur Rahman") the output is nothin', NOW() - INTERVAL '50 minutes');
 
 -- ============================================================
 -- Follows (deterministic pattern)
