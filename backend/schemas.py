@@ -86,6 +86,10 @@ class PostPage(BaseModel):
     page:      int
     page_size: int
 
+class SimilarPost(PostCard):
+    similarity:       float
+    similarity_label: str   # "similar" | "probably_duplicate" | "duplicate"
+
 
 class CommentOut(BaseModel):
     id:                int

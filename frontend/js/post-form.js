@@ -169,6 +169,8 @@ export function initPostForm() {
       blockEl:    similarBlock,
       listEl:     similarList,
       titleInput,
+      bodyInput:  bodyInput,
+      postType,
       tagEditor
     });
   }

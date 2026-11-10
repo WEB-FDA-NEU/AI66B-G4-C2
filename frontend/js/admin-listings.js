@@ -258,3 +258,79 @@ export function renderHiddenPosts(data, tbody, filter = 'all') {
       }).join('')
     : emptyRow(7, 'No hidden content found.');
 }
+
+/* ---------- Duplicates ---------- */
+
+export function renderDuplicates(data, container, _filter = 'all') {
+  if (!container) return;
+
+  const items = Array.isArray(data) ? data : [];
+
+  if (!items.length) {
+    container.innerHTML = `
+      <div class="s-empty-state py48">
+        <div class="s-empty-state--title">No duplicates found</div>
+        <p class="fc-black-500">Every pair is below the similarity threshold,
+        or has already been resolved.</p>
+      </div>`;
+    return;
+  }
+
+  const labelBadge = (label, score) => {
+    const tone = label === 'duplicate' ? 'danger'
+               : label === 'probably_duplicate' ? 'warning'
+               : 'info';
+    const text = label === 'duplicate' ? 'Duplicate'
+               : label === 'probably_duplicate' ? 'Possible duplicate'
+               : 'Similar';
+    return `<span class="s-badge s-badge__${tone}">${text} · ${score.toFixed(2)}</span>`;
+  };
+
+  const postBlock = (p, other) => `
+    <div class="widget fl-grow1" style="min-width:280px;">
+      <div class="widget-header d-flex ai-center jc-space-between g8">
+        <span>${escapeHtml(p.title)}</span>
+      </div>
+      <div class="widget-body d-flex fd-column g8">
+        <div class="fc-black-500 fs-caption">
+          ${badge(p.type === 'discussion' ? 'Discussion' : 'Question',
+                  p.type === 'discussion' ? 'featured' : 'info')}
+          · by <a class="s-link" href="./user-profile.html?username=${encodeURIComponent(p.authorUsername)}">${escapeHtml(p.author)}</a>
+          · ${escapeHtml(String(p.score))} votes
+        </div>
+        <div class="d-flex g4 fw-wrap">
+          <a class="s-btn s-btn__xs s-btn__clear" href="${escapeHtml(p.url)}"
+             target="_blank" rel="noopener">View →</a>
+          <button class="s-btn s-btn__xs s-btn__warning"
+                  type="button"
+                  data-dup-action="mark"
+                  data-post-id="${escapeHtml(String(p.id))}"
+                  data-of-post-id="${escapeHtml(String(other.id))}"
+                  data-of-title="${escapeHtml(other.title)}">
+            Mark as duplicate
+          </button>
+          <button class="s-btn s-btn__xs s-btn__danger"
+                  type="button"
+                  data-dup-action="hide"
+                  data-post-id="${escapeHtml(String(p.id))}">
+            Hide
+          </button>
+        </div>
+      </div>
+    </div>`;
+
+  container.innerHTML = items.map((d) => `
+    <div class="s-card p12 bc-medium" data-dup-id="${escapeHtml(d.id)}">
+      <div class="d-flex ai-center jc-space-between g8 fw-wrap mb8">
+        ${labelBadge(d.label, d.similarity)}
+        <span class="fc-black-400 fs-caption">
+          Pair #${escapeHtml(d.id)}
+        </span>
+      </div>
+      <div class="d-flex g8 fw-wrap ai-stretch">
+        ${postBlock(d.post_a, d.post_b)}
+        ${postBlock(d.post_b, d.post_a)}
+      </div>
+    </div>
+  `).join('');
+}

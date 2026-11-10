@@ -21,11 +21,12 @@
 // ============================================================
 
 import {
-  loadReports, loadMarkedPosts, loadAdminUsers, loadHiddenPosts
+  loadReports, loadMarkedPosts, loadAdminUsers, loadHiddenPosts, loadDuplicates
 } from '../admin-data.js';
 import {
-  renderReports, renderMarkedPosts, renderAdminUsers, renderHiddenPosts
+  renderReports, renderMarkedPosts, renderAdminUsers, renderHiddenPosts, renderDuplicates
 } from '../admin-listings.js';
+
 
 const API_BASE = (typeof location !== 'undefined' &&
                   (location.port === '8000' || location.port === ''))
@@ -41,25 +42,28 @@ const API_BASE = (typeof location !== 'undefined' &&
     reports: document.getElementById('reports-body'),
     marked:  document.getElementById('marked-body'),
     users:   document.getElementById('users-body'),
-    hidden:  document.getElementById('hidden-body')
+    hidden:  document.getElementById('hidden-body'),
+    duplicates: document.getElementById('duplicates-body'),
   };
 
   /* ---------- State ---------- */
-  const cache   = { reports: null, marked: null, users: null, hidden: null };
-  const filters = { reports: 'pending', marked: 'all', users: 'all', hidden: 'all' };
+  const cache   = { reports: null, marked: null, users: null, hidden: null, duplicates: null };
+  const filters = { reports: 'pending', marked: 'all', users: 'all', hidden: 'all', duplicates: 'all' };
 
   const renderers = {
     reports: renderReports,
     marked:  renderMarkedPosts,
     users:   renderAdminUsers,
-    hidden:  renderHiddenPosts
+    hidden:  renderHiddenPosts,
+    duplicates: renderDuplicates,
   };
 
   const loaders = {
     reports: loadReports,
     marked:  loadMarkedPosts,
     users:   loadAdminUsers,
-    hidden:  loadHiddenPosts
+    hidden:  loadHiddenPosts,
+    duplicates: loadDuplicates,
   };
 
   /* ---------- Modal refs ---------- */
@@ -418,6 +422,66 @@ const API_BASE = (typeof location !== 'undefined' &&
     }
   }
 
+  /* ---------- Duplicate actions ---------- */
+
+  async function handleDuplicateAction(btn) {
+    const action = btn.dataset.dupAction;
+    const postId = btn.dataset.postId;
+    if (!action || !postId) return;
+
+    if (action === 'mark') {
+      const ofPostId  = btn.dataset.ofPostId;
+      const ofTitle   = btn.dataset.ofTitle || `#${ofPostId}`;
+      if (!window.confirm(
+        `Mark this post as a duplicate of "${ofTitle}"?\n\n` +
+        `The mark records the reference in its notes — the post stays ` +
+        `visible until you hide it.`
+      )) return;
+
+      setRowBusy(btn, true);
+      btn.textContent = 'Marking…';
+      try {
+        await requestJson('/api/admin/post-marks', {
+          method: 'POST',
+          body: JSON.stringify({
+            post_id:   Number(postId),
+            mark_type: 'duplicated',
+            notes:     `Duplicate of post #${ofPostId} — "${ofTitle}"`,
+          }),
+        });
+        showToast('Post marked as duplicate.', 'success');
+        await ensureLoaded('duplicates', { force: true });
+      } catch (err) {
+        if (err && err.status === 401) return;
+        showToast('Could not mark post: ' + (err.message || ''), 'danger');
+        btn.textContent = 'Mark as duplicate';
+      } finally {
+        setRowBusy(btn, false);
+      }
+      return;
+    }
+
+    if (action === 'hide') {
+      if (!window.confirm('Hide this post from public view?')) return;
+      setRowBusy(btn, true);
+      btn.textContent = 'Hiding…';
+      try {
+        await requestJson(
+          '/api/admin/posts/' + encodeURIComponent(postId) + '/hide',
+          { method: 'PATCH' }
+        );
+        showToast('Post hidden.', 'success');
+        await ensureLoaded('duplicates', { force: true });
+      } catch (err) {
+        if (err && err.status === 401) return;
+        showToast('Could not hide post: ' + (err.message || ''), 'danger');
+        btn.textContent = 'Hide';
+      } finally {
+        setRowBusy(btn, false);
+      }
+    }
+  }
+
   /* ---------- Modal actions ---------- */
 
   async function handleModalAction(btn) {
@@ -517,6 +581,13 @@ const API_BASE = (typeof location !== 'undefined' &&
 
   if (main) {
     main.addEventListener('click', (e) => {
+      // Duplicate-pair actions
+      const dupBtn = e.target.closest('[data-dup-action]');
+      if (dupBtn) {
+        e.preventDefault();
+        return handleDuplicateAction(dupBtn);
+      }
+
       const btn = e.target.closest('[data-action][data-row-type]');
       if (!btn) return;
 
@@ -552,6 +623,16 @@ const API_BASE = (typeof location !== 'undefined' &&
     modal.actions.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-modal-action]');
       if (btn) handleModalAction(btn);
+    });
+  }
+
+  const rescanBox = document.getElementById('dup-rescan');
+  if (rescanBox) {
+    rescanBox.addEventListener('change', () => {
+      if (rescanBox.checked && cache.duplicates) {
+        ensureLoaded('duplicates', { force: true })
+          .finally(() => { rescanBox.checked = false; });
+      }
     });
   }
 

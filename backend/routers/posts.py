@@ -22,16 +22,16 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Literal
 
+import dedupe
+import schemas
+from db import get_db
+from deps import get_current_user, get_current_user_optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from models import Answer, Comment, Post, PostTag, Tag, User, Vote
 from pydantic import BaseModel
 from sqlalchemy import delete, func, or_, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-
-import schemas
-from db import get_db
-from deps import get_current_user, get_current_user_optional
-from models import Answer, Comment, Post, PostTag, Tag, User, Vote
 
 router = APIRouter(prefix="/api", tags=["posts"])
 
@@ -214,69 +214,101 @@ _SIMILAR_STOPWORDS = {
 _WORD_RE = re.compile(r"[A-Za-z][A-Za-z0-9_+#.-]{2,}")
 
 
-@router.get("/posts/similar", response_model=list[schemas.PostCard])
+@router.get("/posts/similar", response_model=list[schemas.SimilarPost])
 def similar_posts(
     title: str = "",
-    tags: str = "",
+    body:  str = "",
+    tags:  str = "",
+    post_type: Literal["question", "discussion"] | None = Query(None),
     exclude_id: int | None = Query(None),
-    limit: int = Query(5, ge=1, le=20),
+    limit:      int   = Query(5,   ge=1, le=20),
+    min_score:  float = Query(0.30, ge=0.0, le=1.0),
     db: Session = Depends(get_db),
     user: User | None = Depends(get_current_user_optional),
 ):
+    """Recommend posts similar to the one being composed.
+
+    All params except `title` are optional; callers that only send `title`
+    and `tags` (the pre-dedupe contract) still work.
+    """
     title = (title or "").strip()
+    body  = (body  or "").strip()
     tag_list = _split_tags(tags, 5)
 
-    words: list[str] = []
-    seen: set[str] = set()
-    for m in _WORD_RE.finditer(title):
-        w = m.group(0).lower()
-        if w in _SIMILAR_STOPWORDS or w in seen:
-            continue
-        seen.add(w)
-        words.append(w)
-        if len(words) >= 8:
-            break
-
-    if not words and not tag_list:
+    q = dedupe.build_query(title, body, tag_list, post_type or "")
+    if not q.title_tokens and not q.body_tokens and not q.tags_lower:
         return []
 
+    # ── Cheap candidate fetch (blocking) ─────────────────────────────
     stmt = select(Post).where(Post.deleted_at.is_(None))
     if exclude_id:
         stmt = stmt.where(Post.id != exclude_id)
+    if post_type:
+        stmt = stmt.where(Post.post_type == post_type)
 
-    conditions = []
-    if words:
-        conditions.append(
-            or_(*[func.lower(Post.title).like(f"%{w}%") for w in words])
-        )
+    ors = []
     if tag_list:
-        conditions.append(_has_any_tag(tag_list))
-
-    stmt = (
-        stmt.where(or_(*conditions))
-        .order_by(Post.score.desc(), Post.updated_at.desc())
-        .limit(limit)
-    )
-
-    posts = db.scalars(stmt).all()
-    if not posts:
+        ors.append(_has_any_tag(tag_list))
+    if q.title_tokens:
+        ors.append(or_(*[
+            func.lower(Post.title).like(f"%{w}%")
+            for w in q.title_tokens[:6]
+        ]))
+    if q.body_tokens:
+        ors.append(or_(*[
+            func.lower(Post.body).like(f"%{w}%")
+            for w in q.body_tokens[:6]
+        ]))
+    if not ors:
         return []
 
-    authors = _load_authors(db, {p.author_id for p in posts})
-    tags_by_post = _load_tags_for(db, [p.id for p in posts])
+    stmt = (
+        stmt.where(or_(*ors))
+        .order_by(Post.created_at.desc())
+        .limit(200)
+    )
+    raw = db.scalars(stmt).all()
+    if not raw:
+        return []
+
+    # ── Score + rank ─────────────────────────────────────────────────
+    tags_by_post = _load_tags_for(db, [p.id for p in raw])
+    candidates = [
+        {
+            "id":        p.id,
+            "title":     p.title,
+            "body":      p.body,
+            "tags":      [t.name for t in tags_by_post.get(p.id, [])],
+            "post_type": p.post_type,
+            "_post":     p,
+        }
+        for p in raw
+    ]
+    ranked = dedupe.rank_candidates(q, candidates, min_score=min_score)
+    top = ranked[:limit]
+    if not top:
+        return []
+
+    # ── Enrich (same PostCard shape as before + similarity fields) ──
+    authors = _load_authors(db, {c["_post"].author_id for _, c in top})
     my_votes = _my_vote_map(
-        db, user.id if user else None, [("post", p.id) for p in posts]
+        db, user.id if user else None,
+        [("post", c["_post"].id) for _, c in top],
     )
 
-    return [
-        _card(
+    result: list[dict] = []
+    for score, c in top:
+        p = c["_post"]
+        card = _card(
             p,
             authors[p.author_id],
-            tags_by_post[p.id],
+            tags_by_post.get(p.id, []),
             my_votes.get(("post", p.id)),
         )
-        for p in posts
-    ]
+        card["similarity"]       = score.score
+        card["similarity_label"] = score.label
+        result.append(card)
+    return result
 
 
 # ── List ────────────────────────────────────────────────────────────────
