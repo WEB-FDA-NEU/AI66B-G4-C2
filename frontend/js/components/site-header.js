@@ -31,7 +31,15 @@
 //      My content / Settings / Log out. On desktop the flat row
 //      (gear + avatar link + logout button) is unchanged.
 //    - nav-open and search-open are mutually exclusive.
+//
+//  Notifications:
+//    - A bell button renders between the search control and the
+//      auth slot, hidden until /me succeeds. The popover, polling,
+//      and mark-read logic live in notifications-bell.js — this
+//      component only mounts / unmounts it.
 // ============================================================
+
+import { initNotifsBell } from './notifications-bell.js';
 
 const SEARCH_URL = './search_result.html';
 
@@ -93,6 +101,33 @@ const TEMPLATE = /* html */ `
       <path d="m18 16.5-5.14-5.18h-.35a7 7 0 1 0-1.19 1.19v.35L16.5 18l1.5-1.5ZM7 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8Z"/>
     </svg>
   </button>
+
+  <!-- Notification bell — hidden until /me succeeds -->
+  <div class="header-notifs-wrap ps-relative" hidden data-notifs-wrap>
+    <button class="site-header__bell"
+            type="button"
+            aria-label="Notifications"
+            aria-haspopup="true"
+            aria-expanded="false"
+            data-notifs-bell>
+      <svg class="svg-icon" aria-hidden="true" width="18" height="18" viewBox="0 0 18 18">
+        <path fill="currentColor"
+              d="M15.06 12.5 14 9.6V7a5 5 0 1 0-10 0v2.6L2.94 12.5a.75.75 0 0 0 .7 1h3.61a2.75 2.75 0 0 0 5.5 0h3.61a.75.75 0 0 0 .7-1ZM9 14.75a1.25 1.25 0 0 1-1.22-1h2.44a1.25 1.25 0 0 1-1.22 1Z"/>
+      </svg>
+      <span class="site-header__bell-badge" data-notifs-badge hidden>0</span>
+    </button>
+
+    <div class="header-notifs" data-notifs-popover hidden
+         role="dialog" aria-label="Notifications">
+      <div class="header-notifs__header">
+        <strong class="fs-body1">Notifications</strong>
+        <button class="s-btn s-btn__clear s-btn__sm" type="button"
+                data-notifs-read-all>Mark all read</button>
+      </div>
+      <ul class="header-notifs__list" data-notifs-list aria-live="polite"></ul>
+      <a class="header-notifs__footer" href="./notifications.html">See all →</a>
+    </div>
+  </div>
 
   <div class="header-auth d-flex ai-center g4" data-auth-slot></div>
 </header>`;
@@ -169,6 +204,9 @@ function authUserHtml(user) {
         data-account-popover>
       <li class="s-menu--item" role="none">
         <a class="s-menu--action" role="menuitem" href="./my-content.html">My content</a>
+      </li>
+      <li class="s-menu--item" role="none">
+        <a class="s-menu--action" role="menuitem" href="./notifications.html">Notifications</a>
       </li>
       <li class="s-menu--item" role="none">
         <a class="s-menu--action" role="menuitem" href="./settings.html">Settings</a>
@@ -254,6 +292,7 @@ class SiteHeader extends HTMLElement {
     if (this._navAbort)     { this._navAbort.abort();     this._navAbort = null; }
     if (this._searchAbort)  { this._searchAbort.abort();  this._searchAbort = null; }
     if (this._accountAbort) { this._accountAbort.abort(); this._accountAbort = null; }
+    if (this._destroyBell)  { this._destroyBell();        this._destroyBell = null; }
     document.body.classList.remove('nav-open', 'search-open');
   }
 
@@ -333,7 +372,8 @@ class SiteHeader extends HTMLElement {
   /**
    * Mobile account menu. On desktop the toggle and popover are hidden
    * via CSS; on mobile the avatar opens a small menu with
-   * My content / Settings / Log out. Only mounted for logged-in users.
+   * My content / Notifications / Settings / Log out. Only mounted for
+   * logged-in users.
    */
   _initAccountMenu() {
     if (this._accountAbort) return;      // idempotent
@@ -460,8 +500,10 @@ class SiteHeader extends HTMLElement {
     const slot = this.querySelector('[data-auth-slot]');
     if (!slot) return;
 
+    // Optimistic guest paint — swapped to user UI when /me returns 200.
     slot.innerHTML = AUTH_GUEST;
     this.removeAttribute('is-logged-in');
+    this._setNotifsVisible(false);
 
     try {
       const res = await fetch(API_BASE + '/api/auth/me', {
@@ -476,6 +518,7 @@ class SiteHeader extends HTMLElement {
 
         this._wireLogout();
         this._initAccountMenu();
+        this._initNotifsBell();
         this._updateLogoHref(LOGO_HREF_USER);
 
         const rawRole = String(user.role || 'user').toLowerCase();
@@ -496,6 +539,32 @@ class SiteHeader extends HTMLElement {
     }
   }
 
+  /**
+   * Show / hide the notification bell wrapper. Called from
+   * _loadCurrentUser — the bell is guest-invisible because
+   * /api/notifications/* endpoints require auth and would 401.
+   */
+  _setNotifsVisible(visible) {
+    const wrap = this.querySelector('[data-notifs-wrap]');
+    if (wrap) wrap.hidden = !visible;
+  }
+
+  /**
+   * Mount the notification bell's popover, polling, and mark-read
+   * behaviour. Only called for logged-in users.
+   */
+  _initNotifsBell() {
+    if (this._destroyBell) return;   // idempotent
+    const wrap = this.querySelector('[data-notifs-wrap]');
+    if (!wrap) return;
+    this._setNotifsVisible(true);
+    this._destroyBell = initNotifsBell(wrap);
+  }
+
+  /**
+   * Wire every [data-logout] in this header. There are two:
+   * the desktop text button and the mobile popover item.
+   */
   _wireLogout() {
     this.querySelectorAll('[data-logout]').forEach((btn) => {
       btn.addEventListener('click', async (e) => {
@@ -505,9 +574,13 @@ class SiteHeader extends HTMLElement {
             method: 'POST',
             credentials: 'include',
           });
-        } catch (_) {}
+        } catch (_) { /* clear locally regardless */ }
 
+        // Invalidate the cached role so the next page paints as guest.
         writeCachedRole('guest');
+
+        // Redirect to the public landing page, not Home — Home is
+        // role-guarded server-side and a guest would just bounce.
         window.location.href = LOGO_HREF_GUEST;
       });
     });

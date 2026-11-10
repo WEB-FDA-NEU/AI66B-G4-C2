@@ -38,6 +38,7 @@ from db import get_db
 from deps import get_current_user
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from models import Post, PostMark, User
+from notifications import notify, post_url
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -352,6 +353,29 @@ def update_user(
 
     db.commit()
     db.refresh(target)
+    
+    try:
+        msg = {
+            "suspend": f"Your account was suspended for {payload.days} day"
+                       f"{'s' if payload.days != 1 else ''}.",
+            "ban":     "Your account was banned.",
+            "promote": "You were promoted to moderator.",
+            "demote":  "You were demoted to a regular user.",
+        }.get(payload.action)
+        if msg and target.id != viewer.id:
+            notify(
+                db,
+                user_id=target.id,
+                actor_id=viewer.id,
+                type="role_change",
+                target_type="user",
+                target_id=target.id,
+                title_preview=msg,
+                url="./settings.html",
+            )
+            db.commit()
+    except Exception:
+        db.rollback()
 
     return {
         "id":             target.id,
@@ -433,6 +457,22 @@ def hide_post(
 
     post.deleted_at = datetime.now(timezone.utc)
     db.commit()
+    
+    try:
+        notify(
+            db,
+            user_id=post.author_id,
+            actor_id=user.id,
+            type="moderation",
+            target_type="post",
+            target_id=post.id,
+            title_preview=post.title,
+            url=post_url(post),
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+    
     return None
 
 
@@ -504,6 +544,25 @@ def create_post_mark(
 
     db.commit()
     db.refresh(existing)
+    
+    try:
+        post = db.get(Post, payload.post_id)
+        if post is not None and post.author_id != user.id:
+            label = payload.mark_type.replace("_", "-")
+            notify(
+                db,
+                user_id=post.author_id,
+                actor_id=user.id,
+                type="moderation",
+                target_type="post",
+                target_id=post.id,
+                title_preview=f"Marked as {label} · {post.title}"[:200],
+                url=post_url(post),
+            )
+            db.commit()
+    except Exception:
+        db.rollback()
+    
     return {
         "id":        existing.id,
         "post_id":   existing.post_id,

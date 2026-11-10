@@ -59,14 +59,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import quote
 
+from db import SessionLocal
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
-
-from db import SessionLocal
 from models import User
-from routers import admin, auth, posts, reports, tags, users
+from routers import admin, auth, notifications, posts, reports, tags, users
 from security import COOKIE_NAME, decode_token
 
 app = FastAPI(
@@ -188,6 +187,7 @@ app.include_router(posts.router)
 app.include_router(tags.router)
 app.include_router(users.router)
 app.include_router(reports.router)
+app.include_router(notifications.router)
 app.include_router(admin.router)   # ← MUST be present; otherwise /api/admin/* 404s
 
 

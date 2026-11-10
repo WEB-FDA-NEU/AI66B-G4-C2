@@ -1435,3 +1435,145 @@ a.s-tag:focus-visible {
     min-height: 44px;
   }
 }
+
+/* ==================================================================
+   NOTIFICATION BELL
+   ================================================================== */
+
+.header-notifs-wrap { display: inline-flex; }
+
+.site-header__bell {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--black-500);
+  border-radius: var(--br-md);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.site-header__bell:hover { background-color: var(--black-100); color: var(--black-600); }
+.site-header__bell:focus-visible {
+  box-shadow: 0 0 0 var(--su2) var(--focus-neutral),
+              0 0 0 var(--su4) var(--focus-theme);
+  outline: var(--su2) solid #0000 !important;
+}
+
+.site-header__bell-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: var(--br-pill);
+  background-color: var(--red-500);
+  color: var(--white);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+
+.header-notifs {
+  position: absolute;
+  top: calc(100% + var(--su8));
+  right: 0;
+  width: 340px;
+  max-width: calc(100vw - var(--su16));
+  background: var(--white);
+  border: 1px solid var(--bc-medium);
+  border-radius: var(--br-md);
+  box-shadow: var(--bs-lg);
+  z-index: var(--zi-popovers);
+  display: flex;
+  flex-direction: column;
+}
+
+/* The `hidden` attribute is defeated by an unconditional `display:` rule
+   because author stylesheets beat the UA sheet's `[hidden]{display:none}`
+   at equal specificity. These two rules re-assert it explicitly. */
+.header-notifs-wrap[hidden],
+.header-notifs[hidden] {
+  display: none !important;
+}
+
+.header-notifs__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--su8) var(--su12);
+  border-bottom: 1px solid var(--bc-light);
+}
+
+.header-notifs__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 360px;
+  overflow-y: auto;
+}
+.header-notifs__list:empty::after {
+  content: 'No new notifications';
+  display: block;
+  padding: var(--su16);
+  text-align: center;
+  color: var(--black-400);
+  font-size: var(--fs-caption);
+}
+
+.header-notifs__item {
+  display: flex;
+  gap: var(--su8);
+  padding: var(--su8) var(--su12);
+  border-bottom: 1px solid var(--bc-light);
+  text-decoration: none;
+  color: inherit;
+}
+.header-notifs__item:hover { background-color: var(--black-100); }
+.header-notifs__item.is-unread { background-color: var(--blue-100); }
+.header-notifs__item.is-unread:hover { background-color: var(--blue-200); }
+
+.header-notifs__footer {
+  padding: var(--su8) var(--su12);
+  text-align: center;
+  border-top: 1px solid var(--bc-light);
+  font-size: var(--fs-caption);
+  color: var(--theme-link-color, var(--black-600));
+  text-decoration: none;
+}
+.header-notifs__footer:hover { text-decoration: underline; }
+
+@media (max-width: 48.75rem) {
+  .header-notifs {
+    /* Detach from the tiny bell wrapper and anchor to the viewport
+       so `left` / `right` are measured against the screen, not the
+       button. */
+    position: fixed;
+    top: calc(56px + var(--su8));          /* just below the 56px header */
+    left: var(--su12);
+    right: var(--su12);
+    width: auto;
+    max-width: none;
+    transform: none;
+
+    /* Cap vertical extent so landscape phones don't push it off-screen */
+    max-height: calc(100vh - 56px - var(--su16));
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Let the list scroll inside the popover instead of forcing the
+     popover itself to overflow. */
+  .header-notifs__list {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    overflow-y: auto;
+  }
+}

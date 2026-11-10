@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Notifications — Tech4Rum</title>
+
+  <link rel="stylesheet" href="./css/reset.css">
+  <link rel="stylesheet" href="./css/tokens.css">
+  <link rel="stylesheet" href="./css/layout.css">
+  <link rel="stylesheet" href="./css/components.css">
+  <link rel="stylesheet" href="./css/extra.css">
+</head>
+
+<body class="theme-light">
+
+  <script src="./js/theme-boot.js"></script>
+  <a href="#main" class="v-visible-sr">Skip to main content</a>
+
+  <site-header is-logged-in="true"></site-header>
+
+  <div class="d-flex ai-start g24 wmx12 mx-auto px16 py24">
+    <site-sidebar></site-sidebar>
+
+    <main id="main" class="question-feed">
+      <div class="d-flex ai-center jc-space-between g8 fw-wrap mb16">
+        <h1 class="fs-headline1 fw-normal mb0">Notifications</h1>
+        <button class="s-btn s-btn__clear s-btn__sm" type="button" id="mark-all-read-btn">
+          Mark all as read
+        </button>
+      </div>
+
+      <nav class="s-navigation mb16" id="notif-tabs" aria-label="Notification filters">
+        <button class="s-navigation--item is-selected" type="button" data-tab="all">All</button>
+        <button class="s-navigation--item" type="button" data-tab="unread">Unread</button>
+      </nav>
+
+      <div id="notif-list" class="d-flex fd-column" aria-busy="true">
+        <div class="p24 ta-center fc-black-400">Loading…</div>
+      </div>
+
+      <nav class="s-pagination jc-end mt24" data-pagination aria-label="Notifications pagination"></nav>
+    </main>
+  </div>
+
+  <site-footer></site-footer>
+
+  <script type="module" src="./js/components/site-header.js"></script>
+  <script type="module" src="./js/components/site-footer.js"></script>
+  <script type="module" src="./js/components/site-sidebar.js"></script>
+  <script type="module" src="./js/pages/notifications.js"></script>
+</body>
+</html>

@@ -503,4 +503,22 @@ UPDATE posts    SET updated_at = created_at WHERE updated_at > created_at + INTE
 UPDATE answers  SET updated_at = created_at WHERE updated_at > created_at + INTERVAL '1 second';
 UPDATE comments SET updated_at = created_at WHERE updated_at > created_at + INTERVAL '1 second';
 
+-- ============================================================
+-- Notifications (a handful for demo users)
+-- ============================================================
+INSERT INTO notifications (user_id, actor_id, type, target_type, target_id, title_preview, url, is_read, created_at) VALUES
+  -- mira_k (6) — author of question #1
+  (6, 5, 'answer',   'post',    1, 'Why does React re-render my component twice inside StrictMode?', './question-detail.html?id=1#answer-1',  FALSE, NOW() - INTERVAL '1 day 20 hours'),
+  (6, 4, 'answer',   'post',    1, 'Why does React re-render my component twice inside StrictMode?', './question-detail.html?id=1#answer-2',  FALSE, NOW() - INTERVAL '1 day 18 hours'),
+  (6, 4, 'comment',  'post',    1, 'Why does React re-render my component twice inside StrictMode?', './question-detail.html?id=1#comment-1', TRUE,  NOW() - INTERVAL '2 days'),
+
+  -- dba_raj (2) — author of question #2
+  (2, 6, 'answer',   'post',    2, 'Efficient keyset pagination over a 10M-row Postgres table with a composite index', './question-detail.html?id=2#answer-4', FALSE, NOW() - INTERVAL '1 day 20 hours'),
+
+  -- an_dev (12) — author of question #12
+  (12, 4, 'answer',   'post',   12, 'Why is my FastAPI endpoint slow under load?', './question-detail.html?id=12#answer-15', FALSE, NOW() - INTERVAL '1 day 20 hours'),
+
+  -- linh_it (11) — welcome notification
+  (11, NULL, 'system', NULL, NULL, 'Welcome to Tech4Rum! Take the tour to get started.', './questions.html', FALSE, NOW() - INTERVAL '2 days');
+
 COMMIT;

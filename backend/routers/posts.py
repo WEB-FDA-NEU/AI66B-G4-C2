@@ -28,6 +28,7 @@ from db import get_db
 from deps import get_current_user, get_current_user_optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from models import Answer, Comment, Post, PostTag, Tag, User, Vote
+from notifications import answer_url, comment_url, notify, post_url
 from pydantic import BaseModel
 from sqlalchemy import delete, func, or_, select, text, update
 from sqlalchemy.exc import IntegrityError
@@ -762,6 +763,26 @@ def accept_answer(
         )
 
     db.refresh(p)
+    
+    # Notify the newly-accepted answer's author
+    if payload.answer_id is not None:
+        try:
+            accepted = db.get(Answer, payload.answer_id)
+            if accepted is not None and accepted.author_id != user.id:
+                notify(
+                    db,
+                    user_id=accepted.author_id,
+                    actor_id=user.id,
+                    type="accepted",
+                    target_type="answer",
+                    target_id=accepted.id,
+                    title_preview=p.title,
+                    url=answer_url(p, accepted),
+                )
+                db.commit()
+        except Exception:
+            db.rollback()
+    
     return get_post(p.id, increment_views=False, db=db, user=user)
 
 
@@ -786,6 +807,24 @@ def create_answer(
     db.add(a)
     db.commit()
     db.refresh(a)
+    
+    # Notify the question author (best-effort; never rolls back the answer)
+    try:
+        p = db.get(Post, post_id)
+        if p is not None and p.author_id != user.id:
+            notify(
+                db,
+                user_id=p.author_id,
+                actor_id=user.id,
+                type="answer",
+                target_type="post",
+                target_id=p.id,
+                title_preview=p.title,
+                url=answer_url(p, a),
+            )
+            db.commit()
+    except Exception:
+        db.rollback()
 
     return {
         "id": a.id, "post_id": a.post_id, "author": _author(user),
@@ -813,6 +852,40 @@ def comment_post(
     db.add(c)
     db.commit()
     db.refresh(c)
+    
+    try:
+        post = db.get(Post, post_id)
+        if post is not None:
+            if payload.parent_comment_id is not None:
+                parent = db.get(Comment, payload.parent_comment_id)
+                if parent and parent.author_id != user.id:
+                    notify(
+                        db,
+                        user_id=parent.author_id,
+                        actor_id=user.id,
+                        type="reply",
+                        target_type="comment",
+                        target_id=parent.id,
+                        title_preview=post.title,
+                        url=comment_url(post, c),
+                    )
+                    db.commit()
+            else:
+                if post.author_id != user.id:
+                    notify(
+                        db,
+                        user_id=post.author_id,
+                        actor_id=user.id,
+                        type="comment",
+                        target_type="post",
+                        target_id=post.id,
+                        title_preview=post.title,
+                        url=comment_url(post, c),
+                    )
+                    db.commit()
+    except Exception:
+        db.rollback()
+    
     return {
         "id": c.id, "post_id": c.post_id, "answer_id": c.answer_id,
         "parent_comment_id": c.parent_comment_id,
@@ -838,6 +911,41 @@ def comment_answer(
     db.add(c)
     db.commit()
     db.refresh(c)
+    
+    try:
+        parent_answer = db.get(Answer, answer_id)
+        if parent_answer is not None:
+            post = db.get(Post, parent_answer.post_id)
+            if post is not None:
+                if payload.parent_comment_id is not None:
+                    parent = db.get(Comment, payload.parent_comment_id)
+                    if parent and parent.author_id != user.id:
+                        notify(
+                            db,
+                            user_id=parent.author_id,
+                            actor_id=user.id,
+                            type="reply",
+                            target_type="comment",
+                            target_id=parent.id,
+                            title_preview=post.title,
+                            url=comment_url(post, c),
+                        )
+                        db.commit()
+                elif parent_answer.author_id != user.id:
+                    notify(
+                        db,
+                        user_id=parent_answer.author_id,
+                        actor_id=user.id,
+                        type="comment",
+                        target_type="answer",
+                        target_id=parent_answer.id,
+                        title_preview=post.title,
+                        url=comment_url(post, c),
+                    )
+                    db.commit()
+    except Exception:
+        db.rollback()
+    
     return {
         "id": c.id, "post_id": c.post_id, "answer_id": c.answer_id,
         "parent_comment_id": c.parent_comment_id,
