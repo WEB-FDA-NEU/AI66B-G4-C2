@@ -43,10 +43,17 @@ from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 # ---------------------------------------------------------------------------
 try:
     from dotenv import load_dotenv
+    import sys
+
+    # If frozen (running as .exe), look in the PyInstaller temp dir
+    if getattr(sys, 'frozen', False):
+        base_dir = Path(sys._MEIPASS)
+    else:
+        base_dir = Path(__file__).resolve().parents[2]
 
     for candidate in (
-        Path(__file__).resolve().parents[2] / ".env",   # project root
-        Path(__file__).resolve().parents[1] / ".env",   # backend/
+        base_dir / ".env",
+        Path(__file__).resolve().parents[1] / ".env",
     ):
         if candidate.exists():
             load_dotenv(candidate)

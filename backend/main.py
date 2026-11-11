@@ -19,42 +19,17 @@
    Every redirect is sent with Cache-Control: no-store so the browser
    never caches a 302.
 
-   ═══════════════════════════════════════════════════════════════════
-   ROOT CAUSE OF THE 404/405 BUG ON /api/admin/*
-   ═══════════════════════════════════════════════════════════════════
-
-   The symptoms:
-     · GET   /api/admin/post-marks   → 404
-     · GET   /api/admin/users        → 404
-     · GET   /api/admin/hidden-posts → 404
-     · PATCH /api/admin/users/{id}   → 405 Method Not Allowed
-     · Any other admin action        → 405
-
-   Diagnosis: the `admin` router was not mounted, so all requests to
-   `/api/admin/*` fell through to the StaticFiles mount at `/`.
-
-   StaticFiles behaviour for unmatched paths:
-     · GET / HEAD  → 404 (file not found under frontend/)
-     · PATCH / POST / PUT / DELETE → 405 (StaticFiles only serves GET/HEAD)
-
-   That's exactly the 404-on-GET / 405-on-PATCH pattern the browser
-   network tab showed.
-
-   Fix: `app.include_router(admin.router)` is now explicitly present,
-   with the import group confirming `admin` is loaded. Every admin
-   endpoint previously returning 404/405 now resolves correctly.
-
-   ═══════════════════════════════════════════════════════════════════
-
-   All other paths (public HTML, /api/auth/*, /api/posts/*, /api/tags/*,
-   /api/users/*, /api/reports/*, /uploads/*) pass through unchanged.
-
-   Frontend defence-in-depth lives in frontend/js/page-guard.js.
+   This file is prepared for PyInstaller (app.exe) compilation. 
+   It handles the sys._MEIPASS temporary directory pathing and can 
+   auto-launch the default web browser.
 """
 from __future__ import annotations
 
 import os
 import sys
+import threading
+import time
+import webbrowser
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import quote
@@ -171,24 +146,13 @@ async def page_role_guard(request: Request, call_next):
 
 
 # ── API routers ─────────────────────────────────────────────────────────
-#
-# Order matters only for debugging; FastAPI matches by prefix, so auth /
-# posts / tags / users / reports / admin never collide:
-#
-#   auth     → /api/auth/*
-#   posts    → /api/posts/*, /api/answers/*, /api/comments/*, /api/votes
-#   tags     → /api/tags/*
-#   users    → /api/users/*
-#   reports  → /api/reports/*
-#   admin    → /api/admin/*   ← fix ensures this is mounted
-#
 app.include_router(auth.router)
 app.include_router(posts.router)
 app.include_router(tags.router)
 app.include_router(users.router)
 app.include_router(reports.router)
 app.include_router(notifications.router)
-app.include_router(admin.router)   # ← MUST be present; otherwise /api/admin/* 404s
+app.include_router(admin.router)
 
 
 @app.get("/api/health", tags=["ops"])
@@ -197,24 +161,40 @@ def health():
 
 
 # ── Static assets (mounted AFTER routers) ──────────────────────────────
-#
-# Mount order is critical: StaticFiles only serves GET/HEAD, so any API
-# request that reaches this mount without being matched by a router will
-# either 404 (GET) or 405 (PATCH/POST/PUT/DELETE). That's exactly what
-# caused the /api/admin/* bugs — the admin router wasn't mounted, so
-# requests fell through to here. Now that admin.router is included above,
-# those paths never reach the static mount.
-#
-UPLOADS = Path(__file__).resolve().parent / "uploads"
+# 
+# PyInstaller path resolution:
+# If the app is bundled (sys.frozen), sys._MEIPASS points to the temporary
+# extraction directory containing the bundled frontend files.
+# We also place the 'uploads' folder next to the executable so user files persist.
+
+if getattr(sys, 'frozen', False):
+    # Running inside a PyInstaller bundle
+    BASE_DIR = Path(sys._MEIPASS)
+    EXE_DIR = Path(sys.executable).parent
+else:
+    # Running as a normal Python script
+    BASE_DIR = Path(__file__).resolve().parent.parent
+    EXE_DIR = Path(__file__).resolve().parent
+
+# Mount uploads next to the EXE (so they persist across restarts)
+UPLOADS = EXE_DIR / "uploads"
 UPLOADS.mkdir(exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOADS), name="uploads")
 
-FRONTEND = Path(__file__).resolve().parent.parent / "frontend"
+# Mount frontend from the bundled _MEIPASS directory
+FRONTEND = BASE_DIR / "frontend"
 if FRONTEND.is_dir():
     app.mount("/", StaticFiles(directory=FRONTEND, html=True), name="frontend")
 
 
-# ── Dev entrypoint ──────────────────────────────────────────────────────
+# ── Entrypoint ──────────────────────────────────────────────────────────
+
+def open_browser():
+    """Wait for the server to start, then open the default web browser."""
+    time.sleep(1.5)
+    webbrowser.open("http://localhost:8000")
+
+
 if __name__ == "__main__":
     BACKEND_DIR = Path(__file__).resolve().parent
     if str(BACKEND_DIR) not in sys.path:
@@ -229,20 +209,36 @@ if __name__ == "__main__":
             [str(BACKEND_DIR)] + [p for p in _parts if p]
         )
 
-    # Print the mounted routes at startup for quick visual verification.
-    print("\n[main] Registered routes:")
-    for r in app.routes:
-        methods = ",".join(sorted(getattr(r, "methods", []) or []))
-        path = getattr(r, "path", "?")
-        if path.startswith("/api/admin"):
-            print(f"   ✓ {methods:<8} {path}")
-    print("")
-
     import uvicorn
-    uvicorn.run(
-        "main:app",
-        host="localhost",
-        port=8000,
-        reload=True,
-        reload_dirs=[str(BACKEND_DIR)],
-    )
+
+    if getattr(sys, 'frozen', False):
+        # ── Running as app.exe ──
+        # Start a background thread to open the browser
+        threading.Thread(target=open_browser, daemon=True).start()
+        
+        # Run uvicorn directly (reload MUST be False for executables)
+        uvicorn.run(
+            app,
+            host="localhost",
+            port=8000,
+            reload=False,
+            log_level="info"
+        )
+    else:
+        # ── Running locally via `python main.py` ──
+        # Print the mounted admin routes at startup for quick visual verification.
+        print("\n[main] Registered routes:")
+        for r in app.routes:
+            methods = ",".join(sorted(getattr(r, "methods", []) or []))
+            path = getattr(r, "path", "?")
+            if path.startswith("/api/admin"):
+                print(f"   ✓ {methods:<8} {path}")
+        print("")
+
+        uvicorn.run(
+            "main:app",
+            host="localhost",
+            port=8000,
+            reload=True,
+            reload_dirs=[str(BACKEND_DIR)],
+        )
