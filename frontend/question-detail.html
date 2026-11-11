@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Why does React re-render my component twice inside StrictMode? — Tech4Rum</title>
+  <title>Question — Tech4Rum</title>
 
   <!-- Design system -->
   <link rel="stylesheet" href="./css/reset.css">
@@ -38,7 +38,7 @@
     <!-- ---------- MAIN ---------- -->
     <main id="main" class="question-feed">
 
-      <!-- Filled by JS from JSON -->
+      <!-- Filled by JS from API -->
       <div id="question-root" aria-live="polite"></div>
 
       <!-- ============ YOUR ANSWER ============ -->
@@ -128,7 +128,8 @@
        ============================================================ -->
   <script type="module">
     import { init } from './js/question-page.js';
-    init({ src: './mock/question.json' });
+    // Sửa lỗi: Gọi init() trực tiếp để tự động đọc ?id= từ URL
+    init(); 
   </script>
 
   <script type="module" src="./js/components/site-header.js"></script>
