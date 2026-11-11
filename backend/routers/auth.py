@@ -75,7 +75,7 @@ def login(payload: schemas.LoginIn, response: Response,
     if user.status == "suspended":
         until = user.suspended_until
         if until is not None:
-            # Sửa lỗi timezone cho SQLite (naive datetime)
+            # Sửa lỗi timezone (naive datetime)
             if until.tzinfo is None:
                 until = until.replace(tzinfo=timezone.utc)
                 
