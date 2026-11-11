@@ -136,8 +136,11 @@ async def page_role_guard(request: Request, call_next):
 
     if user.status == "suspended":
         until = user.suspended_until
-        if until is not None and until > datetime.now(timezone.utc):
-            return _redirect_login(request.url.path, request.url.query)
+        if until is not None:
+            if until.tzinfo is None:
+                until = until.replace(tzinfo=timezone.utc)
+            if until > datetime.now(timezone.utc):
+                return _redirect_login(request.url.path, request.url.query)
 
     if user.role not in required_roles:
         return _redirect_public()

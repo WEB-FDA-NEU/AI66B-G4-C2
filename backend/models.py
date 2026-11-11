@@ -5,7 +5,7 @@ from datetime import datetime
 
 from sqlalchemy import (
     BigInteger, DateTime, Integer, String, Text, func,
-    Boolean, ForeignKey, SmallInteger, text
+    Boolean, ForeignKey, SmallInteger, text, UniqueConstraint
 )
 from sqlalchemy.dialects.postgresql import ENUM as PgEnum, TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column
@@ -131,6 +131,12 @@ class Report(Base):
     `report_target` enum, `status` uses `report_status`.
     """
     __tablename__ = "reports"
+    
+    # THÊM DÒNG NÀY ĐỂ KHỚP VỚI schema.sql VÀ KÍCH HOẠT LỖI 409 KHI TEST:
+    __table_args__ = (
+        UniqueConstraint("reporter_id", "target_type", "target_id", name="reports_unique_per_user"),
+    )
+
     id:                  Mapped[int] = mapped_column(BigInteger, primary_key=True)
     reporter_id:         Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"))
     target_type:         Mapped[str] = mapped_column(
