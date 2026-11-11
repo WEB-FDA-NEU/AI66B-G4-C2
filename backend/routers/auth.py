@@ -74,8 +74,13 @@ def login(payload: schemas.LoginIn, response: Response,
         raise HTTPException(403, "This account has been banned.")
     if user.status == "suspended":
         until = user.suspended_until
-        if until is not None and until > datetime.now(timezone.utc):
-            raise HTTPException(403, f"This account is suspended until {until.isoformat()}.")
+        if until is not None:
+            # Sửa lỗi timezone cho SQLite (naive datetime)
+            if until.tzinfo is None:
+                until = until.replace(tzinfo=timezone.utc)
+                
+            if until > datetime.now(timezone.utc):
+                raise HTTPException(403, f"This account is suspended until {until.isoformat()}.")
     _set_auth_cookie(response, create_token(user.id))
     return user
 
