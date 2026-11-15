@@ -214,22 +214,28 @@ if __name__ == "__main__":
 
     import uvicorn
 
-    if getattr(sys, 'frozen', False):
-        # ── Running as app.exe ──
-        # Start a background thread to open the browser
+    # Render (and most PaaS hosts) inject PORT. If it's set, we're deployed.
+    _port_env = os.environ.get("PORT")
+    IS_DEPLOYED = _port_env is not None
+
+    if getattr(sys, "frozen", False):
+        # ── Running as app.exe (unchanged) ──
         threading.Thread(target=open_browser, daemon=True).start()
-        
-        # Run uvicorn directly (reload MUST be False for executables)
+        uvicorn.run(app, host="localhost", port=8000,
+                    reload=False, log_level="info")
+
+    elif IS_DEPLOYED:
+        # ── Running on Render / production ──
         uvicorn.run(
-            app,
-            host="localhost",
-            port=8000,
+            app,                    # pass the object directly, no reload
+            host="0.0.0.0",         # reachable from outside the container
+            port=int(_port_env),    # the port Render told us to use
             reload=False,
-            log_level="info"
+            log_level="info",
         )
+
     else:
-        # ── Running locally via `python main.py` ──
-        # Print the mounted admin routes at startup for quick visual verification.
+        # ── Running locally via `python backend/main.py` (unchanged) ──
         print("\n[main] Registered routes:")
         for r in app.routes:
             methods = ",".join(sorted(getattr(r, "methods", []) or []))
